@@ -1,0 +1,2227 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams, useNavigate, useLocation, useBlocker } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { 
+  Box, Typography, TextField, Button, Grid, Card, CardContent, 
+  MenuItem, Alert, CircularProgress, Divider, Chip, Switch, FormControlLabel,
+  Dialog, DialogTitle, DialogContent, DialogActions,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
+  Select, InputAdornment, Autocomplete
+} from '@mui/material';
+import EmailIcon from '@mui/icons-material/Email';
+import axios from 'axios';
+
+import { useAuth } from '../context/AuthContext';
+import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
+
+const ZONES = ['North', 'South', 'East', 'West'];
+const PLATFORM_TYPES = ['Delivery', 'Not Delivery'];
+const TRADING_AREAS = [
+  'Residential Area', 'Malls', 'Office Zones', 'Event', 'Institutional',
+  'Closed', 'Airport - Inside Security', 'Universities',
+  'Transit - Metro/Bus Stations', 'Highways', 'B2B'
+];
+
+const RequiredBadge = () => (
+  <Chip label="Required" size="small" sx={{
+    ml: 1, height: 18, fontSize: '0.65rem', fontWeight: 700,
+    bgcolor: 'rgba(248, 113, 113, 0.12)', color: '#f87171',
+    border: '1px solid rgba(248, 113, 113, 0.25)', borderRadius: '4px'
+  }} />
+);
+
+const OptionalBadge = () => (
+  <Chip label="Optional" size="small" sx={{
+    ml: 1, height: 18, fontSize: '0.65rem', fontWeight: 700,
+    bgcolor: 'rgba(52, 211, 153, 0.1)', color: '#34d399',
+    border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '4px'
+  }} />
+);
+
+export default function EditStore() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const fromPath = location.state?.from || '/stores';
+  const { register, handleSubmit, setValue, reset, watch, getValues, formState, formState: { errors } } = useForm();
+  const { user } = useAuth();
+  
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [store, setStore] = useState(null);
+  const [contacts, setContacts] = useState([]);
+  const [pendingChanges, setPendingChanges] = useState([]);
+  const [showChangesDialog, setShowChangesDialog] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [showNsoConfirmDialog, setShowNsoConfirmDialog] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const isSavedRef = useRef(false);
+  const pendingDataRef = useRef(null);
+
+  const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  const [prevStatus, setPrevStatus] = useState('');
+  const [tempInStoreClosed, setTempInStoreClosed] = useState(false);
+  const [tempDeliveryClosed, setTempDeliveryClosed] = useState(false);
+  const [tempInStoreClosedDate, setTempInStoreClosedDate] = useState('');
+  const [tempDeliveryClosedDate, setTempDeliveryClosedDate] = useState('');
+  const [closureDialogError, setClosureDialogError] = useState('');
+
+  const handleConfirmClosure = () => {
+    setClosureDialogError('');
+    if (!tempInStoreClosed && !tempDeliveryClosed) {
+      setClosureDialogError('At least one closure toggle (In-Store or Delivery) must be enabled.');
+      return;
+    }
+    if (tempInStoreClosed && !tempInStoreClosedDate) {
+      setClosureDialogError('In-Store Closed Date is mandatory.');
+      return;
+    }
+    if (tempDeliveryClosed && !tempDeliveryClosedDate) {
+      setClosureDialogError('Delivery Closed Date is mandatory.');
+      return;
+    }
+    if (tempInStoreClosed && tempInStoreClosedDate && inStoreLiveDateValue) {
+      const closedDate = new Date(tempInStoreClosedDate);
+      const liveDate = new Date(inStoreLiveDateValue);
+      if (!isNaN(closedDate.getTime()) && !isNaN(liveDate.getTime()) && closedDate < liveDate) {
+        setClosureDialogError('In-Store Closure Date cannot be earlier than the In-Store Live Date. Please select a valid date.');
+        return;
+      }
+    }
+    if (tempDeliveryClosed && tempDeliveryClosedDate && deliveryLiveDateValue) {
+      const closedDate = new Date(tempDeliveryClosedDate);
+      const liveDate = new Date(deliveryLiveDateValue);
+      if (!isNaN(closedDate.getTime()) && !isNaN(liveDate.getTime()) && closedDate < liveDate) {
+        setClosureDialogError('Delivery Closure Date cannot be earlier than the Delivery Live Date. Please select a valid date.');
+        return;
+      }
+    }
+    // Apply temporary states to the form
+    setValue('inStoreClosed', tempInStoreClosed, { shouldDirty: true, shouldValidate: true });
+    setValue('deliveryClosed', tempDeliveryClosed, { shouldDirty: true, shouldValidate: true });
+    setValue('inStoreClosedDate', tempInStoreClosedDate, { shouldDirty: true, shouldValidate: true });
+    setValue('deliveryClosedDate', tempDeliveryClosedDate, { shouldDirty: true, shouldValidate: true });
+    setValue('status', 'CLOSED', { shouldDirty: true, shouldValidate: true });
+    setPrevStatus('CLOSED');
+    setClosureDialogOpen(false);
+  };
+
+  const handleCancelClosure = () => {
+    setClosureDialogOpen(false);
+    setClosureDialogError('');
+  };
+
+  const hasDirtyFields = Object.keys(formState.dirtyFields).length > 0;
+
+  // Warn user about unsaved changes on browser refresh/close
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasDirtyFields && !isSavedRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasDirtyFields]);
+
+  // RBAC checks
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isAdmin = user?.role === 'ADMIN';
+  const isManager = user?.role === 'MANAGER';
+  const isFinance = user?.role === 'FINANCE';
+  const isViewOnly = user?.role === 'USER';  // User Access Profile — view only
+  const canApprove = isSuperAdmin || user?.permissions?.includes('APPROVER');
+  const hasGoLiveAccess = user?.permissions?.includes('GO_LIVE') || isSuperAdmin;
+
+  // Auto-revert status if any details are changed during Approval stage
+  const dirtyFields = formState.dirtyFields;
+  useEffect(() => {
+    if (isSuperAdmin || isAdmin) return;
+
+    const hasDataChanges = Object.keys(dirtyFields).some(key => key !== 'status');
+    if (hasDataChanges) {
+       const currentStatus = getValues('status');
+       if (currentStatus === 'APPROVED' || currentStatus === 'NSO_APPROVED') {
+         setValue('status', 'PENDING_APPROVAL', { shouldDirty: true });
+       }
+    }
+  }, [dirtyFields, getValues, setValue, isSuperAdmin, isAdmin]);
+
+  // Block in-app navigation when form is dirty
+  const blocker = useBlocker(
+    useCallback(() => {
+      if (isSavedRef.current) return false;
+      return hasDirtyFields;
+    }, [hasDirtyFields])
+  );
+
+  useEffect(() => {
+    register('inStoreClosed');
+    register('deliveryClosed');
+    register('inStoreClosedDate');
+    register('deliveryClosedDate');
+  }, [register]);
+
+  useEffect(() => {
+    // User Access Profile: only fetch stores (contacts are not needed and the endpoint blocks USER role)
+    const fetchPromises = isViewOnly
+      ? [axios.get(`/api/stores`), Promise.resolve({ data: [] })]
+      : [axios.get(`/api/stores`), axios.get('/api/contacts')];
+
+    Promise.all(fetchPromises).then(([storesRes, contactsRes]) => {
+      const currentStore = storesRes.data.find(s => s.id === parseInt(id));
+      if (!currentStore) {
+        setErrorMsg('Store not found.');
+        return;
+      }
+      setStore(currentStore);
+      setPrevStatus(currentStore.status);
+      setContacts(contactsRes.data);
+
+      // Parse expectedSales
+      let expectedSalesVal = '';
+      let expectedSalesUnit = 'Lakhs';
+      if (currentStore.expectedSales) {
+        const cleanSales = currentStore.expectedSales.replace('₹', '').trim();
+        const parts = cleanSales.split(/\s+/);
+        if (parts.length >= 1) {
+          expectedSalesVal = parts[0];
+        }
+        if (parts.length >= 2) {
+          expectedSalesUnit = parts[1];
+        }
+      }
+
+      // Map status
+      let formStatus = currentStore.status;
+      if (['NSO_APPROVED', 'APPROVED'].includes(formStatus)) {
+        formStatus = 'APPROVED';
+      }
+      // Format latitude and launchDate for the form representation
+      const formattedStore = {
+        ...currentStore,
+        status: formStatus,
+        latitude: currentStore.latt !== null && currentStore.long !== null
+          ? `${currentStore.latt},${currentStore.long}`
+          : (currentStore.latitude || ''),
+        launchDate: currentStore.launchDate
+          ? currentStore.launchDate.split('T')[0]
+          : '',
+        petFriendly: currentStore.petFriendly || '',
+        projectStartDate: currentStore.projectStartDate ? currentStore.projectStartDate.split('T')[0] : '',
+        projectHandoverDate: currentStore.projectHandoverDate ? currentStore.projectHandoverDate.split('T')[0] : '',
+        tentativeDryLaunchDate: currentStore.tentativeDryLaunchDate ? currentStore.tentativeDryLaunchDate.split('T')[0] : '',
+        highlights: currentStore.highlights || '',
+        expectedSalesVal: expectedSalesVal,
+        expectedSalesUnit: expectedSalesUnit,
+        nearbyCafes: currentStore.nearbyCafes || '',
+        inStoreLiveDate: currentStore.inStoreLiveDate ? currentStore.inStoreLiveDate.split('T')[0] : '',
+        deliveryLiveDate: currentStore.deliveryLiveDate ? currentStore.deliveryLiveDate.split('T')[0] : '',
+        inStoreClosed: currentStore.inStoreClosed ?? false,
+        deliveryClosed: currentStore.deliveryClosed ?? false,
+        inStoreClosedDate: currentStore.inStoreClosedDate ? currentStore.inStoreClosedDate.split('T')[0] : '',
+        deliveryClosedDate: currentStore.deliveryClosedDate ? currentStore.deliveryClosedDate.split('T')[0] : ''
+      };
+      // Split stored "Month Year" into separate dropdown values
+      if (currentStore.cafeLaunchMonth) {
+        const parts = currentStore.cafeLaunchMonth.trim().split(/\s+/);
+        if (parts.length >= 2) {
+          formattedStore.cafeLaunchMonth = parts[0]; // e.g. "June"
+          formattedStore.cafeLaunchYear = parts[1];  // e.g. "2026"
+        }
+      }
+      reset(formattedStore);
+    }).catch(err => {
+      setErrorMsg('Failed to load store details.');
+    });
+  }, [id, navigate, reset, isSuperAdmin, isViewOnly]);
+
+  // Watch latitude to auto-fill latt and long
+  const latitudeValue = watch('latitude');
+
+  useEffect(() => {
+    if (latitudeValue && String(latitudeValue).includes(',')) {
+      const str = String(latitudeValue);
+      const commaIndex = str.indexOf(',');
+      const firstPart = str.substring(0, commaIndex).trim();
+      const secondPart = str.substring(commaIndex + 1).trim();
+      if (firstPart) setValue('latt', firstPart, { shouldValidate: true, shouldDirty: false });
+      if (secondPart) setValue('long', secondPart, { shouldValidate: true, shouldDirty: false });
+    } else {
+      setValue('latt', '', { shouldValidate: true, shouldDirty: false });
+      setValue('long', '', { shouldValidate: true, shouldDirty: false });
+    }
+  }, [latitudeValue, setValue]);
+
+  // PIN Code Auto-Population
+  const pinCodeValue = watch('pinCode');
+
+  useEffect(() => {
+    if (pinCodeValue && String(pinCodeValue).trim().length === 6) {
+      const pin = String(pinCodeValue).trim();
+      axios.get(`/api/stores/pincode/${pin}`)
+        .then(res => {
+          if (res.data && res.data[0] && res.data[0].Status === 'Success') {
+            const postOfficeList = res.data[0].PostOffice;
+            if (postOfficeList && postOfficeList.length > 0) {
+              const district = postOfficeList[0].District;
+              const stateName = postOfficeList[0].State;
+              setValue('city', district, { shouldValidate: true, shouldDirty: false });
+              setValue('state', stateName, { shouldValidate: true, shouldDirty: false });
+            }
+          }
+        })
+        .catch(err => {
+          console.error('Failed to fetch city/state for pin code', err);
+        });
+    } else if (!pinCodeValue) {
+      setValue('city', '', { shouldValidate: true, shouldDirty: false });
+      setValue('state', '', { shouldValidate: true, shouldDirty: false });
+    }
+  }, [pinCodeValue, setValue]);
+
+  // Launch Date → Cafe Launch Month & Year auto-fill (for non-Super Admin)
+  const launchDateValue = watch('launchDate');
+  useEffect(() => {
+    if (!isSuperAdmin && launchDateValue && String(launchDateValue).trim()) {
+      const d = new Date(launchDateValue);
+      if (!isNaN(d.getTime())) {
+        const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        setValue('cafeLaunchMonth', monthNames[d.getMonth()], { shouldDirty: true });
+        setValue('cafeLaunchYear', String(d.getFullYear()), { shouldDirty: true });
+      }
+    }
+  }, [launchDateValue, isSuperAdmin, setValue]);
+
+  // Unique contacts by designation
+  const areaManagers = contacts.filter(c => c.designation === 'Area Manager');
+  const cityHeads = contacts.filter(c => c.designation === 'City Head');
+  const cafeManagers = contacts.filter(c => c.designation === 'Café Manager');
+
+  const handleAreaManagerSelect = (event, newValue) => {
+    const id = newValue ? newValue.id : '';
+    setValue('areaManagerId', id, { shouldValidate: true });
+    setValue('areaManagerName', newValue?.name || '');
+    setValue('areaManagerEmail', newValue?.email || '');
+    setValue('areaManagerPhone', newValue?.phone || '');
+  };
+
+  const handleCityHeadSelect = (event, newValue) => {
+    const id = newValue ? newValue.id : '';
+    setValue('cityHeadId', id, { shouldValidate: true });
+    setValue('cityHeadName', newValue?.name || '');
+    setValue('cityHeadEmail', newValue?.email || '');
+    setValue('cityHeadPhone', newValue?.phone || '');
+  };
+
+  const handleCafeManagerSelect = (event, newValue) => {
+    const id = newValue ? newValue.id : '';
+    setValue('cafeManagerId', id, { shouldValidate: true });
+    setValue('cafeManagerName', newValue?.name || '');
+    setValue('cafeManagerMailId', newValue?.email || '');
+    setValue('cafeManagerContactNo', newValue?.phone || '');
+  };
+
+  // Determine what is editable
+  // Once the store is locked, no one can make changes to the branch fields.
+  const isLocked = store?.isLocked;
+  const isApprovedStatus = store && ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+  
+  const hasEditStores = user?.permissions?.includes('EDIT_STORES');
+  const hasEditContacts = isSuperAdmin || user?.permissions?.includes('EDIT_CONTACTS');
+  
+  // Go-Live Configuration card visibility and editability
+  const isGoLiveVisible = watch('status') === 'LIVE';
+  const canEditGoLive = store && hasGoLiveAccess && (!isLocked || isSuperAdmin) && (store?.status !== 'CLOSED' || isSuperAdmin);
+
+  const instLiveWatched = watch('inStoreLive');
+  const inStoreLiveValue = canEditGoLive 
+    ? (instLiveWatched !== undefined ? instLiveWatched : (store?.inStoreLive ?? false))
+    : (store?.inStoreLive ?? false);
+
+  const delivLiveWatched = watch('deliveryLive');
+  const deliveryLiveValue = canEditGoLive 
+    ? (delivLiveWatched !== undefined ? delivLiveWatched : (store?.deliveryLive ?? false))
+    : (store?.deliveryLive ?? false);
+  
+  let canEditBasicDetails = false;
+  let canEditContacts = false;
+  let canEditFinance = false;
+
+  if (isSuperAdmin) {
+    canEditBasicDetails = true;
+    canEditContacts = true;
+    canEditFinance = true;
+  } else if (isViewOnly) {
+    // User Access Profile: view only — all flags remain false
+  } else {
+    // Non-Super Admin
+    // If the store is locked or has been approved (NSO Approval stage), restrict edits (read-only)
+    if (!isLocked && !isApprovedStatus) {
+      // 1. Store Edit Sub-Access grants full edit capabilities
+      if (hasEditStores) {
+        canEditBasicDetails = true;
+        canEditContacts = true;
+        canEditFinance = true;
+      }
+
+      // 2. Edit Contact Sub-Access only grants contact edit capabilities
+      if (hasEditContacts) {
+        canEditContacts = true;
+      }
+    }
+  }
+
+  // If the store is CLOSED, restrict non-Super Admins from editing anything
+  if (store?.status === 'CLOSED' && !isSuperAdmin) {
+    canEditBasicDetails = false;
+    canEditContacts = false;
+    canEditFinance = false;
+  }
+
+  const isGoLiveFormValid = () => {
+    const currentStatusVal = watch('status');
+    if (currentStatusVal === 'LIVE') {
+      if (!inStoreLiveValue && !deliveryLiveValue) return false;
+      
+      const instLiveDateVal = watch('inStoreLiveDate') !== undefined ? watch('inStoreLiveDate') : (store?.inStoreLiveDate ?? '');
+      const delivLiveDateVal = watch('deliveryLiveDate') !== undefined ? watch('deliveryLiveDate') : (store?.deliveryLiveDate ?? '');
+      
+      if (inStoreLiveValue && !instLiveDateVal) return false;
+      if (deliveryLiveValue && !delivLiveDateVal) return false;
+    }
+    return true;
+  };
+
+  const isClosedVisible = watch('status') === 'CLOSED';
+  const canEditClosure = isSuperAdmin;
+
+  const inStoreClosedWatched = watch('inStoreClosed');
+  const inStoreClosedValue = inStoreClosedWatched !== undefined ? inStoreClosedWatched : (store?.inStoreClosed ?? false);
+
+  const deliveryClosedWatched = watch('deliveryClosed');
+  const deliveryClosedValue = deliveryClosedWatched !== undefined ? deliveryClosedWatched : (store?.deliveryClosed ?? false);
+
+  const inStoreClosedDateWatched = watch('inStoreClosedDate');
+  const inStoreClosedDateValue = inStoreClosedDateWatched !== undefined ? inStoreClosedDateWatched : (store?.inStoreClosedDate ? store.inStoreClosedDate.split('T')[0] : '');
+
+  const deliveryClosedDateWatched = watch('deliveryClosedDate');
+  const deliveryClosedDateValue = deliveryClosedDateWatched !== undefined ? deliveryClosedDateWatched : (store?.deliveryClosedDate ? store.deliveryClosedDate.split('T')[0] : '');
+
+  const inStoreLiveDateWatched = watch('inStoreLiveDate');
+  const inStoreLiveDateValue = inStoreLiveDateWatched !== undefined ? inStoreLiveDateWatched : (store?.inStoreLiveDate ? store.inStoreLiveDate.split('T')[0] : '');
+
+  const deliveryLiveDateWatched = watch('deliveryLiveDate');
+  const deliveryLiveDateValue = deliveryLiveDateWatched !== undefined ? deliveryLiveDateWatched : (store?.deliveryLiveDate ? store.deliveryLiveDate.split('T')[0] : '');
+
+  const formatDateString = (dateStr) => {
+    if (!dateStr) return '—';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      const day = String(d.getDate()).padStart(2, '0');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = months[d.getMonth()];
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const getInStoreClosureError = () => {
+    if (inStoreClosedValue && inStoreClosedDateValue && inStoreLiveDateValue) {
+      const closedDate = new Date(inStoreClosedDateValue);
+      const liveDate = new Date(inStoreLiveDateValue);
+      if (!isNaN(closedDate.getTime()) && !isNaN(liveDate.getTime()) && closedDate < liveDate) {
+        return 'In-Store Closure Date cannot be earlier than the In-Store Live Date. Please select a valid date.';
+      }
+    }
+    return '';
+  };
+
+  const getDeliveryClosureError = () => {
+    if (deliveryClosedValue && deliveryClosedDateValue && deliveryLiveDateValue) {
+      const closedDate = new Date(deliveryClosedDateValue);
+      const liveDate = new Date(deliveryLiveDateValue);
+      if (!isNaN(closedDate.getTime()) && !isNaN(liveDate.getTime()) && closedDate < liveDate) {
+        return 'Delivery Closure Date cannot be earlier than the Delivery Live Date. Please select a valid date.';
+      }
+    }
+    return '';
+  };
+
+  const isClosureFormValid = () => {
+    const currentStatusVal = watch('status');
+    if (currentStatusVal === 'CLOSED') {
+      if (!inStoreClosedValue && !deliveryClosedValue) return false;
+      if (inStoreClosedValue && (!inStoreClosedDateValue || !!getInStoreClosureError())) return false;
+      if (deliveryClosedValue && (!deliveryClosedDateValue || !!getDeliveryClosureError())) return false;
+    }
+    return true;
+  };
+
+  // Human-readable field labels for the change summary
+  const FIELD_LABELS = {
+    cafeName: 'Café Name', cafeCode: 'Café Code', cafeModel: 'Café Model',
+    cafeAddress: 'Address', city: 'City', state: 'State', pinCode: 'Pin Code',
+    zone: 'Zone', status: 'Status', cafeLocationGoogleLink: 'Google Maps Link',
+    latitude: 'Latitude', latt: 'Latt', long: 'Long',
+    cafeOpenTiming: 'Open Timing', cafeClosingTime: 'Closing Time', actualClosingTime: 'Actual Closing Time',
+    inStoreClosed: 'In-Store Closed',
+    deliveryClosed: 'Delivery Closed',
+    inStoreClosedDate: 'In-Store Closed Date',
+    deliveryClosedDate: 'Delivery Closed Date',
+    gstNo: 'GST No', gstCertificateLink: 'GST Certificate Link',
+    fssaiLicense: 'FSSAI License', fssaiNo: 'FSSAI No',
+    cafePhoneNumber: 'Café Phone Number', cafeMailId: 'Café Mail ID',
+    cafeManagerName: 'Café Manager Name', cafeManagerMailId: 'Café Manager Mail ID',
+    cafeManagerContactNo: 'Café Manager Contact No',
+    areaManagerName: 'Area Manager Name', areaManagerEmail: 'Area Manager Mail ID',
+    areaManagerPhone: 'Area Manager Contact No.',
+    cityHeadName: 'City Head Name', cityHeadEmail: 'City Head Mail ID',
+    cityHeadPhone: 'City Head Contact No.',
+    mailStatus: 'Mail Status',
+    blueTokaiSwiggyRID: 'Blue Tokai Swiggy RID', blueTokaiZomatoRID: 'Blue Tokai Zomato RID',
+    suchaliSwiggyRID: 'Suchali Swiggy RID', suchaliZomatoRID: 'Suchali Zomato RID',
+    gotTeaSwiggyRID: 'Got Tea Swiggy RID', gotTeaZomatoRID: 'Got Tea Zomato RID',
+    newPricingCategory: 'New Pricing Category', newPricingSubCategory: 'New Pricing Sub Category',
+    cluster: 'Cluster', cafeLaunchMonth: 'Cafe Launch Month & Year', menu: 'Menu', cafeOpeningHr: 'Cafe Opening Hr',
+    platformType: 'Platform Type', tradingArea: 'Trading Area', launchStatus: 'Launch Status',
+    smokingZone: 'Smoking Zone', parkingOption: 'Parking Option',
+    wheelchairAccessibility: 'Wheelchair Accessibility',
+    fssaiExpiry: 'FSSAI Expiry', rentExpiry: 'Rent Expiry',
+    storeType: 'Store Type',
+    launchDate: 'Launch Date',
+    petFriendly: 'Pet Friendly',
+    projectStartDate: 'Project Start Date',
+    projectHandoverDate: 'Project Handover Date',
+    tentativeDryLaunchDate: 'Tentative Dry Launch Date',
+    highlights: 'Highlights',
+    expectedSales: 'Expected Sale',
+    nearbyCafes: 'Nearby Cafe',
+    cmMailId: 'CM Mail ID',
+    gstNo: 'GST No.',
+    cafeOpeningHr: 'Cafe Opening Hours',
+  };
+
+  // Compute changes between stored original and current form data
+  const computeChanges = (data) => {
+    if (!store) return [];
+    const changes = [];
+    const skipFields = [
+      'id', 'createdAt', 'updatedAt', 'isLocked', 'areaManagerId', 'cityHeadId', 'cafeManagerId',
+      'cafeLaunchYear', 'expectedSalesVal', 'expectedSalesUnit'
+    ];
+    for (const key of Object.keys(data)) {
+      if (skipFields.includes(key)) continue;
+      
+      const oldRaw = store[key];
+      const newRaw = data[key];
+      
+      // Special comparison for latitude (comma-separated helper field)
+      if (key === 'latitude') {
+        const oldLatVal = store.latt !== null && store.long !== null
+          ? `${store.latt},${store.long}`
+          : (store.latitude || '');
+        const newLatVal = newRaw || '';
+        if (oldLatVal.toString().trim() !== newLatVal.toString().trim()) {
+          changes.push({
+            field: 'Latitude',
+            oldValue: oldLatVal || '—',
+            newValue: newLatVal || '—',
+          });
+        }
+        continue;
+      }
+
+      // Special comparison for cafeLaunchMonth (combines month and year)
+      if (key === 'cafeLaunchMonth') {
+        const oldMonthVal = (store.cafeLaunchMonth ?? '').toString().trim();
+        const newMonthVal = data.cafeLaunchMonth && data.cafeLaunchYear
+          ? `${data.cafeLaunchMonth} ${data.cafeLaunchYear}`
+          : (data.cafeLaunchMonth || '');
+        if (oldMonthVal !== newMonthVal.trim()) {
+          changes.push({
+            field: 'Cafe Launch Month & Year',
+            oldValue: oldMonthVal || '—',
+            newValue: newMonthVal || '—',
+          });
+        }
+        continue;
+      }
+      
+      // Special comparison for dates (launchDate, projectStartDate, projectHandoverDate, tentativeDryLaunchDate)
+      if (['launchDate', 'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'inStoreClosedDate', 'deliveryClosedDate'].includes(key)) {
+        const parseDate = (val) => {
+          if (!val) return '';
+          try {
+            const d = new Date(val);
+            return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+          } catch {
+            if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val)) {
+              return val.split('T')[0];
+            }
+            return '';
+          }
+        };
+        const oldDate = parseDate(oldRaw);
+        const newDate = parseDate(newRaw);
+        if (oldDate !== newDate) {
+          const formatDisplayDate = (dStr) => {
+            if (!dStr) return '—';
+            const parts = dStr.split('-');
+            if (parts.length === 3) {
+              const [y, m, d] = parts;
+              return `${d}/${m}/${y}`;
+            }
+            return dStr;
+          };
+          changes.push({
+            field: FIELD_LABELS[key] || key,
+            oldValue: formatDisplayDate(oldDate),
+            newValue: formatDisplayDate(newDate),
+          });
+        }
+        continue;
+      }
+
+      // Special comparison for expectedSales
+      if (key === 'expectedSales') {
+        const oldSalesVal = store.expectedSales || '';
+        const newSalesVal = data.expectedSalesVal
+          ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
+          : '';
+        if (oldSalesVal !== newSalesVal) {
+          changes.push({
+            field: 'Expected Sale',
+            oldValue: oldSalesVal || '—',
+            newValue: newSalesVal || '—',
+          });
+        }
+        continue;
+      }
+      
+      const oldVal = (oldRaw ?? '').toString().trim();
+      const newVal = (newRaw ?? '').toString().trim();
+      if (oldVal !== newVal) {
+        changes.push({
+          field: FIELD_LABELS[key] || key,
+          oldValue: oldVal || '—',
+          newValue: newVal || '—',
+        });
+      }
+    }
+    return changes;
+  };
+
+  // Step 1: Intercept form submit → compute diffs → show changes dialog
+  const onSubmit = (data) => {
+    setErrorMsg('');
+
+    // Check if any mandatory fields are missing
+    const missing = mandatoryFields.filter(field => {
+      const val = data[field];
+      return val === null || val === undefined || String(val).trim() === '';
+    });
+
+    if (missing.length > 0 && data.status !== 'INCOMPLETE_INFORMATION') {
+      const missingLabels = missing.map(f => FIELD_LABELS[f] || f);
+      setErrorMsg(`These mandatory details must be completed before saving: ${missingLabels.join(', ')}. Alternatively, set status to "Incomplete Information" to save.`);
+      return;
+    }
+
+    const changes = computeChanges(data);
+    if (changes.length === 0) {
+      setSuccessMsg('No changes detected.');
+      setTimeout(() => setSuccessMsg(''), 3000);
+      return;
+    }
+    pendingDataRef.current = data;
+    setPendingChanges(changes);
+    setShowChangesDialog(true);
+  };
+
+  // Step 2: User reviewed changes → show final Yes/No confirmation
+  const handleChangesReviewed = () => {
+    setShowChangesDialog(false);
+    const data = pendingDataRef.current;
+    const isTransitioningToApproved = (store?.status === 'PENDING_APPROVAL') && data?.status === 'APPROVED';
+    if (isTransitioningToApproved) {
+      setShowNsoConfirmDialog(true);
+    } else {
+      setShowConfirmDialog(true);
+    }
+  };
+
+  // Step 3: User confirmed → actually save
+  const handleConfirmSave = async () => {
+    setShowConfirmDialog(false);
+    const data = pendingDataRef.current;
+    if (!data) return;
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const payload = {
+        ...data,
+        // Combine month + year into single "Month Year" string
+        cafeLaunchMonth: data.cafeLaunchMonth && data.cafeLaunchYear
+          ? `${data.cafeLaunchMonth} ${data.cafeLaunchYear}`
+          : data.cafeLaunchMonth || '',
+        areaManagerId: data.areaManagerId ? parseInt(data.areaManagerId, 10) : null,
+        cityHeadId: data.cityHeadId ? parseInt(data.cityHeadId, 10) : null,
+        cafeManagerId: data.cafeManagerId ? parseInt(data.cafeManagerId, 10) : null,
+        expectedSales: data.expectedSalesVal
+          ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
+          : null,
+        ...(data.status === 'REJECTED' ? { mailStatus: '' } : {})
+      };
+      delete payload.cafeLaunchYear;
+      delete payload.expectedSalesVal;
+      delete payload.expectedSalesUnit;
+      await axios.put(`/api/stores/${id}`, payload);
+      isSavedRef.current = true;
+      setIsSaved(true);
+      navigate(fromPath);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.error || 'Failed to update store.');
+    } finally {
+      setLoading(false);
+      pendingDataRef.current = null;
+    }
+  };
+
+  // Step 3a: User confirmed via NSO Approval dialog → save and trigger email
+  const handleConfirmNsoSave = async () => {
+    setShowNsoConfirmDialog(false);
+    const data = pendingDataRef.current;
+    if (!data) return;
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const payload = {
+        ...data,
+        cafeLaunchMonth: data.cafeLaunchMonth && data.cafeLaunchYear
+          ? `${data.cafeLaunchMonth} ${data.cafeLaunchYear}`
+          : data.cafeLaunchMonth || '',
+        areaManagerId: data.areaManagerId ? parseInt(data.areaManagerId, 10) : null,
+        cityHeadId: data.cityHeadId ? parseInt(data.cityHeadId, 10) : null,
+        cafeManagerId: data.cafeManagerId ? parseInt(data.cafeManagerId, 10) : null,
+        expectedSales: data.expectedSalesVal
+          ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
+          : null,
+        ...(data.status === 'REJECTED' ? { mailStatus: '' } : {})
+      };
+      delete payload.cafeLaunchYear;
+      delete payload.expectedSalesVal;
+      delete payload.expectedSalesUnit;
+      await axios.put(`/api/stores/${id}`, payload);
+      isSavedRef.current = true;
+      setIsSaved(true);
+      navigate('/approvals', { state: { successMessage: `${data.cafeName} Café has been approved successfully.` } });
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.error || 'Failed to update store.');
+    } finally {
+      setLoading(false);
+      pendingDataRef.current = null;
+    }
+  };
+
+  const handleCancelNsoSave = () => {
+    setShowNsoConfirmDialog(false);
+    pendingDataRef.current = null;
+  };
+
+  const handleCancelSave = () => {
+    setShowChangesDialog(false);
+    setShowConfirmDialog(false);
+    setShowNsoConfirmDialog(false);
+    pendingDataRef.current = null;
+  };
+
+  const mandatoryFields = [
+    'cafeName', 'cafeCode', 'cafeModel', 'cafeAddress', 'city', 'state', 'pinCode', 'zone', 
+    'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
+    'actualClosingTime', 'cityHeadId', 'cityHeadEmail', 'cityHeadPhone', 'platformType', 
+    'tradingArea', 'launchStatus',
+    // Contact mandatory fields
+    'cafePhoneNumber', 'cafeMailId', 'cmMailId',
+    // Finance / Legal
+    'gstNo',
+    // Project dates
+    'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate',
+    // Operations
+    'cluster', 'cafeOpeningHr', 'smokingZone', 'parkingOption',
+    // Sales & Nearby
+    'expectedSales', 'nearbyCafes'
+  ];
+
+  const watchedFields = watch();
+  const isApprovedSelectable = mandatoryFields.every(field => {
+    const val = watchedFields[field];
+    return val !== null && val !== undefined && String(val).trim() !== '';
+  });
+
+  const isLaunchDateFilled = !!(watchedFields['launchDate'] && String(watchedFields['launchDate']).trim() !== '');
+
+  if (!store) {
+    if (errorMsg) {
+      return (
+        <Box sx={{ p: 4 }}>
+          <Alert severity="error" sx={{ mb: 2, borderRadius: '12px', '& .MuiAlert-message': { fontWeight: 700 } }}>
+            {errorMsg}
+          </Alert>
+          <Button variant="outlined" onClick={() => navigate(fromPath)} sx={{ borderRadius: '8px' }}>
+            ← Back to List
+          </Button>
+        </Box>
+      );
+    }
+    return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+  }
+
+  const isNsoFlow = store && ['PENDING_APPROVAL', 'APPROVED', 'NSO_APPROVED', 'ON_HOLD'].includes(store.status);
+  // Finance & Legal is read-only for ALL users in NSO flow or Upcoming (INCOMPLETE_INFORMATION) flow
+  const isFinanceReadOnly = isNsoFlow || (store?.status === 'INCOMPLETE_INFORMATION');
+  const isComplianceApprovedOrLive = store && ['COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+
+  const baseOptions = isSuperAdmin 
+    ? [
+        { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
+        { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable },
+        { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled },
+        { value: 'ON_HOLD', label: 'On Hold' },
+        { value: 'COMPLIANCE_APPROVED', label: 'Compliance Approved' },
+        ...(isComplianceApprovedOrLive ? [{ value: 'LIVE', label: 'Live' }] : []),
+        { value: 'CLOSED', label: 'Closed' }
+      ]
+    : isComplianceApprovedOrLive
+      ? [
+          { value: 'COMPLIANCE_APPROVED', label: 'Compliance Approved' },
+          ...((hasGoLiveAccess || store?.status === 'LIVE') ? [{ value: 'LIVE', label: 'Live' }] : [])
+        ]
+      : isNsoFlow 
+        ? [
+            { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
+            { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable },
+            ...(canApprove ? [
+              { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled },
+              { value: 'ON_HOLD', label: 'On Hold' }
+            ] : [])
+          ]
+        : [
+            { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
+            { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable }
+          ];
+
+  const statusOptions = [...baseOptions];
+  if (!isSuperAdmin && store?.status === 'CLOSED') {
+    if (!statusOptions.some(opt => opt.value === 'CLOSED')) {
+      statusOptions.push({ value: 'CLOSED', label: 'Closed' });
+    }
+  }
+
+  return (
+    <Box sx={{ maxWidth: 1600, mx: 'auto', py: 2, px: 1 }}>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Box sx={{
+          position: 'sticky',
+          top: { xs: 56, sm: 64 },
+          zIndex: 10,
+          bgcolor: 'background.default',
+          mt: -5,
+          pt: 5,
+          pb: 2,
+          mb: 4,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Box>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
+                {isViewOnly ? `Store Details: ${store.cafeName}` : `Modify Existing Store: ${store.cafeName}`}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Update store information based on your access level.
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              {/* Brand field — locked for all except Super Admin */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Brand *"
+                  {...register('brand', { required: 'Brand is required' })}
+                  value={watch('brand') || ''}
+                  error={!!errors.brand}
+                  disabled={isViewOnly || !isSuperAdmin}
+                  sx={{ minWidth: 280 }}
+                >
+                  <MenuItem value="">— Clear Selection —</MenuItem>
+                  <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's Artisan Bakehouse</MenuItem>
+                  <MenuItem value="GOT_TEA">Got Tea</MenuItem>
+                </TextField>
+              </Box>
+
+              <TextField
+                select
+                size="small"
+                label="Status"
+                {...register('status')}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'CLOSED') {
+                    setTempInStoreClosed(watch('inStoreClosed') ?? store?.inStoreClosed ?? false);
+                    setTempDeliveryClosed(watch('deliveryClosed') ?? store?.deliveryClosed ?? false);
+                    setTempInStoreClosedDate(watch('inStoreClosedDate') ?? (store?.inStoreClosedDate ? store.inStoreClosedDate.split('T')[0] : '') ?? '');
+                    setTempDeliveryClosedDate(watch('deliveryClosedDate') ?? (store?.deliveryClosedDate ? store.deliveryClosedDate.split('T')[0] : '') ?? '');
+                    setClosureDialogError('');
+                    setClosureDialogOpen(true);
+                  } else {
+                    setValue('status', val, { shouldDirty: true });
+                    setPrevStatus(val);
+                  }
+                }}
+                value={watch('status') || ''}
+                disabled={
+                  isViewOnly || 
+                  (store && store.isLocked && !isSuperAdmin) || 
+                  (() => {
+                    if (store && ['COMPLIANCE_APPROVED', 'LIVE'].includes(store.status)) {
+                      return !hasGoLiveAccess;
+                    }
+                    if (!isSuperAdmin && !isAdmin && !canEditBasicDetails) return true;
+                    if (store && store.status !== 'INCOMPLETE_INFORMATION' && !isSuperAdmin && !user?.permissions?.includes('APPROVER')) return true;
+                    return false;
+                  })()
+                }
+                sx={{ minWidth: 160 }}
+              >
+                {statusOptions.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value} disabled={opt.disabled}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {/* Approved By - read-only display */}
+              {(store?.approvedBy || store?.complianceApprovedBy) && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  {store?.approvedBy && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        Approved By:
+                      </Typography>
+                      <Chip
+                        label={store.approvedBy}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                        sx={{ fontWeight: 700, fontSize: '0.7rem', height: 22, borderRadius: '6px' }}
+                      />
+                    </Box>
+                  )}
+                  {store?.complianceApprovedBy && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        Compliance By:
+                      </Typography>
+                      <Chip
+                        label={store.complianceApprovedBy}
+                        size="small"
+                        color="success"
+                        variant="outlined"
+                        sx={{ fontWeight: 700, fontSize: '0.7rem', height: 22, borderRadius: '6px' }}
+                      />
+                    </Box>
+                  )}
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button variant="outlined" onClick={() => navigate(fromPath)} sx={{ px: 3, borderRadius: '8px' }}>
+                  &larr; Back to List
+                </Button>
+              </Box>
+            </Box>
+          </Box>
+
+          {/* ─── CARD: Remarks (Sticky) ─── */}
+          <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8, boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)', mb: 1 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                  Remarks / Special Instructions
+                </Typography>
+                {watch('status') === 'ON_HOLD' ? <RequiredBadge /> : <OptionalBadge />}
+                {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                minRows={1}
+                maxRows={3}
+                label={watch('status') === 'ON_HOLD' ? "Remarks *" : "Remarks"}
+                placeholder={watch('status') === 'ON_HOLD' ? "Enter the reason for placing the cafe on hold..." : "Enter any operational remarks, constraints, or special instructions according to the requirement..."}
+                {...register('remarks', { required: watch('status') === 'ON_HOLD' ? 'Required' : false })}
+                error={!!errors.remarks}
+                helperText={errors.remarks?.message}
+                disabled={!canEditBasicDetails}
+              />
+            </CardContent>
+          </Card>
+        </Box>
+
+        {isViewOnly && (
+          <Alert
+            severity="info"
+            sx={{
+              mb: 4,
+              borderRadius: '12px',
+              fontWeight: 700,
+              '& .MuiAlert-message': { fontWeight: 700 }
+            }}
+          >
+            You have <strong>view-only access</strong> to this store. All fields are read-only and no changes can be saved.
+          </Alert>
+        )}
+        {errorMsg && (
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 4, 
+              borderRadius: '12px',
+              '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
+            }}
+          >
+            {errorMsg}
+          </Alert>
+        )}
+        {successMsg && (
+          <Alert 
+            severity="success" 
+            sx={{ 
+              mb: 4, 
+              borderRadius: '12px'
+            }}
+          >
+            {successMsg}
+          </Alert>
+        )}
+        {!isApprovedSelectable && !isViewOnly && (
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              mb: 4, 
+              borderRadius: '12px',
+              '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
+            }}
+          >
+            To enable the <strong>"Sent to NSO Team for Approval"</strong> action, please complete all mandatory fields (marked with **):{' '}
+            <strong>
+              {mandatoryFields.filter(f => {
+                const val = watch(f);
+                return val === null || val === undefined || String(val).trim() === '';
+              }).map(f => FIELD_LABELS[f] || f).join(', ')}
+            </strong>
+          </Alert>
+        )}
+        {canApprove && isApprovedSelectable && !isLaunchDateFilled && !isViewOnly && (
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              mb: 4, 
+              borderRadius: '12px',
+              '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
+            }}
+          >
+            <strong>Launch Date</strong> is required to select the <strong>"Approved"</strong> status.
+          </Alert>
+        )}
+
+        <Grid container spacing={4}>
+          
+          {/* Go-Live Configuration Card */}
+          {isGoLiveVisible && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper', opacity: canEditGoLive ? 1 : 0.8 }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      Go-Live Configuration
+                    </Typography>
+                    {!canEditGoLive && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                  </Box>
+
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch 
+                              {...(canEditGoLive ? register('inStoreLive') : {})}
+                              checked={inStoreLiveValue || false}
+                              disabled={!canEditGoLive}
+                              onChange={(e) => {
+                                if (canEditGoLive) {
+                                  setValue('inStoreLive', e.target.checked, { shouldDirty: true });
+                                  if (!e.target.checked) {
+                                    setValue('inStoreLiveDate', '', { shouldDirty: true });
+                                  }
+                                }
+                              }}
+                            />
+                          }
+                          label={<span style={{ fontWeight: 600 }}>In-Store Go-Live</span>}
+                        />
+                        {inStoreLiveValue && (
+                          <TextField
+                            fullWidth
+                            type="date"
+                            label="In-Store Live Date *"
+                            InputLabelProps={{ shrink: true }}
+                            {...(canEditGoLive ? register('inStoreLiveDate', { 
+                              required: inStoreLiveValue ? 'Required when In-Store is enabled' : false 
+                            }) : {})}
+                            value={canEditGoLive ? undefined : (store?.inStoreLiveDate ? store.inStoreLiveDate.split('T')[0] : '')}
+                            error={canEditGoLive ? !!errors.inStoreLiveDate : false}
+                            helperText={canEditGoLive ? errors.inStoreLiveDate?.message : ''}
+                            disabled={!canEditGoLive}
+                          />
+                        )}
+                      </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch 
+                              {...(canEditGoLive ? register('deliveryLive') : {})}
+                              checked={deliveryLiveValue || false}
+                              disabled={!canEditGoLive}
+                              onChange={(e) => {
+                                if (canEditGoLive) {
+                                  setValue('deliveryLive', e.target.checked, { shouldDirty: true });
+                                  if (!e.target.checked) {
+                                    setValue('deliveryLiveDate', '', { shouldDirty: true });
+                                  }
+                                }
+                              }}
+                            />
+                          }
+                          label={<span style={{ fontWeight: 600 }}>Delivery Go-Live</span>}
+                        />
+                        {deliveryLiveValue && (
+                          <TextField
+                            fullWidth
+                            type="date"
+                            label="Delivery Live Date *"
+                            InputLabelProps={{ shrink: true }}
+                            {...(canEditGoLive ? register('deliveryLiveDate', { 
+                              required: deliveryLiveValue ? 'Required when Delivery is enabled' : false 
+                            }) : {})}
+                            value={canEditGoLive ? undefined : (store?.deliveryLiveDate ? store.deliveryLiveDate.split('T')[0] : '')}
+                            error={canEditGoLive ? !!errors.deliveryLiveDate : false}
+                            helperText={canEditGoLive ? errors.deliveryLiveDate?.message : ''}
+                            disabled={!canEditGoLive}
+                          />
+                        )}
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          {/* Closure Configuration Card */}
+          {isClosedVisible && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper', opacity: canEditClosure ? 1 : 0.8 }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      Closure Configuration
+                    </Typography>
+                    {!canEditClosure && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                  </Box>
+
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch 
+                              checked={inStoreClosedValue || false}
+                              disabled={!canEditClosure}
+                              onChange={(e) => {
+                                if (canEditClosure) {
+                                  setValue('inStoreClosed', e.target.checked, { shouldDirty: true });
+                                  if (!e.target.checked) {
+                                    setValue('inStoreClosedDate', '', { shouldDirty: true });
+                                  }
+                                }
+                              }}
+                            />
+                          }
+                          label={<span style={{ fontWeight: 600 }}>In-Store Closed</span>}
+                        />
+                        {inStoreClosedValue && (
+                          <>
+                            <TextField
+                              fullWidth
+                              label="In-Store Live Date (Read Only)"
+                              value={formatDateString(inStoreLiveDateValue)}
+                              disabled
+                              InputProps={{ readOnly: true }}
+                              sx={{ mb: 2 }}
+                            />
+                            <TextField
+                              fullWidth
+                              type="date"
+                              label="In-Store Closed Date *"
+                              InputLabelProps={{ shrink: true }}
+                              inputProps={{ min: inStoreLiveDateValue }}
+                              value={inStoreClosedDateValue || ''}
+                              onChange={(e) => {
+                                if (canEditClosure) {
+                                    setValue('inStoreClosedDate', e.target.value, { shouldDirty: true, shouldValidate: true });
+                                }
+                              }}
+                              error={!!getInStoreClosureError()}
+                              helperText={getInStoreClosureError()}
+                              disabled={!canEditClosure}
+                            />
+                          </>
+                        )}
+                      </Box>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                        <FormControlLabel
+                          control={
+                            <Switch 
+                              checked={deliveryClosedValue || false}
+                              disabled={!canEditClosure}
+                              onChange={(e) => {
+                                if (canEditClosure) {
+                                  setValue('deliveryClosed', e.target.checked, { shouldDirty: true });
+                                  if (!e.target.checked) {
+                                    setValue('deliveryClosedDate', '', { shouldDirty: true });
+                                  }
+                                }
+                              }}
+                            />
+                          }
+                          label={<span style={{ fontWeight: 600 }}>Delivery Closed</span>}
+                        />
+                        {deliveryClosedValue && (
+                          <>
+                            <TextField
+                              fullWidth
+                              label="Delivery Live Date (Read Only)"
+                              value={formatDateString(deliveryLiveDateValue)}
+                              disabled
+                              InputProps={{ readOnly: true }}
+                              sx={{ mb: 2 }}
+                            />
+                            <TextField
+                              fullWidth
+                              type="date"
+                              label="Delivery Closed Date *"
+                              InputLabelProps={{ shrink: true }}
+                              inputProps={{ min: deliveryLiveDateValue }}
+                              value={deliveryClosedDateValue || ''}
+                              onChange={(e) => {
+                                if (canEditClosure) {
+                                    setValue('deliveryClosedDate', e.target.value, { shouldDirty: true, shouldValidate: true });
+                                }
+                              }}
+                              error={!!getDeliveryClosureError()}
+                              helperText={getDeliveryClosureError()}
+                              disabled={!canEditClosure}
+                            />
+                          </>
+                        )}
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          <Grid size={12}>
+            <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8 }}>
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                    Café Basic Details
+                  </Typography>
+                  {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                </Box>
+                
+                <Grid container spacing={2.5}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Name **" 
+                      {...register('cafeName', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.cafeName}
+                      helperText={errors.cafeName?.message}
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Code **" 
+                      {...register('cafeCode', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.cafeCode}
+                      helperText={errors.cafeCode?.message}
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Pin Code **" 
+                      {...register('pinCode', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.pinCode}
+                      helperText={errors.pinCode?.message}
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="City **" 
+                      {...register('city', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.city}
+                      helperText={errors.city?.message}
+                      disabled={true} 
+                      value={watch('city') || ''} 
+                      InputLabelProps={{ shrink: !!watch('city') }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="State **" 
+                      {...register('state', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.state}
+                      helperText={errors.state?.message}
+                      disabled={true} 
+                      value={watch('state') || ''} 
+                      InputLabelProps={{ shrink: !!watch('state') }}
+                    />
+                  </Grid>
+ 
+                  <Grid size={12}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Address **" 
+                      {...register('cafeAddress', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.cafeAddress}
+                      helperText={errors.cafeAddress?.message}
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+ 
+                  {/* Row 3: Zone | Café Location | Lat,Long | Latitude | Longitude */}
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      select 
+                      label="Zone **" 
+                      {...register('zone', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.zone}
+                      helperText={errors.zone?.message}
+                      disabled={!canEditBasicDetails} 
+                      value={watch('zone') || ''}
+                    >
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      {ZONES.map(z => <MenuItem key={z} value={z}>{z}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Location Google Link **" 
+                      placeholder="e.g. https://maps.google.com/..." 
+                      {...register('cafeLocationGoogleLink', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.cafeLocationGoogleLink}
+                      helperText={errors.cafeLocationGoogleLink?.message}
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField
+                      fullWidth
+                      label="Lat, Long **"
+                      placeholder="e.g. 28.6139, 77.2090"
+                      {...register('latitude', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })}
+                      error={!!errors.latitude}
+                      disabled={!canEditBasicDetails}
+                      helperText={errors.latitude?.message || "Latitude, Longitude"}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField
+                      fullWidth
+                      label="Latitude **"
+                      InputLabelProps={{ shrink: true }}
+                      InputProps={{ readOnly: true }}
+                      {...register('latt', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })}
+                      error={!!errors.latt}
+                      helperText={errors.latt?.message || "Auto-filled"}
+                      disabled={!canEditBasicDetails}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField
+                      fullWidth
+                      label="Longitude **"
+                      InputLabelProps={{ shrink: true }}
+                      InputProps={{ readOnly: true }}
+                      {...register('long', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })}
+                      error={!!errors.long}
+                      helperText={errors.long?.message || "Auto-filled"}
+                      disabled={!canEditBasicDetails}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                    />
+                  </Grid>
+ 
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Opening Time **" 
+                      {...register('cafeOpenTiming', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.cafeOpenTiming}
+                      helperText={errors.cafeOpenTiming?.message}
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Closing Time **" 
+                      {...register('cafeClosingTime', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.cafeClosingTime}
+                      helperText={errors.cafeClosingTime?.message}
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 4 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Actual Closing Time **" 
+                      {...register('actualClosingTime', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.actualClosingTime}
+                      helperText={errors.actualClosingTime?.message}
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Contact Details */}
+          <Grid size={12}>
+            <Card sx={{ bgcolor: 'background.paper', opacity: canEditContacts ? 1 : 0.8 }}>
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                    Contact Details
+                  </Typography>
+                  {!canEditContacts && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                </Box>
+
+                {/* Row 1: Café Contact & Café Manager Details */}
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Phone Number" 
+                      {...register('cafePhoneNumber', {
+                        pattern: {
+                          value: /^\d{10}$/,
+                          message: 'invalid contact number'
+                        }
+                      })} 
+                      disabled={!canEditContacts} 
+                      error={!!errors.cafePhoneNumber}
+                      helperText={errors.cafePhoneNumber?.message}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Mail ID" 
+                      type="email" 
+                      {...register('cafeMailId', {
+                        validate: value => {
+                          if (!value) return true;
+                          const valLower = value.toLowerCase();
+                          return valLower.endsWith('@bluetokaicoffee.com') || valLower.endsWith('@gottea.in') || 'Only @bluetokaicoffee.com or @gottea.in emails are allowed';
+                        }
+                      })} 
+                      disabled={!canEditContacts} 
+                      error={!!errors.cafeMailId}
+                      helperText={errors.cafeMailId?.message}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="CM Mail ID" 
+                      type="email" 
+                      {...register('cmMailId', {
+                        validate: value => {
+                          if (!value) return true;
+                          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || 'Enter a valid email address';
+                        }
+                      })} 
+                      disabled={!canEditContacts} 
+                      error={!!errors.cmMailId}
+                      helperText={errors.cmMailId?.message}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <Autocomplete
+                      fullWidth
+                      options={cafeManagers}
+                      getOptionLabel={(option) => option.name || ''}
+                      value={cafeManagers.find(c => String(c.id) === String(watch('cafeManagerId'))) || null}
+                      onChange={handleCafeManagerSelect}
+                      disabled={!canEditContacts}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Select Café Manager" />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Manager Mail ID" 
+                      type="email" 
+                      {...register('cafeManagerMailId')} 
+                      InputLabelProps={{ shrink: true }} 
+                      InputProps={{ readOnly: true }}
+                      error={!!errors.cafeManagerMailId}
+                      helperText={errors.cafeManagerMailId?.message || "Auto-filled"}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Café Manager Contact No." 
+                      {...register('cafeManagerContactNo')} 
+                      InputLabelProps={{ shrink: true }} 
+                      InputProps={{ readOnly: true }}
+                      error={!!errors.cafeManagerContactNo}
+                      helperText={errors.cafeManagerContactNo?.message || "Auto-filled"}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                    />
+                  </Grid>
+                </Grid>
+
+                <Divider sx={{ my: 3 }} />
+
+                {/* Row 2: Area Manager & City Head Details */}
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <Autocomplete
+                      fullWidth
+                      options={areaManagers}
+                      getOptionLabel={(option) => option.name || ''}
+                      value={areaManagers.find(c => String(c.id) === String(watch('areaManagerId'))) || null}
+                      onChange={handleAreaManagerSelect}
+                      disabled={!canEditContacts}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Select Area Manager" />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Area Manager Mail ID" 
+                      type="email" 
+                      {...register('areaManagerEmail')} 
+                      InputLabelProps={{ shrink: true }} 
+                      InputProps={{ readOnly: true }}
+                      error={!!errors.areaManagerEmail}
+                      helperText={errors.areaManagerEmail?.message || "Auto-filled"}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="Area Manager Contact No." 
+                      {...register('areaManagerPhone')} 
+                      InputLabelProps={{ shrink: true }} 
+                      InputProps={{ readOnly: true }}
+                      error={!!errors.areaManagerPhone}
+                      helperText={errors.areaManagerPhone?.message || "Auto-filled"}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <Autocomplete
+                      fullWidth
+                      options={cityHeads}
+                      getOptionLabel={(option) => option.name || ''}
+                      value={cityHeads.find(c => String(c.id) === String(watch('cityHeadId'))) || null}
+                      onChange={handleCityHeadSelect}
+                      disabled={!canEditContacts}
+                      renderInput={(params) => (
+                        <TextField 
+                          {...params} 
+                          label="Select City Head **" 
+                          error={!!errors.cityHeadId}
+                          helperText={errors.cityHeadId?.message}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="City Head Mail ID" 
+                      type="email" 
+                      {...register('cityHeadEmail')} 
+                      InputLabelProps={{ shrink: true }} 
+                      InputProps={{ readOnly: true }}
+                      error={!!errors.cityHeadEmail} 
+                      helperText={errors.cityHeadEmail?.message || "Auto-filled"} 
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 2 }}>
+                    <TextField 
+                      fullWidth 
+                      label="City Head Contact No." 
+                      {...register('cityHeadPhone')} 
+                      InputLabelProps={{ shrink: true }} 
+                      InputProps={{ readOnly: true }}
+                      error={!!errors.cityHeadPhone} 
+                      helperText={errors.cityHeadPhone?.message || "Auto-filled"} 
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }} 
+                    />
+                  </Grid>
+                </Grid>
+
+                {/* Hidden inputs for names and relation IDs */}
+                <input type="hidden" {...register('areaManagerId')} />
+                <input type="hidden" {...register('cityHeadId', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} />
+                <input type="hidden" {...register('cafeManagerId')} />
+                <input type="hidden" {...register('cafeManagerName')} />
+                <input type="hidden" {...register('areaManagerName')} />
+                <input type="hidden" {...register('cityHeadName')} />
+                <input type="hidden" {...register('mailStatus')} />
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* GST & FSSAI Details */}
+          <Grid size={12}>
+            <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8 }}>
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                    GST & FSSAI Details
+                  </Typography>
+                  <OptionalBadge />
+                  {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                </Box>
+
+                <Grid container spacing={2.5}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField 
+                      fullWidth 
+                      label="GST No" 
+                      {...register('gstNo')} 
+                      error={!!errors.gstNo} 
+                      helperText={errors.gstNo?.message} 
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField 
+                      fullWidth 
+                      label="GST Certificate Link" 
+                      placeholder="e.g. http://..." 
+                      {...register('gstCertificateLink')} 
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField 
+                      fullWidth 
+                      label="FSSAI License (Certificate Link)" 
+                      placeholder="e.g. http://..." 
+                      {...register('fssaiLicense')} 
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <TextField 
+                      fullWidth 
+                      label="FSSAI No" 
+                      {...register('fssaiNo')} 
+                      error={!!errors.fssaiNo} 
+                      helperText={errors.fssaiNo?.message} 
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Finance Information */}
+          {(canEditFinance || isFinanceReadOnly || isSuperAdmin || isAdmin || isManager) && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper', opacity: (canEditFinance && !isFinanceReadOnly) ? 1 : 0.8 }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      Finance & Legal Expiries
+                    </Typography>
+                    <Chip label="Read Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />
+                  </Box>
+
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField fullWidth type="date" label="FSSAI License Expiry Date" InputLabelProps={{ shrink: true }} {...register('fssaiExpiry')} error={!!errors.fssaiExpiry} helperText={errors.fssaiExpiry?.message} disabled={true} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <TextField fullWidth type="date" label="Rent Agreement Expiry Date" InputLabelProps={{ shrink: true }} {...register('rentExpiry')} error={!!errors.rentExpiry} helperText={errors.rentExpiry?.message} disabled={true} />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          <Grid size={12}>
+            <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8 }}>
+              <CardContent sx={{ p: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                    Others & Operations
+                  </Typography>
+                  {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                </Box>
+
+                <Grid container spacing={2.5} columns={60}>
+                  {/* --- ROW 1 (5 fields, size 12 each) --- */}
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth type="date" label="Project Start Date" InputLabelProps={{ shrink: true }} {...register('projectStartDate')} disabled={!canEditBasicDetails} />
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth type="date" label="Project Handover Date" InputLabelProps={{ shrink: true }} {...register('projectHandoverDate')} disabled={!canEditBasicDetails} />
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth type="date" label="Tentative Dry Launch Date" InputLabelProps={{ shrink: true }} {...register('tentativeDryLaunchDate')} disabled={!canEditBasicDetails} />
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    {isSuperAdmin ? (
+                      // Super Admin: manual dropdown override
+                      <>
+                        <TextField
+                          fullWidth
+                          select
+                          label="Cafe Launch Month & Year"
+                          disabled={!canEditBasicDetails}
+                          value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) {
+                              setValue('cafeLaunchMonth', '', { shouldDirty: true });
+                              setValue('cafeLaunchYear', '', { shouldDirty: true });
+                            } else {
+                              const parts = val.split(' ');
+                              setValue('cafeLaunchMonth', parts[0], { shouldDirty: true });
+                              setValue('cafeLaunchYear', parts[1], { shouldDirty: true });
+                            }
+                          }}
+                          SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
+                        >
+                          <MenuItem value="">— Clear Selection —</MenuItem>
+                          {LAUNCH_YEARS.map(y =>
+                            MONTH_NAMES.map(m => (
+                              <MenuItem key={`${m}-${y}`} value={`${m} ${y}`}>{m} {y}</MenuItem>
+                            ))
+                          )}
+                        </TextField>
+                        <input type="hidden" {...register('cafeLaunchMonth')} />
+                        <input type="hidden" {...register('cafeLaunchYear')} />
+                      </>
+                    ) : (
+                      // All other users: read-only, auto-filled from Launch Date
+                      <>
+                        <TextField
+                          fullWidth
+                          label="Cafe Launch Month & Year"
+                          value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
+                          InputLabelProps={{ shrink: true }}
+                          InputProps={{ readOnly: true }}
+                          helperText="Auto-filled from Launch Date"
+                          sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                        />
+                        <input type="hidden" {...register('cafeLaunchMonth')} />
+                        <input type="hidden" {...register('cafeLaunchYear')} />
+                      </>
+                    )}
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField 
+                      fullWidth 
+                      type="date" 
+                      label="Launch Date" 
+                      InputLabelProps={{ shrink: true }} 
+                      {...register('launchDate', { required: ['APPROVED', 'NSO_APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(watch('status')) ? 'Launch Date is required for approval' : false })} 
+                      error={!!errors.launchDate} 
+                      helperText={errors.launchDate?.message} 
+                      disabled={!canEditBasicDetails} 
+                    />
+                  </Grid>
+ 
+                  {/* --- ROW 2 (5 fields, size 12 each) --- */}
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField 
+                      fullWidth 
+                      select 
+                      label="Café Model **" 
+                      {...register('cafeModel', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      error={!!errors.cafeModel} 
+                      helperText={errors.cafeModel?.message}
+                      disabled={!canEditBasicDetails} 
+                      value={watch('cafeModel') || ''}
+                    >
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      {CAFE_MODELS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth label="New Pricing Category" {...register('newPricingCategory')} disabled={!canEditBasicDetails} />
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth label="New Pricing Sub Category" {...register('newPricingSubCategory')} disabled={!canEditBasicDetails} />
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} disabled={!canEditBasicDetails} />
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth select label="Menu" {...register('menu')} disabled={!canEditBasicDetails} value={watch('menu') || ''}
+                      SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}>
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      {MENU_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+ 
+                  {/* --- ROW 3 (5 fields, size 12 each) --- */}
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth label="Cafe Opening Hr" placeholder="e.g. 15 hours" {...register('cafeOpeningHr')} disabled={!canEditBasicDetails} />
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth select label="Platform Type **" {...register('platformType', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} error={!!errors.platformType} helperText={errors.platformType?.message} disabled={!canEditBasicDetails} value={watch('platformType') || ''}>
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      {PLATFORM_TYPES.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth select label="Trading Area **" {...register('tradingArea', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} error={!!errors.tradingArea} helperText={errors.tradingArea?.message} disabled={!canEditBasicDetails} value={watch('tradingArea') || ''}>
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      {TRADING_AREAS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth select label="Smoking Zone" {...register('smokingZone')} disabled={!canEditBasicDetails} value={watch('smokingZone') || ''}>
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      <MenuItem value="Yes">Yes</MenuItem>
+                      <MenuItem value="No">No</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 12 }}>
+                    <TextField fullWidth select label="Parking Option" {...register('parkingOption')} disabled={!canEditBasicDetails} value={watch('parkingOption') || ''}>
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      <MenuItem value="Yes">Yes</MenuItem>
+                      <MenuItem value="No">No</MenuItem>
+                      <MenuItem value="Valet">Valet</MenuItem>
+                    </TextField>
+                  </Grid>
+
+                  {/* --- ROW 4 (4 fields, size 15 each) --- */}
+                  <Grid size={{ xs: 60, sm: 15 }}>
+                    <TextField fullWidth select label="Wheelchair accessibility" {...register('wheelchairAccessibility')} disabled={!canEditBasicDetails} value={watch('wheelchairAccessibility') || ''}>
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      <MenuItem value="Yes">Yes</MenuItem>
+                      <MenuItem value="No">No</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 15 }}>
+                    <TextField fullWidth select label="Pet Friendly" {...register('petFriendly')} disabled={!canEditBasicDetails} value={watch('petFriendly') || ''}>
+                      <MenuItem value="">— Clear Selection —</MenuItem>
+                      <MenuItem value="Yes">Yes</MenuItem>
+                      <MenuItem value="No">No</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 15 }}>
+                    <TextField
+                      fullWidth
+                      label="Expected Sale"
+                      type="number"
+                      error={!!errors.expectedSalesVal}
+                      helperText={errors.expectedSalesVal?.message}
+                      disabled={!canEditBasicDetails}
+                      {...register('expectedSalesVal', {
+                        min: { value: 1, message: 'Value must be between 1 and 200' },
+                        max: { value: 200, message: 'Value must be between 1 and 200' }
+                      })}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <Select
+                              value={watch('expectedSalesUnit') || 'Lakhs'}
+                              onChange={(e) => setValue('expectedSalesUnit', e.target.value)}
+                              variant="standard"
+                              disableUnderline
+                              disabled={!canEditBasicDetails}
+                              sx={{ mr: 1, fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              <MenuItem value="Thousands">Thousands</MenuItem>
+                              <MenuItem value="Lakhs">Lakhs</MenuItem>
+                              <MenuItem value="Crores">Crores</MenuItem>
+                            </Select>
+                          </InputAdornment>
+                        )
+                      }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 60, sm: 15 }}>
+                    <TextField fullWidth label="Nearby Cafe" placeholder="Enter nearby cafe details..." {...register('nearbyCafes')} disabled={!canEditBasicDetails} />
+                  </Grid>
+
+                  {/* --- ROW 5 (Highlights, full width) --- */}
+                  <Grid size={{ xs: 60, sm: 60 }}>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={3}
+                      label="Highlights"
+                      placeholder="Enter highlights of the cafe..."
+                      {...register('highlights')}
+                      disabled={!canEditBasicDetails}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Swiggy / Zomato Integration Status (Conditional on Brand) */}
+          {watch('brand') && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8 }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      Swiggy / Zomato Integration Status
+                    </Typography>
+                    <Chip label="Optional" size="small" sx={{
+                      ml: 1, height: 18, fontSize: '0.65rem', fontWeight: 700,
+                      bgcolor: 'rgba(52, 211, 153, 0.1)', color: '#34d399',
+                      border: '1px solid rgba(52, 211, 153, 0.2)', borderRadius: '4px'
+                    }} />
+                    {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                  </Box>
+
+                  {watch('brand') === 'BLUE_TOKAI_SUCHALI' && (
+                    <Grid container spacing={2} sx={{ flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                      <Grid size={{ xs: 12, sm: 3 }}>
+                        <TextField fullWidth label="Blue Tokai Swiggy RID" {...register('blueTokaiSwiggyRID')} disabled={!canEditBasicDetails} />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 3 }}>
+                        <TextField fullWidth label="Blue Tokai Zomato RID" {...register('blueTokaiZomatoRID')} disabled={!canEditBasicDetails} />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 3 }}>
+                        <TextField fullWidth label="Suchali Swiggy RID" {...register('suchaliSwiggyRID')} disabled={!canEditBasicDetails} />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 3 }}>
+                        <TextField fullWidth label="Suchali Zomato RID" {...register('suchaliZomatoRID')} disabled={!canEditBasicDetails} />
+                      </Grid>
+                    </Grid>
+                  )}
+
+                  {watch('brand') === 'GOT_TEA' && (
+                    <Grid container spacing={2}>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField fullWidth label="Got Tea Swiggy RID" {...register('gotTeaSwiggyRID')} disabled={!canEditBasicDetails} />
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <TextField fullWidth label="Got Tea Zomato RID" {...register('gotTeaZomatoRID')} disabled={!canEditBasicDetails} />
+                      </Grid>
+                    </Grid>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          <Grid size={12}>
+            <Card sx={{ bgcolor: 'background.paper', border: 'none' }}>
+              <CardContent sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                {!isViewOnly && (
+                  <Button 
+                    variant="contained" 
+                    size="large" 
+                    type="submit" 
+                    disabled={loading || (!canEditBasicDetails && !canEditContacts && !canEditFinance && !canEditGoLive && !canEditClosure) || !isGoLiveFormValid() || !isClosureFormValid()} 
+                    sx={{ px: 4, borderRadius: '8px' }}
+                  >
+                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Save Changes'}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+        </Grid>
+      </form>
+
+      {/* Dialog 1: Review Changes (Old vs New) */}
+      <Dialog 
+        open={showChangesDialog} 
+        onClose={handleCancelSave} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.2rem', color: 'text.primary', pb: 1 }}>
+          Review Your Changes
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
+            The following fields have been modified. Please review before confirming.
+          </Typography>
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: '10px' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ bgcolor: 'action.hover' }}>
+                  <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>Field</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>Old Value</TableCell>
+                  <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>New Value</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {pendingChanges.map((change, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{change.field}</TableCell>
+                    <TableCell sx={{ color: '#b71c1c', fontWeight: 500 }}>{change.oldValue}</TableCell>
+                    <TableCell sx={{ color: '#1b5e20', fontWeight: 500 }}>{change.newValue}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleCancelSave} variant="outlined" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleChangesReviewed} variant="contained" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Proceed
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog 2: Final Yes / No Confirmation */}
+      <Dialog 
+        open={showConfirmDialog} 
+        onClose={handleCancelSave}
+        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 360 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.1rem', color: 'text.primary' }}>
+          Confirm Save
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+            Are you sure you want to save these changes?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleCancelSave} variant="outlined" color="error" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            No
+          </Button>
+          <Button onClick={handleConfirmSave} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog 2a: NSO Approval confirmation pop-up */}
+      <Dialog 
+        open={showNsoConfirmDialog} 
+        onClose={handleCancelNsoSave}
+        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 400 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.2rem', color: 'text.primary' }}>
+          Confirm Approval Notification
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ color: 'text.secondary', mt: 1 }}>
+            Do you want to send the email notification for this NSO-approved café?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+          <Button onClick={handleCancelNsoSave} variant="outlined" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Back
+          </Button>
+          <Button onClick={handleConfirmNsoSave} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            OK
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Unsaved changes warning dialog */}
+      <Dialog
+        open={blocker.state === 'blocked'}
+        onClose={() => blocker.reset()}
+        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 400 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.1rem', color: 'text.primary' }}>
+          Unsaved Changes
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+            You have unsaved changes. Do you want to discard your changes or do you want to continue with this?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => blocker.reset()} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Continue with this
+          </Button>
+          <Button onClick={() => blocker.proceed()} variant="outlined" color="error" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Discard changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog 4: Closure Configuration */}
+      <Dialog
+        open={closureDialogOpen}
+        onClose={handleCancelClosure}
+        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 400 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.2rem', color: 'text.primary', pb: 1 }}>
+          Closure Configuration
+        </DialogTitle>
+        <DialogContent dividers sx={{ py: 2 }}>
+          {closureDialogError && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: '8px', fontWeight: 600 }}>
+              {closureDialogError}
+            </Alert>
+          )}
+          <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
+            Please configure the closure details for this café.
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={tempInStoreClosed}
+                    onChange={(e) => {
+                      setTempInStoreClosed(e.target.checked);
+                      if (!e.target.checked) setTempInStoreClosedDate('');
+                    }}
+                  />
+                }
+                label={<span style={{ fontWeight: 600 }}>In-Store Closed</span>}
+              />
+              {tempInStoreClosed && (
+                <>
+                  <TextField
+                    fullWidth
+                    label="In-Store Live Date (Read Only)"
+                    value={formatDateString(inStoreLiveDateValue)}
+                    disabled
+                    InputProps={{ readOnly: true }}
+                    sx={{ mb: 1.5 }}
+                  />
+                  <TextField
+                    fullWidth
+                    type="date"
+                    label="In-Store Closed Date *"
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ min: inStoreLiveDateValue }}
+                    value={tempInStoreClosedDate}
+                    onChange={(e) => setTempInStoreClosedDate(e.target.value)}
+                  />
+                </>
+              )}
+            </Box>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={tempDeliveryClosed}
+                    onChange={(e) => {
+                      setTempDeliveryClosed(e.target.checked);
+                      if (!e.target.checked) setTempDeliveryClosedDate('');
+                    }}
+                  />
+                }
+                label={<span style={{ fontWeight: 600 }}>Delivery Closed</span>}
+              />
+              {tempDeliveryClosed && (
+                <>
+                  <TextField
+                    fullWidth
+                    label="Delivery Live Date (Read Only)"
+                    value={formatDateString(deliveryLiveDateValue)}
+                    disabled
+                    InputProps={{ readOnly: true }}
+                    sx={{ mb: 1.5 }}
+                  />
+                  <TextField
+                    fullWidth
+                    type="date"
+                    label="Delivery Closed Date *"
+                    InputLabelProps={{ shrink: true }}
+                    inputProps={{ min: deliveryLiveDateValue }}
+                    value={tempDeliveryClosedDate}
+                    onChange={(e) => setTempDeliveryClosedDate(e.target.value)}
+                  />
+                </>
+              )}
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleCancelClosure} variant="outlined" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmClosure} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+    </Box>
+  );
+}

@@ -1,0 +1,203 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  email       String   @unique
+  password    String
+  phone       String?
+  role        String   @default("USER") // SUPER_ADMIN, ADMIN, MANAGER, USER, FINANCE
+  permissions String?  // JSON string or comma-separated for sub-access (e.g. "edit_contacts,edit_stores")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  auditLogs   AuditLog[]
+  otpCode     String?
+  otpExpiry   DateTime?
+  lastLoginAt DateTime?
+}
+
+model Contact {
+  id          Int      @id @default(autoincrement())
+  name        String
+  designation String   // Cafe Manager, Area Manager, City Head
+  email       String
+  phone       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  storesAsAreaManager Store[] @relation("StoreAreaManager")
+  storesAsCityHead    Store[] @relation("StoreCityHead")
+  storesAsCafeManager Store[] @relation("StoreCafeManager")
+}
+
+model Store {
+  id             Int      @id @default(autoincrement())
+  cafeName       String
+  cafeCode       String   @unique
+  address        String?
+  city           String?
+  zone           String?
+  location       String?
+  lat            Float?
+  lng            Float?
+  openingTime    String?
+  closingTime    String?
+  phone          String?
+  email          String?
+  ownership      String?
+  storeType      String?
+  isLocked       Boolean  @default(false)
+  isLockedAutoApplied Boolean @default(false)
+  enteredByEmail String?
+
+  areaManagerId  Int?
+  areaManager    Contact? @relation("StoreAreaManager", fields: [areaManagerId], references: [id])
+  cityHeadId     Int?
+  cityHead       Contact? @relation("StoreCityHead", fields: [cityHeadId], references: [id])
+  cafeManagerId  Int?
+  cafeManager    Contact? @relation("StoreCafeManager", fields: [cafeManagerId], references: [id])
+
+  cmEmail        String?
+  swiggyId       String?
+  zomatoId       String?
+  launchDate     DateTime?
+  features       String?
+  status         String   @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, LIVE
+  brand          String?  // BLUE_TOKAI_SUCHALI or GOT_TEA
+  // Café Basic Details
+  cafeModel             String?
+  cafeAddress           String?
+  state                 String?
+  pinCode               String?
+  latitude              Float?
+  cafeLocationGoogleLink String?
+  lattLong              String?
+  latt                  Float?
+  long                  Float?
+  cafeOpenTiming        String?
+  cafeClosingTime       String?
+  actualClosingTime     String?
+  
+  // Contact Details
+  cafeManagerName       String?
+  cafeManagerMailId     String?
+  cafeManagerContactNo  String?
+  cafePhoneNumber       String?
+  cafeMailId            String?
+  cmMailId              String?
+  areaManagerName       String?
+  areaManagerEmail      String?
+  areaManagerPhone      String?
+  cityHeadName          String?
+  cityHeadEmail         String?
+  cityHeadPhone         String?
+  mailStatus            String   @default("Pending for S/Z")
+  isMailLocked          Boolean  @default(false)
+
+  // Swiggy / Zomato Integration Status
+  blueTokaiSwiggyRID    String?
+  blueTokaiZomatoRID    String?
+  suchaliSwiggyRID      String?
+  suchaliZomatoRID      String?
+  gotTeaSwiggyRID        String?
+  gotTeaZomatoRID        String?
+
+  // Others
+  menu                  String?
+  newPricingCategory    String?
+  cafeLaunchMonth       String?
+  cafeOpeningHr         String?
+  cluster               String?
+  newPricingSubCategory String?
+  platformType          String?
+  tradingArea           String?
+  launchStatus          String?   // Status (Newly Launch) from spreadsheet
+  smokingZone           String?
+  parkingOption         String?
+  wheelchairAccessibility String?
+  gstNo                 String?
+  gstCertificateLink    String?
+  fssaiLicense          String?
+  fssaiNo               String?
+  fssaiStartDate        String?
+  fssaiExpiry           String?
+  rentStartDate         String?
+  rentExpiry            String?
+  rentAgreementLink     String?
+  supportingDocs        String?
+  remarks               String?
+  petFriendly           String?
+  projectStartDate      String?
+  projectHandoverDate   String?
+  tentativeDryLaunchDate String?
+  highlights            String?
+  expectedSales         String?
+  nearbyCafes           String?
+  approvedBy            String?   // Name of the user who approved the store
+  complianceApprovedBy  String?   // Name of the user who approved compliance
+  complianceApprovedAt  DateTime? // Timestamp of compliance approval
+  
+  inStoreLive           Boolean   @default(false)
+  deliveryLive          Boolean   @default(false)
+  inStoreLiveDate       DateTime?
+  deliveryLiveDate      DateTime?
+
+  inStoreClosed         Boolean   @default(false)
+  deliveryClosed        Boolean   @default(false)
+  inStoreClosedDate     DateTime?
+  deliveryClosedDate    DateTime?
+
+  isActive              Boolean   @default(true)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  histories      StoreHistory[]
+  licenses       License[]
+}
+
+model StoreHistory {
+  id        Int      @id @default(autoincrement())
+  storeId   Int
+  store     Store    @relation(fields: [storeId], references: [id])
+  userId    Int?
+  action    String
+  oldValue  String?
+  newValue  String?
+  createdAt DateTime @default(now())
+}
+
+model License {
+  id          Int      @id @default(autoincrement())
+  storeId     Int
+  store       Store    @relation(fields: [storeId], references: [id])
+  type        String   // FSSAI, RENT
+  licenseNo   String?
+  expiryDate  DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model GlobalDocument {
+  id         Int      @id @default(autoincrement())
+  category   String   // 'Swiggy BTC', 'Swiggy SAB', etc.
+  fileName   String
+  fileUrl    String
+  uploadedAt DateTime @default(now())
+}

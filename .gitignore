@@ -1,0 +1,33 @@
+# ─── Node ────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ─── Build outputs ───────────────────────────────────────
+frontend/dist/
+backend/dist/
+backend/build/
+
+# ─── Environment / Secrets ───────────────────────────────
+.env
+.env.*
+smtp_config.json
+email_recipients.json
+email_threads.json
+
+# ─── Database (SQLite dev db) ────────────────────────────
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+backend/prisma/*.db
+backend/prisma/*.db-journal
+
+# ─── OS / Editor ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ─── Logs ────────────────────────────────────────────────
+*.log
+logs/
