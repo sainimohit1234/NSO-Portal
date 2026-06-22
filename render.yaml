@@ -1,35 +1,15 @@
 services:
-  # Backend Web Service
+  # Monolithic Web Service (Backend + Frontend)
   - type: web
-    name: nsm-portal-backend
+    name: nsm-portal
     env: node
     plan: free
-    rootDir: backend
-    buildCommand: npm install && npx prisma generate
-    startCommand: npx ts-node src/index.ts
-    disk:
-      name: sqlite-data
-      mountPath: /data
-      sizeGB: 1
+    buildCommand: npm install --prefix frontend && npm run build --prefix frontend && npm install --prefix backend && npx --prefix backend prisma generate --schema=backend/prisma/schema.prisma && npx --prefix backend prisma db push --schema=backend/prisma/schema.prisma --accept-data-loss
+    startCommand: npx ts-node backend/src/index.ts
     envVars:
       - key: PORT
         value: 5001
-      - key: DATABASE_URL
-        value: file:/data/dev.db
       - key: NODE_ENV
         value: production
       - key: JWT_SECRET
         generateValue: true
-
-  # Frontend Static Site
-  - type: web
-    name: nsm-portal-frontend
-    env: static
-    plan: free
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    publishPath: dist
-    routes:
-      - type: rewrite
-        src: /*
-        dest: /index.html
