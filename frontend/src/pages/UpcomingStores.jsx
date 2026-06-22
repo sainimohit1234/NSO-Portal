@@ -38,10 +38,12 @@ export default function UpcomingStores() {
   useEffect(() => {
     axios.get('/api/stores')
       .then(res => {
-        // Filter: store launchStatus is "Upcoming Store" or default (empty and not LIVE/CLOSED)
+        // Filter: show all stores that are in the setup/onboarding phase (i.e. not yet LIVE or CLOSED)
         const upcoming = res.data.filter(s => 
-          s.launchStatus === 'Upcoming Store' || 
-          (!s.launchStatus && s.status !== 'LIVE' && s.status !== 'CLOSED')
+          s.status !== 'LIVE' && 
+          s.status !== 'Live' && 
+          s.status !== 'CLOSED' && 
+          s.status !== 'Closed'
         );
         setStores(upcoming);
         setFilteredStores(upcoming);

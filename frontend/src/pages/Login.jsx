@@ -3,13 +3,17 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Box, Typography, TextField, Button, Card, CardContent, 
   Alert, CircularProgress, InputAdornment, IconButton,
-  Dialog, DialogTitle, DialogContent, DialogActions
+  Dialog, DialogTitle, DialogContent, DialogActions, Divider
 } from '@mui/material';
 import axios from 'axios';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
+import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
+import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import GroupIcon from '@mui/icons-material/Group';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useAuth } from '../context/AuthContext';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import suchaliLogo from '../assets/suchali_logo.png';
@@ -21,6 +25,11 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // ── Session conflict dialog state ──────────────────────────────────────────
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen]   = useState(false);
+  const [confirmLoading, setConfirmLoading]         = useState('');
 
   const [forgotDialogOpen, setForgotDialogOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -115,7 +124,7 @@ export default function Login() {
     }
   };
   
-  const { login } = useAuth();
+  const { login, confirmLogin, terminationMessage, clearTerminationMessage } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -143,9 +152,38 @@ export default function Login() {
       await login(email.trim(), password);
       navigate(from, { replace: true });
     } catch (err) {
-      setError(typeof err === 'string' ? err : 'Login failed. Please check your credentials.');
+      if (err?.conflict) {
+        // Active session detected — open the first warning dialog
+        setConflictDialogOpen(true);
+      } else {
+        setError(typeof err === 'string' ? err : 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Conflict dialog handlers ───────────────────────────────────────────────
+  const handleConflictNo = () => {
+    setConflictDialogOpen(false);
+  };
+
+  const handleConflictYes = () => {
+    setConflictDialogOpen(false);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmAction = async (action) => {
+    setConfirmLoading(action);
+    try {
+      await confirmLogin(action);
+      setConfirmDialogOpen(false);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(typeof err === 'string' ? err : 'Login failed. Please try again.');
+      setConfirmDialogOpen(false);
+    } finally {
+      setConfirmLoading('');
     }
   };
 
@@ -157,8 +195,28 @@ export default function Login() {
       justifyContent: 'center',
       bgcolor: 'background.default',
       backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(0, 122, 140, 0.06) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(229, 169, 59, 0.04) 0%, transparent 40%)',
-      px: 2
+      px: 2,
+      flexDirection: 'column',
+      gap: 2
     }}>
+
+      {/* ── Session Termination Banner ──────────────────────────────────── */}
+      {terminationMessage && (
+        <Alert
+          severity="error"
+          onClose={clearTerminationMessage}
+          sx={{
+            maxWidth: 450,
+            width: '100%',
+            borderRadius: '14px',
+            fontWeight: 600,
+            fontSize: '0.88rem',
+            boxShadow: '0 4px 16px rgba(220,38,38,0.12)'
+          }}
+        >
+          {terminationMessage}
+        </Alert>
+      )}
       <Card sx={{
         maxWidth: 450,
         width: '100%',
@@ -435,6 +493,153 @@ export default function Login() {
             </form>
           )}
         </DialogContent>
+      </Dialog>
+
+      {/* ── Dialog 1: Session Conflict Warning ─────────────────────────────── */}
+      <Dialog
+        open={conflictDialogOpen}
+        onClose={handleConflictNo}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px', p: 1, overflow: 'visible' } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
+          <Box sx={{
+            bgcolor: 'rgba(245, 158, 11, 0.12)',
+            borderRadius: '12px',
+            p: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <WarningAmberIcon sx={{ color: '#d97706', fontSize: 26 }} />
+          </Box>
+          Active Session Detected
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+            This user ID is already logged in on{' '}
+            <strong style={{ color: '#1e293b' }}>another browser / device</strong>.
+            Are you sure you want to proceed?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button
+            onClick={handleConflictNo}
+            variant="outlined"
+            color="inherit"
+            sx={{ fontWeight: 700, borderRadius: '10px', flex: 1 }}
+          >
+            No, Cancel
+          </Button>
+          <Button
+            onClick={handleConflictYes}
+            variant="contained"
+            sx={{
+              fontWeight: 700,
+              borderRadius: '10px',
+              flex: 1,
+              bgcolor: '#d97706',
+              '&:hover': { bgcolor: '#b45309' }
+            }}
+          >
+            Yes, Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Dialog 2: Choose Action ─────────────────────────────────────────── */}
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={() => !confirmLoading && setConfirmDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <DevicesOtherIcon sx={{ color: '#007a8c' }} />
+            Choose Login Option
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Please choose one of the following options:
+          </Typography>
+
+          {/* Option A — Force Logout */}
+          <Box
+            onClick={() => !confirmLoading && handleConfirmAction('force_logout')}
+            sx={{
+              border: '2px solid',
+              borderColor: confirmLoading === 'force_logout' ? '#007a8c' : 'divider',
+              borderRadius: '14px',
+              p: 2.5,
+              mb: 2,
+              cursor: confirmLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              '&:hover': { borderColor: '#007a8c', bgcolor: 'rgba(0,122,140,0.04)' }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+              <Box sx={{ bgcolor: 'rgba(0,122,140,0.1)', borderRadius: '10px', p: 1, mt: 0.3 }}>
+                {confirmLoading === 'force_logout'
+                  ? <CircularProgress size={22} sx={{ color: '#007a8c' }} />
+                  : <ExitToAppIcon sx={{ color: '#007a8c', fontSize: 22 }} />}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
+                  Logout from Another Device and Login Here
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                  The existing active session will be terminated automatically. The other browser will be redirected to the login page.
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 1.5 }}><Typography variant="caption" color="text.disabled">OR</Typography></Divider>
+
+          {/* Option B — Allow Both */}
+          <Box
+            onClick={() => !confirmLoading && handleConfirmAction('allow_both')}
+            sx={{
+              border: '2px solid',
+              borderColor: confirmLoading === 'allow_both' ? '#059669' : 'divider',
+              borderRadius: '14px',
+              p: 2.5,
+              cursor: confirmLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              '&:hover': { borderColor: '#059669', bgcolor: 'rgba(5,150,105,0.04)' }
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+              <Box sx={{ bgcolor: 'rgba(5,150,105,0.1)', borderRadius: '10px', p: 1, mt: 0.3 }}>
+                {confirmLoading === 'allow_both'
+                  ? <CircularProgress size={22} sx={{ color: '#059669' }} />
+                  : <GroupIcon sx={{ color: '#059669', fontSize: 22 }} />}
+              </Box>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
+                  Login Here Too
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                  Both sessions will remain active simultaneously. No other browser will be affected.
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
+            onClick={() => setConfirmDialogOpen(false)}
+            disabled={!!confirmLoading}
+            color="inherit"
+            sx={{ fontWeight: 600, borderRadius: '10px' }}
+          >
+            Cancel
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );

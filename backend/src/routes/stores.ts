@@ -770,7 +770,7 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req: 
       }
     });
 
-    if (status === 'PENDING_APPROVAL') {
+    if (status === 'PENDING_APPROVAL' || status === 'INCOMPLETE_INFORMATION') {
       // Trigger automatic launch notification email
       triggerUpcomingLaunchEmail(newStore);
     }
@@ -998,6 +998,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     }
 
     const wasPendingApproval = currentStore.status === 'PENDING_APPROVAL';
+    const wasIncompleteInformation = currentStore.status === 'INCOMPLETE_INFORMATION';
 
     if (currentStore.status === 'CLOSED' && user.role !== 'SUPER_ADMIN') {
       return res.status(403).json({ error: 'Access denied: Only Super Admin can modify Closed stores.' });
@@ -1379,6 +1380,11 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     const isNowApproved = store.status === 'NSO_APPROVED' || store.status === 'APPROVED';
     if (wasPendingApproval && isNowApproved) {
       triggerNsoApprovedEmail(store);
+    }
+
+    if (wasIncompleteInformation && store.status === 'PENDING_APPROVAL') {
+      // Trigger launch notification on successful completion of details
+      triggerUpcomingLaunchEmail(store);
     }
 
     res.json(store);

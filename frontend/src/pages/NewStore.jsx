@@ -144,6 +144,7 @@ const NewStore = () => {
   const [contacts, setContacts] = useState([]);
   const [isSaved, setIsSaved] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [pendingSubmitData, setPendingSubmitData] = useState(null);
   const isSavedRef = useRef(false);
@@ -258,6 +259,38 @@ const NewStore = () => {
     setValue('cafeManagerContactNo', newValue?.phone || '');
   };
 
+  const checkIsComplete = (data) => {
+    const mandatoryFields = [
+      'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress', 'zone', 
+      'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
+      'actualClosingTime'
+    ];
+    return mandatoryFields.every(field => {
+      const val = data[field];
+      return val !== null && val !== undefined && String(val).trim() !== '';
+    });
+  };
+
+  const watchedFields = watch();
+  const isCompleteForSubmit = [
+    'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress', 'zone', 
+    'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
+    'actualClosingTime'
+  ].every(field => {
+    const val = watchedFields[field];
+    return val !== null && val !== undefined && String(val).trim() !== '';
+  });
+
+  const getConfirmMessage = () => {
+    if (!pendingSubmitData) return '';
+    const isComplete = checkIsComplete(pendingSubmitData);
+    if (isComplete) {
+      return 'All mandatory fields are completed. This store will be submitted for NSO Approval (Approval Pending). Do you want to proceed?';
+    } else {
+      return 'Some mandatory fields are missing. The store will be saved in the All Upcoming Stores list with status "Incomplete Information". Do you want to proceed?';
+    }
+  };
+
   const onSubmit = (data) => {
     setPendingSubmitData(data);
     setConfirmOpen(true);
@@ -274,9 +307,23 @@ const NewStore = () => {
     setLoading(true);
     setErrorMsg('');
     try {
+      const isComplete = checkIsComplete(pendingSubmitData);
+      
+      let finalCafeCode = pendingSubmitData.cafeCode;
+      if (!finalCafeCode || String(finalCafeCode).trim() === '') {
+        finalCafeCode = `TEMP-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+      }
+
+      let finalCafeName = pendingSubmitData.cafeName;
+      if (!finalCafeName || String(finalCafeName).trim() === '') {
+        finalCafeName = 'Untitled Store';
+      }
+
       const payload = {
         ...pendingSubmitData,
-        status: 'PENDING_APPROVAL',
+        cafeCode: finalCafeCode,
+        cafeName: finalCafeName,
+        status: isComplete ? 'PENDING_APPROVAL' : 'INCOMPLETE_INFORMATION',
         // Combine month + year into single "Month Year" string
         cafeLaunchMonth: pendingSubmitData.cafeLaunchMonth && pendingSubmitData.cafeLaunchYear
           ? `${pendingSubmitData.cafeLaunchMonth} ${pendingSubmitData.cafeLaunchYear}`
@@ -299,6 +346,11 @@ const NewStore = () => {
       delete payload.expectedSalesUnit;
       await axios.post('/api/stores', payload);
       reset();
+      setSnackbarMessage(
+        isComplete 
+          ? 'The new store has been submitted for NSO Approval and the email notification has been sent.'
+          : 'The new store was saved as Incomplete Information and the email notification has been sent.'
+      );
       setOpenSnackbar(true);
       setPendingSubmitData(null);
     } catch (err) {
@@ -459,15 +511,15 @@ const NewStore = () => {
                 </Box>
                 <Grid container spacing={2.5}>
                   <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField fullWidth label="Café Name **" {...register('cafeName', { required: 'Required' })} error={!!errors.cafeName} helperText={errors.cafeName?.message} />
+                    <TextField fullWidth label="Café Name **" {...register('cafeName')} error={!!errors.cafeName} helperText={errors.cafeName?.message} />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
                     <TextField
                       fullWidth
                       label="Café Code **"
                       {...register('cafeCode', { 
-                        required: 'Required',
                         validate: async (value) => {
+                          if (!value) return true;
                           try {
                             const res = await axios.get('/api/stores');
                             const exists = res.data.some(s => s.cafeCode && s.cafeCode.toLowerCase() === value.toLowerCase());
@@ -483,15 +535,15 @@ const NewStore = () => {
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField fullWidth label="Pin Code **" {...register('pinCode', { required: 'Required' })} error={!!errors.pinCode} helperText={errors.pinCode?.message} />
+                    <TextField fullWidth label="Pin Code **" {...register('pinCode')} error={!!errors.pinCode} helperText={errors.pinCode?.message} />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
                     <TextField 
                       fullWidth 
                       label="City **" 
-                      {...register('city', { required: 'Required' })} 
+                      {...register('city')} 
                       error={!!errors.city} 
-                      helperText={errors.city?.message} 
+                      helperText={errors.city?.message}
                       value={watch('city') || ''}
                       InputProps={{ readOnly: true }}
                       InputLabelProps={{ shrink: !!watch('city') }}
@@ -501,9 +553,9 @@ const NewStore = () => {
                     <TextField 
                       fullWidth 
                       label="State **" 
-                      {...register('state', { required: 'Required' })} 
+                      {...register('state')} 
                       error={!!errors.state} 
-                      helperText={errors.state?.message} 
+                      helperText={errors.state?.message}
                       value={watch('state') || ''}
                       InputProps={{ readOnly: true }}
                       InputLabelProps={{ shrink: !!watch('state') }}
@@ -511,25 +563,25 @@ const NewStore = () => {
                   </Grid>
                   
                   <Grid size={12}>
-                    <TextField fullWidth label="Café Address **" {...register('cafeAddress', { required: 'Required' })} error={!!errors.cafeAddress} helperText={errors.cafeAddress?.message} />
+                    <TextField fullWidth label="Café Address **" {...register('cafeAddress')} error={!!errors.cafeAddress} helperText={errors.cafeAddress?.message} />
                   </Grid>
                   
                   {/* Row 3: Zone | Café Location | Lat,Long | Latitude | Longitude */}
                   <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField fullWidth select label="Zone **" {...register('zone', { required: 'Required' })} error={!!errors.zone} value={watch('zone') || ''}>
+                    <TextField fullWidth select label="Zone **" {...register('zone')} error={!!errors.zone} value={watch('zone') || ''}>
                       <MenuItem value="">— Clear Selection —</MenuItem>
                       {ZONES.map(z => <MenuItem key={z} value={z}>{z}</MenuItem>)}
                     </TextField>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField fullWidth label="Café Location Google Link **" placeholder="https://maps.google.com/..." {...register('cafeLocationGoogleLink', { required: 'Required' })} error={!!errors.cafeLocationGoogleLink} helperText={errors.cafeLocationGoogleLink?.message} />
+                    <TextField fullWidth label="Café Location Google Link **" placeholder="https://maps.google.com/..." {...register('cafeLocationGoogleLink')} error={!!errors.cafeLocationGoogleLink} helperText={errors.cafeLocationGoogleLink?.message} />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
                     <TextField
                       fullWidth
                       label="Lat, Long **"
                       placeholder="e.g. 28.6139, 77.2090"
-                      {...register('latitude', { required: 'Required' })}
+                      {...register('latitude')}
                       error={!!errors.latitude}
                       helperText={errors.latitude?.message || "Latitude, Longitude"}
                     />
@@ -540,7 +592,7 @@ const NewStore = () => {
                       label="Latitude **"
                       InputLabelProps={{ shrink: true }}
                       InputProps={{ readOnly: true }}
-                      {...register('latt', { required: 'Required' })}
+                      {...register('latt')}
                       error={!!errors.latt}
                       helperText={errors.latt?.message || "Auto-filled"}
                       sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
@@ -552,7 +604,7 @@ const NewStore = () => {
                       label="Longitude **"
                       InputLabelProps={{ shrink: true }}
                       InputProps={{ readOnly: true }}
-                      {...register('long', { required: 'Required' })}
+                      {...register('long')}
                       error={!!errors.long}
                       helperText={errors.long?.message || "Auto-filled"}
                       sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
@@ -565,7 +617,7 @@ const NewStore = () => {
                       type="time" 
                       label="Café Opening Time **" 
                       InputLabelProps={{ shrink: true }}
-                      {...register('cafeOpenTiming', { required: 'Required' })} 
+                      {...register('cafeOpenTiming')} 
                       error={!!errors.cafeOpenTiming} 
                       helperText={errors.cafeOpenTiming?.message} 
                     />
@@ -576,7 +628,7 @@ const NewStore = () => {
                       type="time" 
                       label="Café Closing Time **" 
                       InputLabelProps={{ shrink: true }}
-                      {...register('cafeClosingTime', { required: 'Required' })} 
+                      {...register('cafeClosingTime')} 
                       error={!!errors.cafeClosingTime} 
                       helperText={errors.cafeClosingTime?.message} 
                     />
@@ -587,7 +639,7 @@ const NewStore = () => {
                       type="time" 
                       label="Actual Closing Time **" 
                       InputLabelProps={{ shrink: true }}
-                      {...register('actualClosingTime', { required: 'Required' })} 
+                      {...register('actualClosingTime')} 
                       error={!!errors.actualClosingTime} 
                       helperText={errors.actualClosingTime?.message} 
                     />
@@ -752,7 +804,7 @@ const NewStore = () => {
                       renderInput={(params) => (
                         <TextField 
                           {...params} 
-                          label="Select City Head **" 
+                          label="Select City Head" 
                           error={!!errors.cityHeadId}
                           helperText={errors.cityHeadId?.message}
                         />
@@ -789,7 +841,7 @@ const NewStore = () => {
 
                 {/* Hidden inputs for names and relation IDs */}
                 <input type="hidden" {...register('areaManagerId')} />
-                <input type="hidden" {...register('cityHeadId', { required: 'Required' })} />
+                <input type="hidden" {...register('cityHeadId')} />
                 <input type="hidden" {...register('cafeManagerId')} />
                 <input type="hidden" {...register('cafeManagerName')} />
                 <input type="hidden" {...register('areaManagerName')} />
@@ -919,8 +971,8 @@ const NewStore = () => {
                     <TextField 
                       fullWidth 
                       select 
-                      label="Café Model **" 
-                      {...register('cafeModel', { required: 'Required' })} 
+                      label="Café Model" 
+                      {...register('cafeModel')} 
                       error={!!errors.cafeModel} 
                       helperText={errors.cafeModel?.message} 
                       value={watch('cafeModel') || ''}
@@ -951,13 +1003,13 @@ const NewStore = () => {
                     <TextField fullWidth label="Cafe Opening Hr" placeholder="e.g. 15 hours" {...register('cafeOpeningHr')} />
                   </Grid>
                   <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Platform Type **" {...register('platformType', { required: 'Required' })} error={!!errors.platformType} helperText={errors.platformType?.message} value={watch('platformType') || ''}>
+                    <TextField fullWidth select label="Platform Type" {...register('platformType')} error={!!errors.platformType} helperText={errors.platformType?.message} value={watch('platformType') || ''}>
                       <MenuItem value="">— Clear Selection —</MenuItem>
                       {PLATFORM_TYPES.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                     </TextField>
                   </Grid>
                   <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Trading Area **" {...register('tradingArea', { required: 'Required' })} error={!!errors.tradingArea} helperText={errors.tradingArea?.message} value={watch('tradingArea') || ''}>
+                    <TextField fullWidth select label="Trading Area" {...register('tradingArea')} error={!!errors.tradingArea} helperText={errors.tradingArea?.message} value={watch('tradingArea') || ''}>
                       <MenuItem value="">— Clear Selection —</MenuItem>
                       {TRADING_AREAS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                     </TextField>
@@ -1100,7 +1152,7 @@ const NewStore = () => {
                     variant="contained" 
                     size="large" 
                     type="submit" 
-                    disabled={loading} 
+                    disabled={loading || !isCompleteForSubmit} 
                     fullWidth 
                     sx={{ py: 1.8, fontSize: '1rem', borderRadius: '10px', fontWeight: 700 }}
                   >
@@ -1135,7 +1187,7 @@ const NewStore = () => {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-            Do you want to send the email notification for this new store?
+            {getConfirmMessage()}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1.5 }}>
@@ -1190,7 +1242,7 @@ const NewStore = () => {
             fontWeight: 600
           }}
         >
-          The new store has been created successfully and the email notification has been sent.
+          {snackbarMessage}
         </Alert>
       </Snackbar>
     </Box>

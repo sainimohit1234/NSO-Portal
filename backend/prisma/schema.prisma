@@ -18,9 +18,11 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   auditLogs   AuditLog[]
-  otpCode     String?
-  otpExpiry   DateTime?
-  lastLoginAt DateTime?
+  otpCode          String?
+  otpExpiry        DateTime?
+  lastLoginAt      DateTime?
+  activeSessionId  String?   // UUID of the current active session; null = no enforcement
+  lastActiveAt     DateTime? // Timestamp of the user's last activity/heartbeat
 }
 
 model Contact {

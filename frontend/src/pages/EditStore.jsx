@@ -621,6 +621,20 @@ export default function EditStore() {
   const onSubmit = (data) => {
     setErrorMsg('');
 
+    // If currently INCOMPLETE_INFORMATION, check completeness and auto-transition to PENDING_APPROVAL if completed
+    if (store?.status === 'INCOMPLETE_INFORMATION') {
+      const missingFieldsList = mandatoryFields.filter(field => {
+        const val = data[field];
+        return val === null || val === undefined || String(val).trim() === '';
+      });
+
+      if (missingFieldsList.length === 0) {
+        data.status = 'PENDING_APPROVAL';
+      } else {
+        data.status = 'INCOMPLETE_INFORMATION';
+      }
+    }
+
     // Check if any mandatory fields are missing
     const missing = mandatoryFields.filter(field => {
       const val = data[field];
@@ -744,20 +758,9 @@ export default function EditStore() {
   };
 
   const mandatoryFields = [
-    'cafeName', 'cafeCode', 'cafeModel', 'cafeAddress', 'city', 'state', 'pinCode', 'zone', 
+    'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress', 'zone', 
     'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
-    'actualClosingTime', 'cityHeadId', 'cityHeadEmail', 'cityHeadPhone', 'platformType', 
-    'tradingArea', 'launchStatus',
-    // Contact mandatory fields
-    'cafePhoneNumber', 'cafeMailId', 'cmMailId',
-    // Finance / Legal
-    'gstNo',
-    // Project dates
-    'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate',
-    // Operations
-    'cluster', 'cafeOpeningHr', 'smokingZone', 'parkingOption',
-    // Sales & Nearby
-    'expectedSales', 'nearbyCafes'
+    'actualClosingTime'
   ];
 
   const watchedFields = watch();
@@ -1587,7 +1590,7 @@ export default function EditStore() {
                       renderInput={(params) => (
                         <TextField 
                           {...params} 
-                          label="Select City Head **" 
+                          label="Select City Head" 
                           error={!!errors.cityHeadId}
                           helperText={errors.cityHeadId?.message}
                         />
@@ -1620,10 +1623,10 @@ export default function EditStore() {
                     />
                   </Grid>
                 </Grid>
-
+ 
                 {/* Hidden inputs for names and relation IDs */}
                 <input type="hidden" {...register('areaManagerId')} />
-                <input type="hidden" {...register('cityHeadId', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} />
+                <input type="hidden" {...register('cityHeadId')} />
                 <input type="hidden" {...register('cafeManagerId')} />
                 <input type="hidden" {...register('cafeManagerName')} />
                 <input type="hidden" {...register('areaManagerName')} />
@@ -1803,8 +1806,8 @@ export default function EditStore() {
                     <TextField 
                       fullWidth 
                       select 
-                      label="Café Model **" 
-                      {...register('cafeModel', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                      label="Café Model" 
+                      {...register('cafeModel')} 
                       error={!!errors.cafeModel} 
                       helperText={errors.cafeModel?.message}
                       disabled={!canEditBasicDetails} 
@@ -1836,13 +1839,13 @@ export default function EditStore() {
                     <TextField fullWidth label="Cafe Opening Hr" placeholder="e.g. 15 hours" {...register('cafeOpeningHr')} disabled={!canEditBasicDetails} />
                   </Grid>
                   <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Platform Type **" {...register('platformType', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} error={!!errors.platformType} helperText={errors.platformType?.message} disabled={!canEditBasicDetails} value={watch('platformType') || ''}>
+                    <TextField fullWidth select label="Platform Type" {...register('platformType')} error={!!errors.platformType} helperText={errors.platformType?.message} disabled={!canEditBasicDetails} value={watch('platformType') || ''}>
                       <MenuItem value="">— Clear Selection —</MenuItem>
                       {PLATFORM_TYPES.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                     </TextField>
                   </Grid>
                   <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Trading Area **" {...register('tradingArea', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} error={!!errors.tradingArea} helperText={errors.tradingArea?.message} disabled={!canEditBasicDetails} value={watch('tradingArea') || ''}>
+                    <TextField fullWidth select label="Trading Area" {...register('tradingArea')} error={!!errors.tradingArea} helperText={errors.tradingArea?.message} disabled={!canEditBasicDetails} value={watch('tradingArea') || ''}>
                       <MenuItem value="">— Clear Selection —</MenuItem>
                       {TRADING_AREAS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
                     </TextField>
@@ -1989,10 +1992,16 @@ export default function EditStore() {
                     variant="contained" 
                     size="large" 
                     type="submit" 
-                    disabled={loading || (!canEditBasicDetails && !canEditContacts && !canEditFinance && !canEditGoLive && !canEditClosure) || !isGoLiveFormValid() || !isClosureFormValid()} 
+                    disabled={loading || (!canEditBasicDetails && !canEditContacts && !canEditFinance && !canEditGoLive && !canEditClosure) || !isGoLiveFormValid() || !isClosureFormValid() || (store?.status === 'INCOMPLETE_INFORMATION' && !isApprovedSelectable)} 
                     sx={{ px: 4, borderRadius: '8px' }}
                   >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Save Changes'}
+                    {loading ? (
+                      <CircularProgress size={24} color="inherit" />
+                    ) : store?.status === 'INCOMPLETE_INFORMATION' ? (
+                      'Submit for NSO Approval'
+                    ) : (
+                      'Save Changes'
+                    )}
                   </Button>
                 )}
               </CardContent>
