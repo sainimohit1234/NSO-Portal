@@ -167,32 +167,47 @@ export default function Dashboard() {
     };
   }, [filteredStores]);
 
-  // Compute monthly growth data dynamically based on store creation month (current calendar year)
+  const getStoreLaunchDate = (store) => {
+    const candidateDates = [
+      store?.inStoreLiveDate,
+      store?.deliveryLiveDate,
+      store?.launchDate
+    ]
+      .filter(Boolean)
+      .map(value => new Date(value))
+      .filter(date => !Number.isNaN(date.getTime()))
+      .sort((left, right) => left.getTime() - right.getTime());
+
+    return candidateDates[0] || null;
+  };
+
+  // Compute rolling 12-month cumulative growth based on actual store launch dates
   const chartData = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const currentYear = new Date().getFullYear();
-    const monthlyCounts = months.map(m => ({ name: m, stores: 0 }));
-    let runningTotal = 0;
+    const today = new Date();
+    const launchDates = filteredStores
+      .filter(store => store?.status === 'LIVE' || store?.status === 'Live')
+      .map(getStoreLaunchDate)
+      .filter(date => date && date <= today)
+      .sort((left, right) => left.getTime() - right.getTime());
 
-    const sorted = [...filteredStores].sort(
-      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-    );
+    if (launchDates.length === 0) {
+      return [];
+    }
 
-    sorted.forEach(s => {
-      const date = new Date(s.createdAt);
-      if (date.getFullYear() === currentYear) {
-        const monthIdx = date.getMonth();
-        runningTotal++;
-        for (let i = monthIdx; i < 12; i++) {
-          monthlyCounts[i].stores = runningTotal;
-        }
-      }
+    const monthWindows = Array.from({ length: 12 }, (_, index) => {
+      const monthDate = new Date(today.getFullYear(), today.getMonth() - (11 - index), 1);
+      const monthEnd = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59, 999);
+
+      return {
+        name: monthDate.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
+        monthEnd
+      };
     });
 
-    if (runningTotal === 0) {
-      return months.map(m => ({ name: m, stores: filteredStores.length }));
-    }
-    return monthlyCounts;
+    return monthWindows.map(({ name, monthEnd }) => ({
+      name,
+      stores: launchDates.filter(date => date.getTime() <= monthEnd.getTime()).length
+    }));
   }, [filteredStores]);
 
   const statCards = [
@@ -264,9 +279,21 @@ export default function Dashboard() {
         </Box>
       </Box>
 
-      <Grid container spacing={1.75} sx={{ mb: 2.5 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, minmax(0, 1fr))',
+            md: 'repeat(3, minmax(0, 1fr))',
+            lg: 'repeat(5, minmax(0, 1fr))'
+          },
+          gap: 1.75,
+          mb: 2.5
+        }}
+      >
         {statCards.map((stat, idx) => (
-          <Grid size={{ xs: 12, sm: 6, md: 4, xl: 3 }} key={idx}>
+          <Box key={idx}>
             <Card sx={{ 
               bgcolor: 'background.paper',
               transition: 'all 0.2s ease',
@@ -305,9 +332,9 @@ export default function Dashboard() {
                 </Box>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
 
       <Grid container spacing={2} sx={{ mb: 2.5 }}>
         <Grid size={{ xs: 12, lg: 7.5 }}>
