@@ -1872,8 +1872,8 @@ router.get('/:id/zomato-template', authenticateToken, async (req: any, res) => {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     const inputDocxPath = path.join(__dirname, '../templates/Zomato_OB_Form_Template.docx');
-    const tempDocxPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.docx`);
-    const tempPdfPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.pdf`);
+    const tempDocxPath = path.join(tempDir, `temp_zomato_${store.id}_${Date.now()}.docx`);
+    const tempPdfPath = path.join(tempDir, `temp_zomato_${store.id}_${Date.now()}.pdf`);
 
     // Generate the customized docx
     await executeProcessDocx(inputDocxPath, tempDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
@@ -2059,8 +2059,8 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
         fs.mkdirSync(tempDir, { recursive: true });
       }
       const inputDocxPath = path.join(__dirname, '../templates/Zomato_OB_Form_Template.docx');
-      const tempDocxPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.docx`);
-      const tempPdfPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.pdf`);
+      const tempDocxPath = path.join(tempDir, `temp_zomato_${store.id}_${Date.now()}.docx`);
+      const tempPdfPath = path.join(tempDir, `temp_zomato_${store.id}_${Date.now()}.pdf`);
 
       // Generate the customized docx
       await executeProcessDocx(inputDocxPath, tempDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
