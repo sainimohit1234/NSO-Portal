@@ -915,8 +915,11 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
 router.put('/:id/compliance-approve', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'FINANCE'), async (req, res) => {
   const { id } = req.params;
   const user = (req as any).user;
-  if (user?.role === 'FINANCE' && (!user.permissions || !user.permissions.includes('APPROVER'))) {
+  if (user?.role === 'FINANCE' && (!user.permissions || !user.permissions.split(',').map((p: string) => p.trim()).includes('APPROVER'))) {
     return res.status(403).json({ error: 'Access denied: Finance profile requires Approver permission to approve compliance.' });
+  }
+  if (user?.role === 'SUPER_ADMIN' && (!user.permissions || !user.permissions.split(',').map((p: string) => p.trim()).includes('APPROVE_COMPLIANCE'))) {
+    return res.status(403).json({ error: 'Access denied: Super Admin profile requires Approve Compliance permission.' });
   }
   try {
     const store = await prisma.store.findUnique({

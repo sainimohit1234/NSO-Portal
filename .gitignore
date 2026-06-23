@@ -38,3 +38,8 @@ Thumbs.db
 # ─── Logs ────────────────────────────────────────────────
 *.log
 logs/
+
+# ─── Temporary PDF & Documents ───────────────────────────
+Zomato_OB_Form_Review.pdf
+backend/src/temp_docs/
+

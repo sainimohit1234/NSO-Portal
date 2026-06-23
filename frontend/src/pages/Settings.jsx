@@ -1004,10 +1004,10 @@ export default function Settings() {
                     <FormControlLabel
                       control={
                         <Switch 
-                          checked={tempPermissions.includes('GO_LIVE')} 
+                          checked={tempPermissions.split(',').map(p => p.trim()).includes('GO_LIVE')} 
                           disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                           onChange={(e) => {
-                            const perms = tempPermissions.split(',').filter(p => p);
+                            const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
                             if (e.target.checked) perms.push('GO_LIVE');
                             else { const idx = perms.indexOf('GO_LIVE'); if (idx > -1) perms.splice(idx, 1); }
                             setTempPermissions(perms.join(','));
@@ -1019,10 +1019,10 @@ export default function Settings() {
                     <FormControlLabel
                       control={
                         <Switch 
-                          checked={tempPermissions.includes('DELETE_BRANCH')} 
+                          checked={tempPermissions.split(',').map(p => p.trim()).includes('DELETE_BRANCH')} 
                           disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                           onChange={(e) => {
-                            const perms = tempPermissions.split(',').filter(p => p);
+                            const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
                             if (e.target.checked) perms.push('DELETE_BRANCH');
                             else { const idx = perms.indexOf('DELETE_BRANCH'); if (idx > -1) perms.splice(idx, 1); }
                             setTempPermissions(perms.join(','));
@@ -1030,6 +1030,21 @@ export default function Settings() {
                         />
                       }
                       label="Delete Branches"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch 
+                          checked={tempPermissions.split(',').map(p => p.trim()).includes('APPROVE_COMPLIANCE')} 
+                          disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
+                          onChange={(e) => {
+                            const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
+                            if (e.target.checked) perms.push('APPROVE_COMPLIANCE');
+                            else { const idx = perms.indexOf('APPROVE_COMPLIANCE'); if (idx > -1) perms.splice(idx, 1); }
+                            setTempPermissions(perms.join(','));
+                          }}
+                        />
+                      }
+                      label="Approve Compliance"
                     />
                   </>
                 )}

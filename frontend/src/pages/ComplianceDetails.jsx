@@ -422,8 +422,9 @@ export default function ComplianceDetails() {
           >
             Save Progress
           </Button>
-          {/* Approve button — visible only to Finance/SuperAdmin with APPROVER permission */}
-          {((user?.role === 'FINANCE' || user?.role === 'SUPER_ADMIN') && user?.permissions?.includes('APPROVER')) && (
+          {/* Approve button — visible only to Finance/SuperAdmin with proper permission */}
+          {((user?.role === 'FINANCE' && user?.permissions?.split(',').map(p => p.trim()).includes('APPROVER')) || 
+            (user?.role === 'SUPER_ADMIN' && user?.permissions?.split(',').map(p => p.trim()).includes('APPROVE_COMPLIANCE'))) && (
             <Button 
               variant="contained" 
               color="success"
