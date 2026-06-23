@@ -1355,7 +1355,7 @@ Operations Team`;
                 Attachments:{' '}
                 {aggregator.startsWith('swiggy') ? (
                   <a
-                    href={`/api/stores/${selectedStore?.id}/swiggy-template?brand=${aggregator}`}
+                    href={`/api/stores/${selectedStore?.id}/swiggy-template?brand=${aggregator}&token=${localStorage.getItem('token')}`}
                     download
                     style={{ color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer' }}
                   >
@@ -1363,11 +1363,11 @@ Operations Team`;
                   </a>
                 ) : aggregator.startsWith('zomato') ? (
                   <a
-                    href={`/api/stores/${selectedStore?.id}/zomato-template?brand=${aggregator}`}
+                    href={`/api/stores/${selectedStore?.id}/zomato-template?brand=${aggregator}&token=${localStorage.getItem('token')}`}
                     download
                     style={{ color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer' }}
                   >
-                    {`Zomato_Onboarding_Form_${selectedStore?.cafeCode}.docx`}
+                    {`Zomato_Onboarding_Form_${selectedStore?.cafeCode}.pdf`}
                   </a>
                 ) : (
                   'None'

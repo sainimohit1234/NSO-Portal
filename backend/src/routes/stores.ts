@@ -1872,22 +1872,25 @@ router.get('/:id/zomato-template', authenticateToken, async (req: any, res) => {
       fs.mkdirSync(tempDir, { recursive: true });
     }
     const inputDocxPath = path.join(__dirname, '../templates/Zomato_OB_Form_Template.docx');
-    const outputDocxPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.docx`);
+    const tempDocxPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.docx`);
+    const tempPdfPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.pdf`);
 
     // Generate the customized docx
-    await executeProcessDocx(inputDocxPath, outputDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
+    await executeProcessDocx(inputDocxPath, tempDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
 
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename=Zomato_Onboarding_Form_${store.cafeCode}.docx`);
+    // Convert docx to pdf
+    await convertDocxToPdf(tempDocxPath, tempPdfPath);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Zomato_Onboarding_Form_${store.cafeCode}.pdf`);
     
-    res.sendFile(outputDocxPath, (err) => {
-      // Clean up temporary file after sending
-      if (fs.existsSync(outputDocxPath)) {
-        try {
-          fs.unlinkSync(outputDocxPath);
-        } catch (unlinkErr) {
-          console.error('Failed to delete temp file after download:', outputDocxPath, unlinkErr);
-        }
+    res.sendFile(tempPdfPath, (err) => {
+      // Clean up temporary files after sending
+      if (fs.existsSync(tempDocxPath)) {
+        try { fs.unlinkSync(tempDocxPath); } catch (e) {}
+      }
+      if (fs.existsSync(tempPdfPath)) {
+        try { fs.unlinkSync(tempPdfPath); } catch (e) {}
       }
     });
   } catch (error: any) {
@@ -1968,6 +1971,34 @@ function executeProcessDocx(
   });
 }
 
+// Helper function to convert Docx to Pdf via Microsoft Word AppleScript (osascript)
+function convertDocxToPdf(docxPath: string, pdfPath: string): Promise<void> {
+  const escapePath = (p: string) => p.replace(/"/g, '\\"');
+  const appleScript = `
+tell application "Microsoft Word"
+    set docPath to POSIX file "${escapePath(docxPath)}"
+    set pdfPath to POSIX file "${escapePath(pdfPath)}"
+    open docPath
+    set activeDoc to active document
+    save as activeDoc file format format PDF file name pdfPath
+    close activeDoc saving no
+end tell
+  `;
+  
+  const escapeArg = (arg: string) => `'${arg.replace(/'/g, "'\\''")}'`;
+  const command = `osascript -e ${escapeArg(appleScript)}`;
+
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error('osascript conversion error:', error, stderr);
+        return reject(error);
+      }
+      resolve();
+    });
+  });
+}
+
 // POST /:id/send-swiggy-onboarding-email
 router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: any, res) => {
   const storeId = parseInt(req.params.id);
@@ -1976,7 +2007,7 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
     return res.status(400).json({ error: 'Invalid store ID.' });
   }
 
-  let tempFilePathToCleanup = '';
+  let tempFilesToCleanup: string[] = [];
   try {
     const store = await prisma.store.findUnique({ where: { id: storeId } });
     if (!store) {
@@ -2017,15 +2048,20 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
         fs.mkdirSync(tempDir, { recursive: true });
       }
       const inputDocxPath = path.join(__dirname, '../templates/Zomato_OB_Form_Template.docx');
-      const outputDocxPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.docx`);
+      const tempDocxPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.docx`);
+      const tempPdfPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.pdf`);
 
       // Generate the customized docx
-      await executeProcessDocx(inputDocxPath, outputDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
-      tempFilePathToCleanup = outputDocxPath;
+      await executeProcessDocx(inputDocxPath, tempDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
+      tempFilesToCleanup.push(tempDocxPath);
+
+      // Convert docx to pdf
+      await convertDocxToPdf(tempDocxPath, tempPdfPath);
+      tempFilesToCleanup.push(tempPdfPath);
 
       attachments = [{
-        filename: `Zomato_Onboarding_Form_${store.cafeCode}.docx`,
-        path: outputDocxPath
+        filename: `Zomato_Onboarding_Form_${store.cafeCode}.pdf`,
+        path: tempPdfPath
       }];
 
       htmlBody = `
@@ -2169,14 +2205,16 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       info = await transporter.sendMail(mailOptions);
     }
 
-    // Clean up temporary file if any
-    if (tempFilePathToCleanup && fs.existsSync(tempFilePathToCleanup)) {
-      try {
-        fs.unlinkSync(tempFilePathToCleanup);
-      } catch (err) {
-        console.error('Failed to delete temp file:', tempFilePathToCleanup, err);
+    // Clean up temporary files
+    tempFilesToCleanup.forEach((f) => {
+      if (f && fs.existsSync(f)) {
+        try {
+          fs.unlinkSync(f);
+        } catch (err) {
+          console.error('Failed to delete temp file:', f, err);
+        }
       }
-    }
+    });
 
     // Update mailStatus to 'Sent' in database
     await prisma.store.update({
@@ -2187,14 +2225,16 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
     res.json({ message: 'Onboarding email sent successfully.', info });
   } catch (error: any) {
     console.error('Error sending onboarding email:', error);
-    // Clean up temp file in case of error as well
-    if (tempFilePathToCleanup && fs.existsSync(tempFilePathToCleanup)) {
-      try {
-        fs.unlinkSync(tempFilePathToCleanup);
-      } catch (err) {
-        // ignore
+    // Clean up temp files in case of error as well
+    tempFilesToCleanup.forEach((f) => {
+      if (f && fs.existsSync(f)) {
+        try {
+          fs.unlinkSync(f);
+        } catch (err) {
+          // ignore
+        }
       }
-    }
+    });
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
