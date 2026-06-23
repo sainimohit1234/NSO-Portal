@@ -12,6 +12,8 @@ import { getSMTPConfig } from '../utils/smtp';
 import { getEmailRecipients } from '../utils/emailRecipients';
 import { getThreadMessageId, saveThreadMessageId } from '../utils/emailThreads';
 import * as XLSX from 'xlsx';
+import { exec } from 'child_process';
+
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -1829,10 +1831,10 @@ router.get('/:id/swiggy-template', authenticateToken, async (req: any, res) => {
   }
 });
 
-// POST /:id/send-swiggy-onboarding-email
-router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: any, res) => {
+// GET /:id/zomato-template
+router.get('/:id/zomato-template', authenticateToken, async (req: any, res) => {
   const storeId = parseInt(req.params.id);
-  const { brand: brandParam, to, cc, subject, body } = req.body;
+  const brandParam = String(req.query.brand || '');
   if (isNaN(storeId)) {
     return res.status(400).json({ error: 'Invalid store ID.' });
   }
@@ -1843,86 +1845,290 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       return res.status(404).json({ error: 'Store not found.' });
     }
 
-    // Generate Excel attachment buffer
-    const wsData = buildSwiggyTemplateData(store, brandParam || '');
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-    ws['!cols'] = [
-      { wch: 70 },
-      { wch: 50 }
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Swiggy Template");
-    const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-
-    let restaurantName = "Blue_Tokai";
-    const normalizedBrand = String(brandParam || '').toLowerCase();
+    const normalizedBrand = brandParam.toLowerCase();
+    let brandName = "Blue Tokai Coffee Roasters";
     if (normalizedBrand.includes("suchali")) {
-      restaurantName = "Suchali_Artisan_Bakehouse";
+      brandName = "Suchali's Artisan Bakehouse";
     } else if (normalizedBrand.includes("got_tea") || normalizedBrand.includes("gottea")) {
-      restaurantName = "Got_Tea";
+      brandName = "Got Tea";
     }
 
-    // Helper function to build a styled HTML table matching the reference screenshot
-    // Burnt amber header (#B45309), orange cell for Restaurant Name (row 2),
-    // green cell for Display Name (row 5), bold attribute for Partner app training (row 12)
-    // "New / Existing Onboarding*" (row 1) = plain white bg, black text
-    // All data cell text is black (#000000)
-    function buildHtmlTable(data: string[][]) {
-      // Row index in data (0 = header, 2 = Restaurant Name, 5 = Display Name, 12 = Partner training)
-      const orangeRows = new Set([2]);   // Only "Restaurant Name*" gets orange bg
-      const greenRows  = new Set([5]);   // "Display Name"
-      const boldRows   = new Set([12]);  // "Partner app training requirement*"
+    const completeAddress = [
+      store.cafeAddress || store.address,
+      store.city,
+      store.state,
+      store.pinCode
+    ].filter(Boolean).join(', ');
 
-      let html = `<div style="font-family: Arial, sans-serif; margin: 20px 0; max-width: 100%; overflow-x: auto;">`;
-      html += `<table style="border-collapse: collapse; width: 100%; min-width: 700px; font-size: 13px; text-align: left;">`;
+    // Format current date as DD-MM-YYYY
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const yyyy = today.getFullYear();
+    const dateStr = `${dd}-${mm}-${yyyy}`;
 
-      data.forEach((row, rowIndex) => {
-        html += `<tr>`;
-        row.forEach((cell, colIndex) => {
-          if (rowIndex === 0) {
-            // Header row: burnt amber background, white bold text, center-aligned
-            const borderRight = colIndex === 0 ? 'border-right: 1px solid #7c3500;' : '';
-            html += `<td style="background-color: #B45309; color: #ffffff; font-weight: bold; font-size: 13px; text-align: center; padding: 10px 14px; ${borderRight}">${cell || ''}</td>`;
-          } else {
-            // Data rows — all text is black (#000000)
-            const isAttributeCol = colIndex === 0;
-            const isBold = boldRows.has(rowIndex);
+    const tempDir = path.join(__dirname, '../temp_docs');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    const inputDocxPath = path.join(__dirname, '../templates/Zomato_OB_Form_Template.docx');
+    const outputDocxPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.docx`);
 
-            if (isAttributeCol) {
-              const fontWeight = isBold ? 'font-weight: bold;' : 'font-weight: normal;';
-              html += `<td style="border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; color: #000000; ${fontWeight}">${cell || ''}</td>`;
-            } else {
-              // Validation column — apply colour-coding backgrounds, always black text
-              let bgColor = '';
-              if (orangeRows.has(rowIndex)) {
-                bgColor = 'background-color: #FF8C00;';
-              } else if (greenRows.has(rowIndex)) {
-                bgColor = 'background-color: #00A651;';
-              }
-              html += `<td style="border: 1px solid #cbd5e1; padding: 8px 12px; text-align: center; ${bgColor} color: #000000; font-weight: normal;">${cell || ''}</td>`;
-            }
+    // Generate the customized docx
+    await executeProcessDocx(inputDocxPath, outputDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename=Zomato_Onboarding_Form_${store.cafeCode}.docx`);
+    
+    res.sendFile(outputDocxPath, (err) => {
+      // Clean up temporary file after sending
+      if (fs.existsSync(outputDocxPath)) {
+        try {
+          fs.unlinkSync(outputDocxPath);
+        } catch (unlinkErr) {
+          console.error('Failed to delete temp file after download:', outputDocxPath, unlinkErr);
+        }
+      }
+    });
+  } catch (error: any) {
+    console.error('Error generating Zomato template:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// Helper function to build a styled HTML table matching the reference screenshot
+// Burnt amber header (#B45309), orange cell for Restaurant Name (row 2),
+// green cell for Display Name (row 5), bold attribute for Partner app training (row 12)
+// "New / Existing Onboarding*" (row 1) = plain white bg, black text
+// All data cell text is black (#000000)
+function buildHtmlTable(data: string[][]) {
+  // Row index in data (0 = header, 2 = Restaurant Name, 5 = Display Name, 12 = Partner training)
+  const orangeRows = new Set([2]);   // Only "Restaurant Name*" gets orange bg
+  const greenRows  = new Set([5]);   // "Display Name"
+  const boldRows   = new Set([12]);  // "Partner app training requirement*"
+
+  let html = `<div style="font-family: Arial, sans-serif; margin: 20px 0; max-width: 100%; overflow-x: auto;">`;
+  html += `<table style="border-collapse: collapse; width: 100%; min-width: 700px; font-size: 13px; text-align: left;">`;
+
+  data.forEach((row, rowIndex) => {
+    html += `<tr>`;
+    row.forEach((cell, colIndex) => {
+      if (rowIndex === 0) {
+        // Header row: burnt amber background, white bold text, center-aligned
+        const borderRight = colIndex === 0 ? 'border-right: 1px solid #7c3500;' : '';
+        html += `<td style="background-color: #B45309; color: #ffffff; font-weight: bold; font-size: 13px; text-align: center; padding: 10px 14px; ${borderRight}">${cell || ''}</td>`;
+      } else {
+        // Data rows — all text is black (#000000)
+        const isAttributeCol = colIndex === 0;
+        const isBold = boldRows.has(rowIndex);
+
+        if (isAttributeCol) {
+          const fontWeight = isBold ? 'font-weight: bold;' : 'font-weight: normal;';
+          html += `<td style="border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; color: #000000; ${fontWeight}">${cell || ''}</td>`;
+        } else {
+          // Validation column — apply colour-coding backgrounds, always black text
+          let bgColor = '';
+          if (orangeRows.has(rowIndex)) {
+            bgColor = 'background-color: #FF8C00;';
+          } else if (greenRows.has(rowIndex)) {
+            bgColor = 'background-color: #00A651;';
           }
-        });
-        html += `</tr>`;
-      });
+          html += `<td style="border: 1px solid #cbd5e1; padding: 8px 12px; text-align: center; ${bgColor} color: #000000; font-weight: normal;">${cell || ''}</td>`;
+        }
+      }
+    });
+    html += `</tr>`;
+  });
 
-      html += `</table>`;
-      html += `</div>`;
-      return html;
+  html += `</table>`;
+  html += `</div>`;
+  return html;
+}
+
+// Helper function to execute process_docx.py script
+function executeProcessDocx(
+  inputPath: string,
+  outputPath: string,
+  brandName: string,
+  cafeName: string,
+  addressStr: string,
+  dateStr: string
+): Promise<void> {
+  const escapeArg = (arg: string) => `'${arg.replace(/'/g, "'\\''")}'`;
+  const command = `python3 ${escapeArg(path.join(__dirname, '../utils/process_docx.py'))} ${escapeArg(inputPath)} ${escapeArg(outputPath)} ${escapeArg(brandName)} ${escapeArg(cafeName)} ${escapeArg(addressStr)} ${escapeArg(dateStr)}`;
+  
+  return new Promise((resolve, reject) => {
+    exec(command, (error, stdout, stderr) => {
+      if (error) {
+        console.error('exec error:', error, stderr);
+        return reject(error);
+      }
+      resolve();
+    });
+  });
+}
+
+// POST /:id/send-swiggy-onboarding-email
+router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: any, res) => {
+  const storeId = parseInt(req.params.id);
+  const { brand: brandParam, to, cc, subject, body } = req.body;
+  if (isNaN(storeId)) {
+    return res.status(400).json({ error: 'Invalid store ID.' });
+  }
+
+  let tempFilePathToCleanup = '';
+  try {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found.' });
     }
 
-    const htmlBody = `
-      <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333;">
-        <p>Hi Team,</p>
-        <p>This is regarding our new cafe onboarding.</p>
-        <p>Please find below the details and initiate the process for the same.</p>
-        
-        ${buildHtmlTable(wsData)}
-        
-        <p style="margin-top: 30px;">Thanks & Regards,</p>
-        <p><strong>${req.user?.name || 'Operations Team'}</strong></p>
-      </div>
-    `;
+    const normalizedBrand = String(brandParam || '').toLowerCase();
+    const isZomato = normalizedBrand.startsWith('zomato');
+
+    let attachments: any[] = [];
+    let htmlBody = '';
+
+    if (isZomato) {
+      // Zomato Onboarding Flow
+      let brandName = "Blue Tokai Coffee Roasters";
+      if (normalizedBrand.includes("suchali")) {
+        brandName = "Suchali's Artisan Bakehouse";
+      } else if (normalizedBrand.includes("got_tea") || normalizedBrand.includes("gottea")) {
+        brandName = "Got Tea";
+      }
+
+      const completeAddress = [
+        store.cafeAddress || store.address,
+        store.city,
+        store.state,
+        store.pinCode
+      ].filter(Boolean).join(', ');
+
+      // Format current date as DD-MM-YYYY
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      const dateStr = `${dd}-${mm}-${yyyy}`;
+
+      const tempDir = path.join(__dirname, '../temp_docs');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
+      const inputDocxPath = path.join(__dirname, '../templates/Zomato_OB_Form_Template.docx');
+      const outputDocxPath = path.join(tempDir, `Zomato_OB_Form_${store.cafeCode}_${Date.now()}.docx`);
+
+      // Generate the customized docx
+      await executeProcessDocx(inputDocxPath, outputDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
+      tempFilePathToCleanup = outputDocxPath;
+
+      attachments = [{
+        filename: `Zomato_Onboarding_Form_${store.cafeCode}.docx`,
+        path: outputDocxPath
+      }];
+
+      htmlBody = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px;">
+          <h2 style="color: #c92c3b; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Zomato Onboarding Request</h2>
+          <p>Hi Team,</p>
+          <p>This is regarding our new cafe onboarding on Zomato.</p>
+          <p>Please find below the cafe details and the attached onboarding form. Kindly initiate the process.</p>
+          
+          <h3 style="color: #334155; margin-top: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Cafe Details</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; width: 30%; background-color: #f8fafc;">Cafe Name</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeName || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Cafe Code</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeCode || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Brand</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${brandName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Address</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${completeAddress || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">GST Number</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.gstNo || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">FSSAI Number</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.fssaiNo || 'N/A'}</td>
+            </tr>
+          </table>
+
+          <h3 style="color: #334155; margin-top: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Zomato OB Form Summary</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; width: 30%; background-color: #f8fafc;">Effective Date</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${dateStr}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Restaurant Name</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${brandName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Legal Entity Address</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${completeAddress}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Locality</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeName || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Signed At</td>
+              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${dateStr}</td>
+            </tr>
+          </table>
+
+          <p style="margin-top: 30px;">Thanks & Regards,</p>
+          <p><strong>${req.user?.name || 'Operations Team'}</strong></p>
+        </div>
+      `;
+
+    } else {
+      // Swiggy Onboarding Flow
+      const wsData = buildSwiggyTemplateData(store, brandParam || '');
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      ws['!cols'] = [
+        { wch: 70 },
+        { wch: 50 }
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Swiggy Template");
+      const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+      let restaurantName = "Blue_Tokai";
+      if (normalizedBrand.includes("suchali")) {
+        restaurantName = "Suchali_Artisan_Bakehouse";
+      } else if (normalizedBrand.includes("got_tea") || normalizedBrand.includes("gottea")) {
+        restaurantName = "Got_Tea";
+      }
+
+      attachments = [{
+        filename: `Swiggy_${restaurantName}_Onboarding_Template_${store.cafeCode}.xlsx`,
+        content: excelBuffer
+      }];
+
+      htmlBody = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333;">
+          <p>Hi Team,</p>
+          <p>This is regarding our new cafe onboarding.</p>
+          <p>Please find below the details and initiate the process for the same.</p>
+          
+          ${buildHtmlTable(wsData)}
+          
+          <p style="margin-top: 30px;">Thanks & Regards,</p>
+          <p><strong>${req.user?.name || 'Operations Team'}</strong></p>
+        </div>
+      `;
+    }
 
     const smtpConfig = getSMTPConfig();
     const transporter = nodemailer.createTransport({
@@ -1939,9 +2145,10 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       from: '"Analytics" <analytics@bluetokaicoffee.com>',
       to: to || '',
       cc: cc || '',
-      subject: subject || `Swiggy Onboarding Request | ${store.cafeName}`,
+      subject: subject || (isZomato ? `Zomato Onboarding Request | ${store.cafeName}` : `Swiggy Onboarding Request | ${store.cafeName}`),
       text: body || '',
-      html: htmlBody
+      html: htmlBody,
+      attachments
     };
 
     let info;
@@ -1957,9 +2164,18 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
         }
       });
       info = await testTransporter.sendMail(mailOptions);
-      console.log('Swiggy Onboarding Email sent to Ethereal: %s', nodemailer.getTestMessageUrl(info));
+      console.log('Onboarding Email sent to Ethereal: %s', nodemailer.getTestMessageUrl(info));
     } else {
       info = await transporter.sendMail(mailOptions);
+    }
+
+    // Clean up temporary file if any
+    if (tempFilePathToCleanup && fs.existsSync(tempFilePathToCleanup)) {
+      try {
+        fs.unlinkSync(tempFilePathToCleanup);
+      } catch (err) {
+        console.error('Failed to delete temp file:', tempFilePathToCleanup, err);
+      }
     }
 
     // Update mailStatus to 'Sent' in database
@@ -1968,9 +2184,17 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       data: { mailStatus: 'Sent' }
     });
 
-    res.json({ message: 'Swiggy onboarding email sent successfully.', info });
+    res.json({ message: 'Onboarding email sent successfully.', info });
   } catch (error: any) {
-    console.error('Error sending Swiggy onboarding email:', error);
+    console.error('Error sending onboarding email:', error);
+    // Clean up temp file in case of error as well
+    if (tempFilePathToCleanup && fs.existsSync(tempFilePathToCleanup)) {
+      try {
+        fs.unlinkSync(tempFilePathToCleanup);
+      } catch (err) {
+        // ignore
+      }
+    }
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });

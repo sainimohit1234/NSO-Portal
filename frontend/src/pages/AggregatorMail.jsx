@@ -1024,7 +1024,7 @@ Operations Team`;
                         Mark as Sent
                       </Button>
 
-                      {aggregator.startsWith('swiggy') && (
+                      {aggregator && (
                         <Button 
                           variant="contained" 
                           color="success" 
@@ -1352,7 +1352,26 @@ Operations Team`;
 
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                Attachments: None (Excel workbook excluded)
+                Attachments:{' '}
+                {aggregator.startsWith('swiggy') ? (
+                  <a
+                    href={`/api/stores/${selectedStore?.id}/swiggy-template?brand=${aggregator}`}
+                    download
+                    style={{ color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {`Swiggy_${selectedStore?.brand === 'BLUE_TOKAI_SUCHALI' ? 'Suchali_Artisan_Bakehouse' : selectedStore?.brand === 'GOT_TEA' ? 'Got_Tea' : 'Blue_Tokai'}_Onboarding_Template_${selectedStore?.cafeCode}.xlsx`}
+                  </a>
+                ) : aggregator.startsWith('zomato') ? (
+                  <a
+                    href={`/api/stores/${selectedStore?.id}/zomato-template?brand=${aggregator}`}
+                    download
+                    style={{ color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer' }}
+                  >
+                    {`Zomato_Onboarding_Form_${selectedStore?.cafeCode}.docx`}
+                  </a>
+                ) : (
+                  'None'
+                )}
               </Typography>
             </Box>
           </Stack>
