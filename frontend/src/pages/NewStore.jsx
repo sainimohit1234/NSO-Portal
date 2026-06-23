@@ -259,35 +259,50 @@ const NewStore = () => {
     setValue('cafeManagerContactNo', newValue?.phone || '');
   };
 
-  const checkIsComplete = (data) => {
-    const mandatoryFields = [
-      'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress', 'zone', 
-      'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
-      'actualClosingTime'
-    ];
-    return mandatoryFields.every(field => {
+  // Basic 13 fields — minimum required to save any store
+  const BASIC_FIELDS = [
+    'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress',
+    'cafeLocationGoogleLink', 'latitude', 'latt', 'long',
+    'cafeOpenTiming', 'cafeClosingTime', 'actualClosingTime'
+  ];
+
+  // Full 30 fields — required for NSO Approval
+  const NSO_FIELDS = [
+    ...BASIC_FIELDS,
+    'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId',
+    'gstNo', 'fssaiNo',
+    'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate',
+    'cafeModel', 'cluster', 'platformType', 'tradingArea',
+    'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
+  ];
+
+  const checkFieldsFilled = (data, fields) =>
+    fields.every(field => {
       const val = data[field];
       return val !== null && val !== undefined && String(val).trim() !== '';
     });
-  };
+
+  // checkIsComplete used in handleConfirmSubmit — checks NSO fields
+  const checkIsComplete = (data) => checkFieldsFilled(data, NSO_FIELDS);
 
   const watchedFields = watch();
-  const isCompleteForSubmit = [
-    'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress', 'zone', 
-    'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
-    'actualClosingTime'
-  ].every(field => {
-    const val = watchedFields[field];
-    return val !== null && val !== undefined && String(val).trim() !== '';
-  });
+
+  // Basic fields filled → can at least save the store
+  const isBasicComplete = checkFieldsFilled(watchedFields, BASIC_FIELDS);
+
+  // All NSO fields filled → show NSO Approval button
+  const isNsoComplete = checkFieldsFilled(watchedFields, NSO_FIELDS);
+
+  // 'nso' | 'basic' | 'disabled'
+  const submitMode = isNsoComplete ? 'nso' : isBasicComplete ? 'basic' : 'disabled';
 
   const getConfirmMessage = () => {
     if (!pendingSubmitData) return '';
     const isComplete = checkIsComplete(pendingSubmitData);
     if (isComplete) {
-      return 'All mandatory fields are completed. This store will be submitted for NSO Approval (Approval Pending). Do you want to proceed?';
+      return 'All mandatory fields are completed. This store will be submitted for NSO Approval. Do you want to proceed?';
     } else {
-      return 'Some mandatory fields are missing. The store will be saved in the All Upcoming Stores list with status "Incomplete Information". Do you want to proceed?';
+      return 'The basic details are filled. A new store record will be created and the email notification will be sent. Do you want to proceed?';
     }
   };
 
@@ -349,7 +364,7 @@ const NewStore = () => {
       setSnackbarMessage(
         isComplete 
           ? 'The new store has been submitted for NSO Approval and the email notification has been sent.'
-          : 'The new store was saved as Incomplete Information and the email notification has been sent.'
+          : 'The new store has been created and the email notification has been sent.'
       );
       setOpenSnackbar(true);
       setPendingSubmitData(null);
@@ -1144,20 +1159,73 @@ const NewStore = () => {
           <Grid size={12}>
             <Card sx={{ bgcolor: 'background.paper', border: '1px dashed', borderColor: 'divider', borderRadius: '16px' }}>
               <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2.5 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', fontWeight: 500, maxWidth: 600 }}>
-                  Please verify all required fields are filled correctly. Upon submission, this store setup request will enter the operations approval queue.
-                </Typography>
+                {/* Helper text changes based on mode */}
+                {submitMode === 'nso' && (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', fontWeight: 500, maxWidth: 600 }}>
+                    All mandatory fields are filled. Upon submission, this store setup request will enter the NSO approval queue.
+                  </Typography>
+                )}
+                {submitMode === 'basic' && (
+                  <Typography variant="body2" sx={{ textAlign: 'center', fontWeight: 500, maxWidth: 600, color: 'warning.dark' }}>
+                    Basic details are filled. You can create the store now. Fill in all remaining fields to unlock <strong>Submit for NSO Approval</strong>.
+                  </Typography>
+                )}
+                {submitMode === 'disabled' && (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', fontWeight: 500, maxWidth: 600 }}>
+                    Please fill in all required fields to enable submission. At minimum, complete the Café Basic Details section.
+                  </Typography>
+                )}
+
                 <Box sx={{ width: '100%', maxWidth: 400 }}>
-                  <Button 
-                    variant="contained" 
-                    size="large" 
-                    type="submit" 
-                    disabled={loading || !isCompleteForSubmit} 
-                    fullWidth 
-                    sx={{ py: 1.8, fontSize: '1rem', borderRadius: '10px', fontWeight: 700 }}
-                  >
-                    {loading ? <CircularProgress size={24} color="inherit" /> : 'Submit for NSO Approval'}
-                  </Button>
+                  {/* NSO Approval button — visible only when all 30 fields are filled */}
+                  {submitMode === 'nso' && (
+                    <Button
+                      variant="contained"
+                      size="large"
+                      type="submit"
+                      disabled={loading}
+                      fullWidth
+                      sx={{
+                        py: 1.8, fontSize: '1rem', borderRadius: '10px', fontWeight: 700,
+                        bgcolor: 'primary.main',
+                        '&:hover': { bgcolor: 'primary.dark' }
+                      }}
+                    >
+                      {loading ? <CircularProgress size={24} color="inherit" /> : 'Submit for NSO Approval'}
+                    </Button>
+                  )}
+
+                  {/* Create a New Store button — visible when only basic 13 fields are filled */}
+                  {submitMode === 'basic' && (
+                    <Button
+                      variant="contained"
+                      size="large"
+                      type="submit"
+                      disabled={loading}
+                      fullWidth
+                      sx={{
+                        py: 1.8, fontSize: '1rem', borderRadius: '10px', fontWeight: 700,
+                        bgcolor: '#f59e0b',
+                        color: '#fff',
+                        '&:hover': { bgcolor: '#d97706' }
+                      }}
+                    >
+                      {loading ? <CircularProgress size={24} color="inherit" /> : 'Create a New Store'}
+                    </Button>
+                  )}
+
+                  {/* Disabled placeholder when neither condition is met */}
+                  {submitMode === 'disabled' && (
+                    <Button
+                      variant="contained"
+                      size="large"
+                      disabled
+                      fullWidth
+                      sx={{ py: 1.8, fontSize: '1rem', borderRadius: '10px', fontWeight: 700 }}
+                    >
+                      Submit for NSO Approval
+                    </Button>
+                  )}
                 </Box>
               </CardContent>
             </Card>
@@ -1183,7 +1251,7 @@ const NewStore = () => {
         PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 400 } }}
       >
         <DialogTitle sx={{ fontWeight: 800, fontSize: '1.25rem', color: 'text.primary' }}>
-          Confirm Submission
+          {pendingSubmitData && checkIsComplete(pendingSubmitData) ? 'Submit for NSO Approval' : 'Create a New Store'}
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>
@@ -1192,10 +1260,10 @@ const NewStore = () => {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1.5 }}>
           <Button onClick={handleConfirmSubmit} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700, px: 3 }}>
-            OK
+            Confirm
           </Button>
           <Button onClick={handleCancelSubmit} variant="outlined" color="inherit" sx={{ borderRadius: '8px', fontWeight: 700, px: 3 }}>
-            Back
+            Cancel
           </Button>
         </DialogActions>
       </Dialog>

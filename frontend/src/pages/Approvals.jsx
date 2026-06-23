@@ -66,7 +66,7 @@ export default function Approvals() {
 
   const fetchStores = () => {
     axios.get('/api/stores')
-      .then(res => setStores(res.data.filter(s => ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD', 'INCOMPLETE_INFORMATION'].includes(s.status))))
+      .then(res => setStores(res.data.filter(s => ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD'].includes(s.status))))
       .catch(err => console.error(err));
   };
 
@@ -199,7 +199,6 @@ export default function Approvals() {
             <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
             <MenuItem value="NSO_APPROVED">Approved</MenuItem>
             <MenuItem value="ON_HOLD">On Hold</MenuItem>
-            <MenuItem value="INCOMPLETE_INFORMATION">Incomplete Info</MenuItem>
           </TextField>
           <TextField
             size="small"
@@ -276,7 +275,7 @@ export default function Approvals() {
                       <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>{store.cafeName}</TableCell>
                       <TableCell>{store.city} - {store.zone}</TableCell>
                       <TableCell>
-                        {['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'INCOMPLETE_INFORMATION', 'LIVE'].includes(store.status) || !canApprove || (store.isLocked && user?.role !== 'SUPER_ADMIN') ? (
+                        {['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status) || !canApprove || (store.isLocked && user?.role !== 'SUPER_ADMIN') ? (
                           <Chip
                             icon={
                               store.status === 'LIVE' || store.status === 'COMPLIANCE_APPROVED' ? (
@@ -338,7 +337,6 @@ export default function Approvals() {
                             <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
                             {canApprove && <MenuItem value="APPROVED">Approved</MenuItem>}
                             {canApprove && <MenuItem value="ON_HOLD">On Hold</MenuItem>}
-                            {canApprove && <MenuItem value="INCOMPLETE_INFORMATION">Incomplete Information</MenuItem>}
                           </TextField>
                         )}
                       </TableCell>

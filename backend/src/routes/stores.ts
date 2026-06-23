@@ -1982,6 +1982,7 @@ tell application "Microsoft Word"
     set docPath to POSIX file "${resolvedDocxPath}"
     set pdfPath to POSIX file "${resolvedPdfPath}"
     open docPath
+    delay 1.5
     set activeDoc to active document
     save as activeDoc file format format PDF file name pdfPath
     close activeDoc saving no
@@ -2057,26 +2058,7 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       const yyyy = today.getFullYear();
       const dateStr = `${dd}-${mm}-${yyyy}`;
 
-      const tempDir = path.resolve(__dirname, '../temp_docs');
-      if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-      }
-      const inputDocxPath = path.resolve(__dirname, '../templates/Zomato_OB_Form_Template.docx');
-      const tempDocxPath = path.resolve(tempDir, `temp_zomato_${store.id}_${Date.now()}.docx`);
-      const tempPdfPath = path.resolve(tempDir, `temp_zomato_${store.id}_${Date.now()}.pdf`);
-
-      // Generate the customized docx
-      await executeProcessDocx(inputDocxPath, tempDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
-      tempFilesToCleanup.push(tempDocxPath);
-
-      // Convert docx to pdf
-      await convertDocxToPdf(tempDocxPath, tempPdfPath);
-      tempFilesToCleanup.push(tempPdfPath);
-
-      attachments = [{
-        filename: `Zomato_Onboarding_Form_${store.cafeCode}.pdf`,
-        path: tempPdfPath
-      }];
+      attachments = [];
 
       htmlBody = `
         <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px;">

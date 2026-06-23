@@ -47,7 +47,7 @@ async function seedUsers() {
       const defaultPasswordHash = hashPassword('Bluetokai@123');
       await prisma.user.createMany({
         data: [
-          { name: 'Super Admin', email: 'admin@bluetokaicoffee.com', password: hashPassword('11111'), phone: '9999900001', role: 'SUPER_ADMIN' },
+          { name: 'Super Admin', email: 'admin@bluetokaicoffee.com', password: hashPassword('22222'), phone: '9999900001', role: 'SUPER_ADMIN' },
           { name: 'Aarav Mehta', email: 'aarav.mehta@bluetokaicoffee.com', password: defaultPasswordHash, phone: '9810011001', role: 'MANAGER' },
           { name: 'Ananya Sharma', email: 'ananya.sharma@bluetokaicoffee.com', password: defaultPasswordHash, phone: '9810011002', role: 'MANAGER' },
           { name: 'Kabir Singh', email: 'kabir.singh@bluetokaicoffee.com', password: defaultPasswordHash, phone: '9810011003', role: 'MANAGER' },

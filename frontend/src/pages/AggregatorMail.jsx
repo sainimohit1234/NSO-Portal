@@ -1361,14 +1361,6 @@ Operations Team`;
                   >
                     {`Swiggy_${selectedStore?.brand === 'BLUE_TOKAI_SUCHALI' ? 'Suchali_Artisan_Bakehouse' : selectedStore?.brand === 'GOT_TEA' ? 'Got_Tea' : 'Blue_Tokai'}_Onboarding_Template_${selectedStore?.cafeCode}.xlsx`}
                   </a>
-                ) : aggregator.startsWith('zomato') ? (
-                  <a
-                    href={`/api/stores/${selectedStore?.id}/zomato-template?brand=${aggregator}&token=${localStorage.getItem('token')}`}
-                    download
-                    style={{ color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer' }}
-                  >
-                    {`Zomato_Onboarding_Form_${selectedStore?.cafeCode}.pdf`}
-                  </a>
                 ) : (
                   'None'
                 )}
