@@ -505,6 +505,9 @@ export default function EditStore() {
     cmMailId: 'CM Mail ID',
     gstNo: 'GST No.',
     cafeOpeningHr: 'Cafe Opening Hours',
+    areaManagerId: 'Select Area Manager',
+    cityHeadId: 'Select City Head',
+    expectedSalesVal: 'Expected Sale',
   };
 
   // Compute changes between stored original and current form data
@@ -621,30 +624,18 @@ export default function EditStore() {
   const onSubmit = (data) => {
     setErrorMsg('');
 
-    // If currently INCOMPLETE_INFORMATION, check completeness and auto-transition to PENDING_APPROVAL if completed
-    if (store?.status === 'INCOMPLETE_INFORMATION') {
-      const missingFieldsList = mandatoryFields.filter(field => {
+    // Block status change to PENDING_APPROVAL if any NSO mandatory fields are missing.
+    // Users can still save freely when status remains INCOMPLETE_INFORMATION.
+    if (data.status === 'PENDING_APPROVAL') {
+      const missingNso = nsoMandatoryFields.filter(field => {
         const val = data[field];
         return val === null || val === undefined || String(val).trim() === '';
       });
-
-      if (missingFieldsList.length === 0) {
-        data.status = 'PENDING_APPROVAL';
-      } else {
-        data.status = 'INCOMPLETE_INFORMATION';
+      if (missingNso.length > 0) {
+        const missingLabels = missingNso.map(f => FIELD_LABELS[f] || f);
+        setErrorMsg(`These mandatory fields must be filled before submitting for NSO Approval: ${missingLabels.join(', ')}.`);
+        return;
       }
-    }
-
-    // Check if any mandatory fields are missing
-    const missing = mandatoryFields.filter(field => {
-      const val = data[field];
-      return val === null || val === undefined || String(val).trim() === '';
-    });
-
-    if (missing.length > 0 && data.status !== 'INCOMPLETE_INFORMATION') {
-      const missingLabels = missing.map(f => FIELD_LABELS[f] || f);
-      setErrorMsg(`These mandatory details must be completed before saving: ${missingLabels.join(', ')}. Alternatively, set status to "Incomplete Information" to save.`);
-      return;
     }
 
     const changes = computeChanges(data);
@@ -757,14 +748,29 @@ export default function EditStore() {
     pendingDataRef.current = null;
   };
 
+  // Basic fields used only for legacy checks elsewhere
   const mandatoryFields = [
     'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress', 'zone', 
     'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
     'actualClosingTime'
   ];
 
+  // All 30 NSO fields — required to enable "Sent to NSO Team for Approval"
+  const nsoMandatoryFields = [
+    'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress',
+    'cafeLocationGoogleLink', 'latitude', 'latt', 'long',
+    'cafeOpenTiming', 'cafeClosingTime', 'actualClosingTime',
+    'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId',
+    'gstNo', 'fssaiNo',
+    'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate',
+    'cafeModel', 'cluster', 'platformType', 'tradingArea',
+    'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
+  ];
+
   const watchedFields = watch();
-  const isApprovedSelectable = mandatoryFields.every(field => {
+
+  // isApprovedSelectable: all 30 NSO fields must be filled to enable 'Sent to NSO Team for Approval'
+  const isApprovedSelectable = nsoMandatoryFields.every(field => {
     const val = watchedFields[field];
     return val !== null && val !== undefined && String(val).trim() !== '';
   });
@@ -1023,9 +1029,9 @@ export default function EditStore() {
               '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
             }}
           >
-            To enable the <strong>"Sent to NSO Team for Approval"</strong> action, please complete all mandatory fields (marked with **):{' '}
+            To enable the <strong>"Sent to NSO Team for Approval"</strong> action, please complete all mandatory fields:{' '}
             <strong>
-              {mandatoryFields.filter(f => {
+              {nsoMandatoryFields.filter(f => {
                 const val = watch(f);
                 return val === null || val === undefined || String(val).trim() === '';
               }).map(f => FIELD_LABELS[f] || f).join(', ')}
