@@ -1867,13 +1867,13 @@ router.get('/:id/zomato-template', authenticateToken, async (req: any, res) => {
     const yyyy = today.getFullYear();
     const dateStr = `${dd}-${mm}-${yyyy}`;
 
-    const tempDir = path.join(__dirname, '../temp_docs');
+    const tempDir = path.resolve(__dirname, '../temp_docs');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
-    const inputDocxPath = path.join(__dirname, '../templates/Zomato_OB_Form_Template.docx');
-    const tempDocxPath = path.join(tempDir, `temp_zomato_${store.id}_${Date.now()}.docx`);
-    const tempPdfPath = path.join(tempDir, `temp_zomato_${store.id}_${Date.now()}.pdf`);
+    const inputDocxPath = path.resolve(__dirname, '../templates/Zomato_OB_Form_Template.docx');
+    const tempDocxPath = path.resolve(tempDir, `temp_zomato_${store.id}_${Date.now()}.docx`);
+    const tempPdfPath = path.resolve(tempDir, `temp_zomato_${store.id}_${Date.now()}.pdf`);
 
     // Generate the customized docx
     await executeProcessDocx(inputDocxPath, tempDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
@@ -1958,7 +1958,8 @@ function executeProcessDocx(
   dateStr: string
 ): Promise<void> {
   const escapeArg = (arg: string) => `'${arg.replace(/'/g, "'\\''")}'`;
-  const command = `python3 ${escapeArg(path.join(__dirname, '../utils/process_docx.py'))} ${escapeArg(inputPath)} ${escapeArg(outputPath)} ${escapeArg(brandName)} ${escapeArg(cafeName)} ${escapeArg(addressStr)} ${escapeArg(dateStr)}`;
+  const scriptPath = path.resolve(__dirname, '../utils/process_docx.py');
+  const command = `python3 ${escapeArg(scriptPath)} ${escapeArg(path.resolve(inputPath))} ${escapeArg(path.resolve(outputPath))} ${escapeArg(brandName)} ${escapeArg(cafeName)} ${escapeArg(addressStr)} ${escapeArg(dateStr)}`;
   
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
@@ -1973,11 +1974,13 @@ function executeProcessDocx(
 
 // Helper function to convert Docx to Pdf via Microsoft Word AppleScript (osascript)
 function convertDocxToPdf(docxPath: string, pdfPath: string): Promise<void> {
-  const tempScriptPath = docxPath.replace(/\.docx$/, '.scpt');
+  const resolvedDocxPath = path.resolve(docxPath);
+  const resolvedPdfPath = path.resolve(pdfPath);
+  const tempScriptPath = resolvedDocxPath.replace(/\.docx$/, '.scpt');
   const appleScript = `
 tell application "Microsoft Word"
-    set docPath to POSIX file "${docxPath}"
-    set pdfPath to POSIX file "${pdfPath}"
+    set docPath to POSIX file "${resolvedDocxPath}"
+    set pdfPath to POSIX file "${resolvedPdfPath}"
     open docPath
     set activeDoc to active document
     save as activeDoc file format format PDF file name pdfPath
@@ -2054,13 +2057,13 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       const yyyy = today.getFullYear();
       const dateStr = `${dd}-${mm}-${yyyy}`;
 
-      const tempDir = path.join(__dirname, '../temp_docs');
+      const tempDir = path.resolve(__dirname, '../temp_docs');
       if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
-      const inputDocxPath = path.join(__dirname, '../templates/Zomato_OB_Form_Template.docx');
-      const tempDocxPath = path.join(tempDir, `temp_zomato_${store.id}_${Date.now()}.docx`);
-      const tempPdfPath = path.join(tempDir, `temp_zomato_${store.id}_${Date.now()}.pdf`);
+      const inputDocxPath = path.resolve(__dirname, '../templates/Zomato_OB_Form_Template.docx');
+      const tempDocxPath = path.resolve(tempDir, `temp_zomato_${store.id}_${Date.now()}.docx`);
+      const tempPdfPath = path.resolve(tempDir, `temp_zomato_${store.id}_${Date.now()}.pdf`);
 
       // Generate the customized docx
       await executeProcessDocx(inputDocxPath, tempDocxPath, brandName, store.cafeName || '', completeAddress, dateStr);
