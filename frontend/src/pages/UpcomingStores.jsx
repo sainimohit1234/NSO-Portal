@@ -9,6 +9,8 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { normalizeListResponse } from '../utils/api';
+import { fetchStoresFromFirestore } from '../services/storeService';
 import { sortStoresByCurrentStatus } from '../utils/status';
 
 export default function UpcomingStores() {
@@ -36,10 +38,10 @@ export default function UpcomingStores() {
   );
 
   useEffect(() => {
-    axios.get('/api/stores')
-      .then(res => {
+    fetchStoresFromFirestore()
+      .then(stores => {
         // Filter: show all stores that are in the setup/onboarding phase (i.e. not yet LIVE or CLOSED)
-        const upcoming = res.data.filter(s => 
+        const upcoming = stores.filter(s => 
           s.status !== 'LIVE' && 
           s.status !== 'Live' && 
           s.status !== 'CLOSED' && 
@@ -48,7 +50,23 @@ export default function UpcomingStores() {
         setStores(upcoming);
         setFilteredStores(upcoming);
       })
-      .catch(err => console.error('Failed to fetch stores:', err));
+      .catch(async err => {
+        console.error('Failed to fetch stores from Firestore, falling back to API:', err);
+        try {
+          const res = await axios.get('/api/stores');
+          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          const upcoming = stores.filter(s => 
+            s.status !== 'LIVE' && 
+            s.status !== 'Live' && 
+            s.status !== 'CLOSED' && 
+            s.status !== 'Closed'
+          );
+          setStores(upcoming);
+          setFilteredStores(upcoming);
+        } catch (apiError) {
+          console.error('Failed to fetch stores:', apiError);
+        }
+      });
   }, []);
 
   useEffect(() => {

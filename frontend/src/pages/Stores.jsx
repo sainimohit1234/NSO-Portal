@@ -9,6 +9,8 @@ import LockIcon from '@mui/icons-material/Lock';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { normalizeListResponse } from '../utils/api';
+import { fetchStoresFromFirestore } from '../services/storeService';
 import { getCurrentStatus, getCurrentStatusDotColor, getCurrentStatusChipStyle, getStatusRgb, sortStoresByCurrentStatus } from '../utils/status';
 
 export default function Stores() {
@@ -97,12 +99,22 @@ export default function Stores() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
-    axios.get('/api/stores')
-      .then(res => {
-        setStores(res.data);
-        setFilteredStores(res.data);
+    fetchStoresFromFirestore()
+      .then(firestoreStores => {
+        setStores(firestoreStores);
+        setFilteredStores(firestoreStores);
       })
-      .catch(err => console.error(err));
+      .catch(async err => {
+        console.error('Failed to load stores from Firestore, falling back to API:', err);
+        try {
+          const res = await axios.get('/api/stores');
+          const normalizedStores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          setStores(normalizedStores);
+          setFilteredStores(normalizedStores);
+        } catch (apiError) {
+          console.error(apiError);
+        }
+      });
   }, []);
 
   const handleToggleLock = async (storeId, newLockedState) => {

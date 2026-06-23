@@ -38,8 +38,15 @@ Thumbs.db
 # ─── Logs ────────────────────────────────────────────────
 *.log
 logs/
+firebase-debug.log
+.firebase/
 
 # ─── Temporary PDF & Documents ───────────────────────────
 Zomato_OB_Form_Review.pdf
 backend/src/temp_docs/
 
+# ─── Local generated TS/JS artifacts ─────────────────────
+backend/src/**/*.js
+backend/src/**/*.js.map
+backend/src/**/*.d.ts
+backend/src/**/*.d.ts.map

@@ -13,6 +13,7 @@ import axios from 'axios';
 
 import { useAuth } from '../context/AuthContext';
 import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
+import { normalizeListResponse } from '../utils/api';
 
 const ZONES = ['North', 'South', 'East', 'West'];
 const PLATFORM_TYPES = ['Delivery', 'Not Delivery'];
@@ -171,14 +172,16 @@ export default function EditStore() {
       : [axios.get(`/api/stores`), axios.get('/api/contacts')];
 
     Promise.all(fetchPromises).then(([storesRes, contactsRes]) => {
-      const currentStore = storesRes.data.find(s => s.id === parseInt(id));
+      const stores = normalizeListResponse(storesRes.data, ['stores', 'data', 'items']);
+      const contacts = normalizeListResponse(contactsRes.data, ['contacts', 'data', 'items']);
+      const currentStore = stores.find(s => s.id === parseInt(id));
       if (!currentStore) {
         setErrorMsg('Store not found.');
         return;
       }
       setStore(currentStore);
       setPrevStatus(currentStore.status);
-      setContacts(contactsRes.data);
+      setContacts(contacts);
 
       // Parse expectedSales
       let expectedSalesVal = '';

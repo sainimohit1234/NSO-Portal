@@ -11,6 +11,7 @@ import nodemailer from 'nodemailer';
 import { getSMTPConfig } from '../utils/smtp';
 import { getEmailRecipients } from '../utils/emailRecipients';
 import { getThreadMessageId, saveThreadMessageId } from '../utils/emailThreads';
+import { hasRedshiftStoreConfig, syncRedshiftStores } from '../utils/redshiftStores';
 import * as XLSX from 'xlsx';
 import { exec } from 'child_process';
 
@@ -367,6 +368,13 @@ router.put('/:id/toggle-active', authorizeRoles('SUPER_ADMIN'), async (req: any,
 // Get all stores
 router.get('/', async (req, res) => {
   try {
+    if (hasRedshiftStoreConfig()) {
+      const syncResult = await syncRedshiftStores(prisma);
+      if (!syncResult.skipped) {
+        console.log(`[Stores API] Synced ${syncResult.synced} stores from Redshift.`);
+      }
+    }
+
     const requestUser = (req as any).user;
     const isSuperAdmin = requestUser?.role === 'SUPER_ADMIN';
 

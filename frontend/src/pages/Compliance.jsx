@@ -10,6 +10,8 @@ import PendingIcon from '@mui/icons-material/Pending';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { normalizeListResponse } from '../utils/api';
+import { fetchStoresFromFirestore } from '../services/storeService';
 
 export default function Compliance() {
   const [stores, setStores] = useState([]);
@@ -24,10 +26,10 @@ export default function Compliance() {
   const { user } = useAuth();
 
   const fetchStores = () => {
-    axios.get('/api/stores')
-      .then(res => {
+    fetchStoresFromFirestore()
+      .then(stores => {
         // Show stores that are NSO_APPROVED, legacy APPROVED, COMPLIANCE_APPROVED, or LIVE
-        const filtered = res.data.filter(s => 
+        const filtered = stores.filter(s => 
           s.status === 'NSO_APPROVED' || 
           s.status === 'APPROVED' || 
           s.status === 'COMPLIANCE_APPROVED' ||
@@ -35,7 +37,22 @@ export default function Compliance() {
         );
         setStores(filtered);
       })
-      .catch(err => console.error(err));
+      .catch(async err => {
+        console.error('Failed to load stores from Firestore, falling back to API:', err);
+        try {
+          const res = await axios.get('/api/stores');
+          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          const filtered = stores.filter(s => 
+            s.status === 'NSO_APPROVED' || 
+            s.status === 'APPROVED' || 
+            s.status === 'COMPLIANCE_APPROVED' ||
+            s.status === 'LIVE'
+          );
+          setStores(filtered);
+        } catch (apiError) {
+          console.error(apiError);
+        }
+      });
   };
 
   useEffect(() => {

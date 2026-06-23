@@ -12,6 +12,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { normalizeListResponse } from '../utils/api';
+import { fetchStoresFromFirestore } from '../services/storeService';
 
 export default function Approvals() {
   const [stores, setStores] = useState([]);
@@ -65,9 +67,20 @@ export default function Approvals() {
   };
 
   const fetchStores = () => {
-    axios.get('/api/stores')
-      .then(res => setStores(res.data.filter(s => ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD'].includes(s.status))))
-      .catch(err => console.error(err));
+    fetchStoresFromFirestore()
+      .then(stores => {
+        setStores(stores.filter(s => ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD', 'INCOMPLETE_INFORMATION'].includes(s.status)));
+      })
+      .catch(async err => {
+        console.error('Failed to load stores from Firestore, falling back to API:', err);
+        try {
+          const res = await axios.get('/api/stores');
+          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          setStores(stores.filter(s => ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD', 'INCOMPLETE_INFORMATION'].includes(s.status)));
+        } catch (apiError) {
+          console.error(apiError);
+        }
+      });
   };
 
   useEffect(() => {

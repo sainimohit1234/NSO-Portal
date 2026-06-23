@@ -11,6 +11,8 @@ import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { normalizeListResponse } from '../utils/api';
+import { fetchStoresFromFirestore } from '../services/storeService';
 import { getCurrentStatusTextFormat } from '../utils/status';
 
 export default function DeleteBranches() {
@@ -35,13 +37,19 @@ export default function DeleteBranches() {
   const fetchStores = async () => {
     try {
       setLoading(true);
-      // Fetch all stores (including closed, etc.)
-      const res = await axios.get('/api/stores');
-      setStores(res.data);
+      const firestoreStores = await fetchStoresFromFirestore();
+      setStores(firestoreStores);
       setErrorMsg('');
     } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to load stores.');
+      console.error('Failed to load stores from Firestore, falling back to API:', err);
+      try {
+        const res = await axios.get('/api/stores');
+        setStores(normalizeListResponse(res.data, ['stores', 'data', 'items']));
+        setErrorMsg('');
+      } catch (apiError) {
+        console.error(apiError);
+        setErrorMsg('Failed to load stores.');
+      }
     } finally {
       setLoading(false);
     }

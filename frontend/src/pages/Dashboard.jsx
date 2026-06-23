@@ -18,6 +18,8 @@ import TaskAlt from '@mui/icons-material/TaskAlt';
 import axios from 'axios';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
+import { normalizeListResponse } from '../utils/api';
+import { fetchStoresFromFirestore } from '../services/storeService';
 import { getCurrentStatus } from '../utils/status';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, 
@@ -32,14 +34,25 @@ export default function Dashboard() {
 
 
   useEffect(() => {
-    axios.get('/api/stores')
-      .then(res => {
-        setStores(res.data);
+    fetchStoresFromFirestore()
+      .then(firestoreStores => {
+        console.log('[Dashboard] Loaded stores from Firestore.', {
+          count: firestoreStores.length
+        });
+        setStores(firestoreStores);
         setLoading(false);
       })
-      .catch(err => {
-        console.error('Failed to fetch stores:', err);
-        setLoading(false);
+      .catch(async err => {
+        console.error('Failed to fetch stores from Firestore, falling back to API:', err);
+        try {
+          const res = await axios.get('/api/stores');
+          const normalizedStores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          setStores(normalizedStores);
+        } catch (apiError) {
+          console.error('Failed to fetch stores:', apiError);
+        } finally {
+          setLoading(false);
+        }
       });
   }, []);
 
@@ -183,17 +196,17 @@ export default function Dashboard() {
   }, [filteredStores]);
 
   const statCards = [
-    { title: 'Total Cafe Count', value: stats.totalCafeCount, icon: <Storefront />, color: '#6366f1' },
-    { title: 'Live Store Count', value: stats.liveStoreCount, icon: <CheckCircle />, color: '#10b981' },
-    { title: 'Ready to Go Live Count', value: stats.readyToGoLiveCount, icon: <TaskAlt />, color: '#059669' },
-    { title: 'Upcoming Store Count', value: stats.upcomingStoreCount, icon: <Upcoming />, color: '#06b6d4' },
-    { title: 'Closed Store Count', value: stats.closedStoreCount, icon: <Cancel />, color: '#ef4444' },
-    { title: 'Approval Pending', value: stats.pendingApprovalCount, icon: <Warning />, color: '#f59e0b' },
-    { title: 'Current Month Expiry FSSAI Licence Count', value: stats.fssaiThisMonthCount, icon: <CalendarToday />, color: '#ec4899' },
-    { title: 'Current Month Expiry Rent Count', value: stats.rentThisMonthCount, icon: <CalendarToday />, color: '#8b5cf6' },
-    { title: 'Area Managers Count', value: stats.areaManagersData.length, icon: <People />, color: '#f97316' },
-    { title: 'City Heads Count', value: stats.cityHeadsData.length, icon: <People />, color: '#a855f7' },
-    { title: 'Cafe Managers Count', value: stats.cafeManagersData.length, icon: <People />, color: '#14b8a6' },
+    { title: 'Total Cafe Count', value: stats.totalCafeCount, icon: <Storefront />, color: '#6366f1', subtitle: 'Portfolio size' },
+    { title: 'Live Store Count', value: stats.liveStoreCount, icon: <CheckCircle />, color: '#10b981', subtitle: 'Currently active' },
+    { title: 'Ready to Go Live Count', value: stats.readyToGoLiveCount, icon: <TaskAlt />, color: '#059669', subtitle: 'Awaiting launch' },
+    { title: 'Upcoming Store Count', value: stats.upcomingStoreCount, icon: <Upcoming />, color: '#06b6d4', subtitle: 'Future pipeline' },
+    { title: 'Closed Store Count', value: stats.closedStoreCount, icon: <Cancel />, color: '#ef4444', subtitle: 'Inactive locations' },
+    { title: 'Approval Pending', value: stats.pendingApprovalCount, icon: <Warning />, color: '#f59e0b', subtitle: 'Needs review' },
+    { title: 'Current Month Expiry FSSAI Licence Count', value: stats.fssaiThisMonthCount, icon: <CalendarToday />, color: '#ec4899', subtitle: 'Compliance attention' },
+    { title: 'Current Month Expiry Rent Count', value: stats.rentThisMonthCount, icon: <CalendarToday />, color: '#8b5cf6', subtitle: 'Lease attention' },
+    { title: 'Area Managers Count', value: stats.areaManagersData.length, icon: <People />, color: '#f97316', subtitle: 'Regional owners' },
+    { title: 'City Heads Count', value: stats.cityHeadsData.length, icon: <People />, color: '#a855f7', subtitle: 'City supervisors' },
+    { title: 'Cafe Managers Count', value: stats.cafeManagersData.length, icon: <People />, color: '#14b8a6', subtitle: 'On-ground managers' },
   ];
 
   if (loading) {
@@ -205,52 +218,89 @@ export default function Dashboard() {
   }
 
   return (
-    <Box sx={{ py: 1 }}>
-      {/* Dashboard Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
+    <Box sx={{ py: 0.5 }}>
+      <Card sx={{ mb: 2.5, overflow: 'hidden' }}>
+        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -72,
+              right: -24,
+              width: { xs: 180, md: 240 },
+              height: { xs: 180, md: 240 },
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(111,205,220,0.22) 0%, rgba(111,205,220,0) 70%)'
+            }}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', flexWrap: 'wrap', gap: 2, position: 'relative' }}>
+            <Box sx={{ maxWidth: 760 }}>
+              <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem' }}>
+                Executive Overview
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.75, fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
+                Operations Dashboard
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' } }}>
+                Live view of store growth, readiness, approvals, and compliance signals across the network.
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(3, minmax(92px, 1fr))' }, gap: 1, minWidth: { xs: '100%', md: 320 }, alignSelf: 'flex-start' }}>
+              <Chip label={`${stats.liveStoreCount} Live`} sx={{ justifyContent: 'center', bgcolor: 'rgba(111,205,220,0.18)', color: 'text.primary' }} />
+              <Chip label={`${stats.upcomingStoreCount} Upcoming`} sx={{ justifyContent: 'center', bgcolor: 'rgba(139,108,240,0.14)', color: 'text.primary' }} />
+              <Chip label={`${stats.pendingApprovalCount} Pending`} sx={{ justifyContent: 'center', bgcolor: 'rgba(217,154,40,0.18)', color: 'text.primary' }} />
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 2.25, flexWrap: 'wrap', gap: 1.5 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-            Operations Dashboard
+          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.3, fontSize: { xs: '1.45rem', md: '1.8rem' } }}>
+            Performance Snapshot
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Overview of store directory health, licenses, and approval workflows.
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.78rem', md: '0.82rem' } }}>
+            Core metrics for current portfolio health and expansion workflow.
           </Typography>
         </Box>
       </Box>
 
-      {/* Grid of 8 Stat Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={1.75} sx={{ mb: 2.5 }}>
         {statCards.map((stat, idx) => (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={idx}>
+          <Grid size={{ xs: 12, sm: 6, md: 4, xl: 3 }} key={idx}>
             <Card sx={{ 
-              bgcolor: 'background.paper', 
+              bgcolor: 'background.paper',
               transition: 'all 0.2s ease',
+              height: '100%',
               '&:hover': { 
-                transform: 'translateY(-2px)',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.02)'
+                transform: 'translateY(-3px)',
+                boxShadow: '0 18px 32px rgba(15,23,42,0.07)'
               }
             }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700, mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.7rem' }}>
+              <CardContent sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700, mb: 0.65, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.66rem' }}>
                       {stat.title}
                     </Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                    <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', fontSize: { xs: '1.9rem', md: '2.15rem' }, lineHeight: 1.05, mb: 0.35 }}>
                       {stat.value}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      {stat.subtitle}
                     </Typography>
                   </Box>
                   <Box sx={{ 
-                    bgcolor: `${stat.color}08`, 
-                    p: 1.5, 
-                    borderRadius: 2.5, 
+                    bgcolor: `${stat.color}14`, 
+                    p: 1, 
+                    borderRadius: 3.5, 
                     display: 'flex', 
                     alignItems: 'center', 
                     justifyContent: 'center',
                     color: stat.color,
-                    border: `1px solid ${stat.color}15`
+                    border: `1px solid ${stat.color}20`,
+                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.45)`
                   }}>
-                    {React.cloneElement(stat.icon, { fontSize: 'medium' })}
+                    {React.cloneElement(stat.icon, { sx: { fontSize: 20 } })}
                   </Box>
                 </Box>
               </CardContent>
@@ -259,13 +309,12 @@ export default function Dashboard() {
         ))}
       </Grid>
 
-      {/* Growth Chart & Action Center */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, lg: 8 }}>
+      <Grid container spacing={2} sx={{ mb: 2.5 }}>
+        <Grid size={{ xs: 12, lg: 7.5 }}>
           <Card sx={{ bgcolor: 'background.paper' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 3, color: 'text.primary' }}>Store Growth</Typography>
-              <Box sx={{ height: 320, width: '100%' }}>
+            <CardContent sx={{ p: 2.25 }}>
+              <Typography variant="h6" sx={{ fontWeight: 750, mb: 2, color: 'text.primary' }}>Store Growth</Typography>
+              <Box sx={{ height: { xs: 250, md: 290 }, width: '100%' }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
@@ -274,7 +323,7 @@ export default function Dashboard() {
                         <stop offset="95%" stopColor={theme.palette.primary.main} stopOpacity={0.01}/>
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="4 4" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                    <CartesianGrid strokeDasharray="4 4" stroke="rgba(22,49,58,0.08)" vertical={false} />
                     <XAxis 
                       dataKey="name" 
                       stroke="#475569" 
@@ -292,14 +341,14 @@ export default function Dashboard() {
                     />
                     <RechartsTooltip 
                       contentStyle={{ 
-                        backgroundColor: '#1a1d27', 
-                        border: '1px solid #2d3148', 
+                        backgroundColor: 'rgba(255,255,255,0.88)', 
+                        border: '1px solid rgba(63,174,191,0.14)', 
                         borderRadius: '10px', 
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                        boxShadow: '0 16px 30px rgba(15,23,42,0.10)',
                         padding: '10px 14px'
                       }}
-                      itemStyle={{ color: '#f1f5f9', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', fontWeight: 600 }}
-                      labelStyle={{ color: '#94a3b8', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}
+                      itemStyle={{ color: '#16313a', fontFamily: 'Plus Jakarta Sans', fontSize: '13px', fontWeight: 600 }}
+                      labelStyle={{ color: '#4c6b75', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}
                     />
                     <Area 
                       type="monotone" 
@@ -317,11 +366,11 @@ export default function Dashboard() {
           </Card>
         </Grid>
         
-        <Grid size={{ xs: 12, lg: 4 }}>
+        <Grid size={{ xs: 12, lg: 4.5 }}>
           <Card sx={{ bgcolor: 'background.paper', height: '100%' }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 3, color: 'text.primary' }}>Action Center</Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <CardContent sx={{ p: 2.25 }}>
+              <Typography variant="h6" sx={{ fontWeight: 750, mb: 2, color: 'text.primary' }}>Action Center</Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {[
                   { label: 'Missing Swiggy IDs', count: actionCenter.missingSwiggy, color: theme.palette.warning.main, bg: theme.palette.warning.light },
                   { label: 'Missing Zomato IDs', count: actionCenter.missingZomato, color: theme.palette.error.main, bg: theme.palette.error.light },
@@ -332,24 +381,26 @@ export default function Dashboard() {
                     display: 'flex', 
                     justifyContent: 'space-between', 
                     alignItems: 'center',
-                    p: 2,
-                    bgcolor: 'rgba(255,255,255,0.03)',
-                    borderRadius: '12px',
+                    p: 1.5,
+                    bgcolor: 'rgba(255,255,255,0.34)',
+                    borderRadius: '14px',
                     border: '1px solid',
                     borderColor: 'divider',
                     transition: 'border-color 0.2s ease',
                     '&:hover': {
-                      borderColor: '#3d4568'
+                      borderColor: 'rgba(63,174,191,0.24)'
                     }
                   }}>
                     <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>{item.label}</Typography>
                     <Box sx={{
                       bgcolor: item.bg,
                       color: item.color,
-                      px: 1.5,
-                      py: 0.5,
+                      minWidth: 42,
+                      textAlign: 'center',
+                      px: 1.1,
+                      py: 0.45,
                       borderRadius: '8px',
-                      fontSize: '0.825rem',
+                      fontSize: '0.78rem',
                       fontWeight: 700
                     }}>
                       {item.count}
@@ -362,8 +413,7 @@ export default function Dashboard() {
         </Grid>
       </Grid>
 
-      {/* Ready to Go Live Stores Section */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={2} sx={{ mb: 2.5 }}>
         <Grid size={12}>
           <Card sx={{ 
             bgcolor: 'background.paper',
@@ -371,10 +421,10 @@ export default function Dashboard() {
             borderColor: 'divider',
             borderRadius: '16px'
           }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <CardContent sx={{ p: 2.25 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.35 }}>
                     Ready to Go Live Stores
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -389,19 +439,19 @@ export default function Dashboard() {
               </Box>
 
               {stats.readyToGoLiveStores.length === 0 ? (
-                <Box sx={{ py: 4, textAlign: 'center', bgcolor: 'rgba(255,255,255,0.01)', borderRadius: '12px', border: '1px dashed', borderColor: 'divider' }}>
+                  <Box sx={{ py: 3.5, textAlign: 'center', bgcolor: 'rgba(255,255,255,0.28)', borderRadius: '16px', border: '1px dashed', borderColor: 'divider' }}>
                   <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
                     No stores are currently ready to go live.
                   </Typography>
                 </Box>
               ) : (
-                <Grid container spacing={2}>
+                <Grid container spacing={1.5}>
                   {stats.readyToGoLiveStores.map((store) => (
                     <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={store.id}>
                       <Box sx={{ 
-                        p: 2, 
-                        bgcolor: 'rgba(255,255,255,0.02)', 
-                        borderRadius: '12px', 
+                        p: 1.5, 
+                        bgcolor: 'rgba(255,255,255,0.34)', 
+                        borderRadius: '14px', 
                         border: '1px solid',
                         borderColor: 'divider',
                         display: 'flex',
@@ -414,13 +464,13 @@ export default function Dashboard() {
                           bgcolor: 'rgba(5, 150, 105, 0.02)'
                         }
                       }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.15 }}>
                           {store.brand === 'BLUE_TOKAI_SUCHALI' ? (
-                            <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 36, width: 36, borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+                            <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 34, width: 34, borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
                           ) : store.brand === 'GOT_TEA' ? (
-                            <img src={gotTeaLogo} alt="Got Tea" style={{ height: 36, width: 36, borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
+                            <img src={gotTeaLogo} alt="Got Tea" style={{ height: 34, width: 34, borderRadius: '50%', objectFit: 'cover', border: '1px solid #cbd5e1' }} />
                           ) : (
-                            <Box sx={{ height: 36, width: 36, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', fontWeight: 700, fontSize: '0.8rem', border: '1px solid #cbd5e1' }}>
+                            <Box sx={{ height: 34, width: 34, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', fontWeight: 700, fontSize: '0.76rem', border: '1px solid rgba(63,174,191,0.14)' }}>
                               BT
                             </Box>
                           )}
@@ -451,11 +501,10 @@ export default function Dashboard() {
       </Grid>
 
       {/* Operations Teams & Assignments Grid */}
-      <Grid container spacing={3}>
-        {/* Area Managers List */}
+      <Grid container spacing={2}>
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ bgcolor: 'background.paper', height: 500, display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Card sx={{ bgcolor: 'background.paper', height: 440, display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ p: 2.25, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
                   Area Managers
@@ -478,7 +527,7 @@ export default function Dashboard() {
                         display: 'flex', 
                         flexDirection: 'column', 
                         gap: 0.75, 
-                        maxHeight: 300, 
+                        maxHeight: 250, 
                         overflowY: 'auto', 
                         pr: 0.5 
                       }}>
@@ -513,11 +562,9 @@ export default function Dashboard() {
           </Card>
         </Grid>
 
-        {/* City Heads List */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ bgcolor: 'background.paper', height: 500, display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              {/* Header */}
+          <Card sx={{ bgcolor: 'background.paper', height: 440, display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ p: 2.25, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
                   City Heads
@@ -525,7 +572,6 @@ export default function Dashboard() {
                 <Chip label={`Total: ${stats.cityHeadsData.length}`} size="small" color="secondary" sx={{ fontWeight: 700 }} />
               </Box>
 
-              {/* Search Bar */}
               {(() => {
                 const q = cityHeadSearch.trim().toLowerCase();
                 const filteredCityHeads = q
@@ -595,7 +641,7 @@ export default function Dashboard() {
                               display: 'flex', 
                               flexDirection: 'column', 
                               gap: 0.75, 
-                              maxHeight: 300, 
+                              maxHeight: 250, 
                               overflowY: 'auto', 
                               pr: 0.5 
                             }}>
@@ -633,10 +679,9 @@ export default function Dashboard() {
           </Card>
         </Grid>
 
-        {/* Café Managers List */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ bgcolor: 'background.paper', height: 500, display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ p: 3, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Card sx={{ bgcolor: 'background.paper', height: 440, display: 'flex', flexDirection: 'column' }}>
+            <CardContent sx={{ p: 2.25, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
                   Café Managers
@@ -659,7 +704,7 @@ export default function Dashboard() {
                         display: 'flex', 
                         flexDirection: 'column', 
                         gap: 0.75, 
-                        maxHeight: 300, 
+                        maxHeight: 250, 
                         overflowY: 'auto', 
                         pr: 0.5 
                       }}>

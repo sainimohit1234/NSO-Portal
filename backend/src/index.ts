@@ -25,6 +25,10 @@ import authRoutes from './routes/auth';
 import systemRoutes from './routes/system';
 import globalDocsRoutes from './routes/globalDocs';
 import { hashPassword } from './utils/auth';
+import { hasRedshiftStoreConfig, syncRedshiftStores } from './utils/redshiftStores';
+
+const DEFAULT_SEED_PASSWORD = process.env.DEFAULT_SEED_PASSWORD || 'Bluetokai@123';
+const LEGACY_ADMIN_PASSWORD = '11111';
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {
@@ -42,12 +46,13 @@ app.use('/api/global-docs', globalDocsRoutes);
 async function seedUsers() {
   try {
     const count = await prisma.user.count();
+    const defaultPasswordHash = hashPassword(DEFAULT_SEED_PASSWORD);
+
     if (count === 0) {
       console.log('No users found in database, seeding default users...');
-      const defaultPasswordHash = hashPassword('Bluetokai@123');
       await prisma.user.createMany({
         data: [
-          { name: 'Super Admin', email: 'admin@bluetokaicoffee.com', password: hashPassword('22222'), phone: '9999900001', role: 'SUPER_ADMIN' },
+          { name: 'Super Admin', email: 'admin@bluetokaicoffee.com', password: defaultPasswordHash, phone: '9999900001', role: 'SUPER_ADMIN' },
           { name: 'Aarav Mehta', email: 'aarav.mehta@bluetokaicoffee.com', password: defaultPasswordHash, phone: '9810011001', role: 'MANAGER' },
           { name: 'Ananya Sharma', email: 'ananya.sharma@bluetokaicoffee.com', password: defaultPasswordHash, phone: '9810011002', role: 'MANAGER' },
           { name: 'Kabir Singh', email: 'kabir.singh@bluetokaicoffee.com', password: defaultPasswordHash, phone: '9810011003', role: 'MANAGER' },
@@ -56,6 +61,32 @@ async function seedUsers() {
         ],
       });
       console.log('Seeding completed successfully.');
+    }
+
+    if (process.env.NODE_ENV !== 'production') {
+      const adminEmail = 'admin@bluetokaicoffee.com';
+      const adminUser = await prisma.user.findUnique({
+        where: { email: adminEmail }
+      });
+
+      if (!adminUser) {
+        await prisma.user.create({
+          data: {
+            name: 'Super Admin',
+            email: adminEmail,
+            password: defaultPasswordHash,
+            phone: '9999900001',
+            role: 'SUPER_ADMIN'
+          }
+        });
+        console.log(`Created local seed admin account with password ${DEFAULT_SEED_PASSWORD}`);
+      } else if (adminUser.password === hashPassword(LEGACY_ADMIN_PASSWORD)) {
+        await prisma.user.update({
+          where: { id: adminUser.id },
+          data: { password: defaultPasswordHash }
+        });
+        console.log(`Updated local seed admin password from legacy value to ${DEFAULT_SEED_PASSWORD}`);
+      }
     }
   } catch (error) {
     console.error('Error seeding users:', error);
@@ -95,5 +126,13 @@ app.listen(port, async () => {
   console.log(`Server is running on port ${port}`);
   await seedUsers();
   await initializeLastLogin();
-});
 
+  if (hasRedshiftStoreConfig()) {
+    try {
+      const syncResult = await syncRedshiftStores(prisma, true);
+      console.log(`[Startup] Redshift store sync complete. Synced ${syncResult.synced} rows.`);
+    } catch (error) {
+      console.error('[Startup] Redshift store sync failed:', error);
+    }
+  }
+});

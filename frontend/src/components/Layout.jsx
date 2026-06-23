@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -37,23 +37,29 @@ import GavelIcon from '@mui/icons-material/Gavel';
 import MailOutlineIcon from '@mui/icons-material/MailOutlined';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
-import DeleteIcon from '@mui/icons-material/Delete';
 import TuneIcon from '@mui/icons-material/Tune';
+import HowToRegIcon from '@mui/icons-material/HowToReg';
 import Chip from '@mui/material/Chip';
-import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import suchaliLogo from '../assets/suchali_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
 
-const drawerWidth = 280;
+const drawerWidth = 228;
+const glassPanelSx = {
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(255,255,255,0.64) 100%)',
+  backdropFilter: 'blur(22px)',
+  WebkitBackdropFilter: 'blur(22px)',
+  border: '1px solid rgba(63, 174, 191, 0.12)',
+  boxShadow: '0 16px 34px rgba(15, 23, 42, 0.05)'
+};
 
 export default function Layout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, changePassword } = useAuth();
 
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
@@ -108,16 +114,13 @@ export default function Layout() {
     }
 
     try {
-      await axios.post('/api/auth/reset-password', {
-        oldPassword,
-        newPassword
-      });
+      await changePassword(oldPassword, newPassword);
       setResetSuccess('Password reset successfully!');
       setTimeout(() => {
         setResetDialogOpen(false);
       }, 2000);
     } catch (err) {
-      setResetError(err.response?.data?.error || 'Failed to reset password. Please verify your old password.');
+      setResetError(typeof err === 'string' ? err : 'Failed to reset password. Please verify your old password.');
     }
   };
 
@@ -134,59 +137,80 @@ export default function Layout() {
     { text: 'Images and Other Docs', icon: <PhotoLibraryIcon />, path: '/images-docs', roles: ['SUPER_ADMIN'] },
     { text: 'Store Control Center', icon: <TuneIcon />, path: '/delete-branches', roles: ['SUPER_ADMIN'] },
     { text: 'Contact Details', icon: <ContactsIcon />, path: '/contacts', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
+    { text: 'User Registrations', icon: <HowToRegIcon />, path: '/user-registrations', roles: ['SUPER_ADMIN'] },
   ];
 
   const filteredMenuItems = menuItems.filter(item => !item.roles || item.roles.includes(user?.role));
+  const currentPage = useMemo(
+    () => menuItems.find(item => item.path === location.pathname)?.text || 'Dashboard',
+    [location.pathname]
+  );
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', px: 2, pt: 3.5, pb: 2.5, gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-          <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #cbd5e1', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
-          <img src={suchaliLogo} alt="Suchali's" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #cbd5e1', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
-          <img src={gotTeaLogo} alt="Got Tea" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #cbd5e1', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }} />
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', ...glassPanelSx }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', px: 2, pt: 2.75, pb: 2, gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 46, width: 46, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+          <img src={suchaliLogo} alt="Suchali's" style={{ height: 46, width: 46, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+          <img src={gotTeaLogo} alt="Got Tea" style={{ height: 46, width: 46, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
         </Box>
-        <Typography variant="h5" noWrap component="div" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '1.35rem', letterSpacing: '0.04em' }}>
+        <Typography variant="h5" noWrap component="div" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '0.94rem', letterSpacing: '0.06em' }}>
           NSO PORTAL
         </Typography>
+        <Chip
+          label="Store Management Console"
+          size="small"
+          sx={{
+            height: 28,
+            bgcolor: 'rgba(111, 205, 220, 0.14)',
+            color: 'text.primary',
+            border: '1px solid rgba(63, 174, 191, 0.18)'
+          }}
+        />
       </Box>
-      <Divider sx={{ mb: 2, borderColor: 'divider' }} />
-      <List sx={{ px: 2, flexGrow: 1 }}>
+      <Divider sx={{ mb: 1.5, borderColor: 'divider' }} />
+      <List sx={{ px: 1.5, flexGrow: 1 }}>
         {filteredMenuItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+            <ListItem key={item.text} disablePadding sx={{ mb: 0.35 }}>
               <ListItemButton
                 onClick={() => navigate(item.path)}
                 sx={{
-                  borderRadius: '10px',
-                  bgcolor: isActive ? 'primary.light' : 'transparent',
-                  color: isActive ? 'primary.main' : 'text.secondary',
-                  py: 1.2,
-                  px: 2,
+                  alignItems: 'center',
+                  borderRadius: '14px',
+                  bgcolor: isActive ? 'rgba(111, 205, 220, 0.17)' : 'transparent',
+                  color: isActive ? 'text.primary' : 'text.secondary',
+                  py: 0.95,
+                  px: 1.15,
+                  border: '1px solid',
+                  borderColor: isActive ? 'rgba(63, 174, 191, 0.18)' : 'transparent',
+                  boxShadow: isActive ? '0 10px 24px rgba(111, 205, 220, 0.12)' : 'none',
                   '&:hover': {
-                    bgcolor: isActive ? 'primary.light' : 'action.hover',
-                    color: isActive ? 'primary.main' : 'text.primary',
+                    bgcolor: isActive ? 'rgba(111, 205, 220, 0.17)' : 'rgba(255,255,255,0.40)',
+                    color: 'text.primary',
                     '& .MuiListItemIcon-root': {
-                      color: isActive ? 'primary.main' : 'text.primary',
+                      color: 'text.primary',
                     }
                   },
                   transition: 'all 0.2s ease',
                 }}
               >
                 <ListItemIcon sx={{ 
-                  color: isActive ? 'primary.main' : 'text.secondary', 
-                  minWidth: 36,
+                  color: isActive ? 'text.primary' : 'text.secondary', 
+                  minWidth: 32,
                   transition: 'color 0.2s ease'
                 }}>
-                  {item.icon}
+                  {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
                 </ListItemIcon>
                 <ListItemText 
                   primary={item.text} 
                   primaryTypographyProps={{ 
                     fontWeight: isActive ? 700 : 600, 
-                    fontSize: '0.875rem' 
+                    fontSize: '0.8rem',
+                    lineHeight: 1.25
                   }} 
+                  sx={{ my: 0, '& .MuiTypography-root': { whiteSpace: 'normal' } }}
                 />
               </ListItemButton>
             </ListItem>
@@ -197,40 +221,49 @@ export default function Layout() {
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', position: 'relative' }}>
       <AppBar
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
-          bgcolor: 'background.paper',
+          bgcolor: 'transparent',
           backgroundImage: 'none',
           boxShadow: 'none',
           borderBottom: '1px solid',
-          borderColor: 'divider'
+          borderColor: 'divider',
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)'
         }}
       >
-        <Toolbar sx={{ px: { xs: 2, sm: 4 } }}>
+        <Toolbar sx={{ px: { xs: 1.5, sm: 2.5, lg: 3 } }}>
           <IconButton
             color="inherit"
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+            sx={{ mr: 1.25, display: { sm: 'none' } }}
           >
             <MenuIcon />
           </IconButton>
-          <Box sx={{ flexGrow: 1 }} />
-          <IconButton size="large" sx={{ mr: 1, color: 'text.secondary' }}>
-            <NotificationsActive sx={{ fontSize: 22 }} />
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.disabled', display: { xs: 'none', md: 'block' }, textTransform: 'uppercase', letterSpacing: '0.16em', mb: 0.35 }}>
+              BTC — New Store Management
+            </Typography>
+            <Typography variant="subtitle1" noWrap sx={{ fontWeight: 800, color: 'text.primary', fontSize: { xs: '0.9rem', md: '1rem' } }}>
+              {currentPage}
+            </Typography>
+          </Box>
+          <IconButton size="medium" sx={{ mr: 1, color: 'text.secondary', border: '1px solid rgba(63, 174, 191, 0.12)', bgcolor: 'rgba(255,255,255,0.35)' }}>
+            <NotificationsActive sx={{ fontSize: 18 }} />
           </IconButton>
           <IconButton
-            size="large"
+            size="medium"
             onClick={handleMenu}
             color="inherit"
             sx={{ p: 0 }}
           >
-            <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main', width: 36, height: 36, fontWeight: 700, fontSize: '0.9rem' }}>
+            <Avatar sx={{ bgcolor: 'rgba(111, 205, 220, 0.24)', color: 'text.primary', width: 36, height: 36, fontWeight: 800, fontSize: '0.82rem', border: '1px solid rgba(63,174,191,0.18)', boxShadow: '0 8px 18px rgba(15,23,42,0.06)' }}>
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </Avatar>
           </IconButton>
@@ -295,9 +328,18 @@ export default function Layout() {
       </Box>
       <Box
         component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${drawerWidth}px)` }, mt: 8 }}
+        sx={{
+          flexGrow: 1,
+          px: { xs: 1.5, sm: 2, md: 2.5, xl: 3 },
+          py: { xs: 1.5, md: 2 },
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          mt: { xs: 8.5, sm: 9 },
+          position: 'relative'
+        }}
       >
-        <Outlet />
+        <Box sx={{ width: '100%', maxWidth: 1640, mx: 'auto' }}>
+          <Outlet />
+        </Box>
       </Box>
 
       {/* Reset Password Dialog */}
@@ -307,7 +349,7 @@ export default function Layout() {
         maxWidth="xs"
         fullWidth
         PaperProps={{
-          sx: { borderRadius: '12px', p: 1 }
+          sx: { borderRadius: '24px', p: 1.25 }
         }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>Reset Password</DialogTitle>

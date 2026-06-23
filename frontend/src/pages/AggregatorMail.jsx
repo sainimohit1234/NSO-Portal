@@ -18,6 +18,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { normalizeListResponse } from '../utils/api';
+import { fetchStoresFromFirestore } from '../services/storeService';
 
 export default function AggregatorMail() {
   const { user } = useAuth();
@@ -72,13 +74,23 @@ export default function AggregatorMail() {
   const theme = useTheme();
 
   const fetchStores = () => {
-    axios.get('/api/stores')
-      .then(res => {
+    fetchStoresFromFirestore()
+      .then(stores => {
         // Filter: COMPLIANCE_APPROVED or LIVE
-        const filtered = res.data.filter(s => s.status === 'COMPLIANCE_APPROVED' || s.status === 'LIVE');
+        const filtered = stores.filter(s => s.status === 'COMPLIANCE_APPROVED' || s.status === 'LIVE');
         setStores(filtered);
       })
-      .catch(err => console.error(err));
+      .catch(async err => {
+        console.error('Failed to load stores from Firestore, falling back to API:', err);
+        try {
+          const res = await axios.get('/api/stores');
+          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          const filtered = stores.filter(s => s.status === 'COMPLIANCE_APPROVED' || s.status === 'LIVE');
+          setStores(filtered);
+        } catch (apiError) {
+          console.error(apiError);
+        }
+      });
   };
 
   const fetchRecipients = () => {

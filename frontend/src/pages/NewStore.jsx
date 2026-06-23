@@ -10,6 +10,7 @@ import {
 import axios from 'axios';
 import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
 import { useAuth } from '../context/AuthContext';
+import { normalizeListResponse } from '../utils/api';
 
 const ZONES = ['North', 'South', 'East', 'West'];
 const PLATFORM_TYPES = ['Delivery', 'Not Delivery'];
@@ -159,11 +160,11 @@ const NewStore = () => {
 
   useEffect(() => {
     axios.get('/api/users')
-      .then(res => setUsers(res.data))
+      .then(res => setUsers(normalizeListResponse(res.data, ['users', 'data', 'items'])))
       .catch(err => console.error('Failed to load users:', err));
     // Load contacts for auto-fill suggestions
     axios.get('/api/contacts')
-      .then(res => setContacts(res.data))
+      .then(res => setContacts(normalizeListResponse(res.data, ['contacts', 'data', 'items'])))
       .catch(err => console.error('Failed to load contacts:', err));
   }, []);
 
@@ -537,7 +538,8 @@ const NewStore = () => {
                           if (!value) return true;
                           try {
                             const res = await axios.get('/api/stores');
-                            const exists = res.data.some(s => s.cafeCode && s.cafeCode.toLowerCase() === value.toLowerCase());
+                            const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+                            const exists = stores.some(s => s.cafeCode && s.cafeCode.toLowerCase() === value.toLowerCase());
                             return !exists || "This Cafe Code already exists in the system. Please enter a unique Cafe Code.";
                           } catch (err) {
                             console.error(err);

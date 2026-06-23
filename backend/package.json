@@ -4,7 +4,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/index.ts"
+    "dev": "prisma db push --schema=prisma/schema.prisma && nodemon src/index.ts",
+    "sync:firestore-stores": "node scripts/sync-redshift-to-firestore.mjs"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +19,7 @@
     "docx-pdf": "^0.0.1",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "firebase": "^12.15.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",

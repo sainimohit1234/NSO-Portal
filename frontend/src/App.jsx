@@ -19,6 +19,7 @@ import AggregatorMail from './pages/AggregatorMail';
 import UpcomingStores from './pages/UpcomingStores';
 import ImagesDocs from './pages/ImagesDocs';
 import DeleteBranches from './pages/DeleteBranches';
+import UserRegistrations from './pages/UserRegistrations';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children, allowedRoles }) {
@@ -108,6 +109,10 @@ const router = createBrowserRouter([
       {
         path: 'contacts',
         element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE']}><ContactDetails /></ProtectedRoute>
+      },
+      {
+        path: 'user-registrations',
+        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN']}><UserRegistrations /></ProtectedRoute>
       }
     ]
   }
@@ -125,4 +130,3 @@ function App() {
 }
 
 export default App;
-

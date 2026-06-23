@@ -1,23 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Box, Typography, TextField, Button, Card, CardContent, 
-  Alert, CircularProgress, InputAdornment, IconButton,
-  Dialog, DialogTitle, DialogContent, DialogActions, Divider
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
+  TextField,
+  Typography
 } from '@mui/material';
-import axios from 'axios';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
-import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
-import GroupIcon from '@mui/icons-material/Group';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import { useAuth } from '../context/AuthContext';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import suchaliLogo from '../assets/suchali_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
+import loginBackground from '../assets/loginback.png';
+
+const LOGIN_EMAIL_DOMAIN = '@bluetokaicoffee.com';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -25,29 +34,45 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
-  // ── Session conflict dialog state ──────────────────────────────────────────
-  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
-  const [confirmDialogOpen, setConfirmDialogOpen]   = useState(false);
-  const [confirmLoading, setConfirmLoading]         = useState('');
+  const [emailLinkLoading, setEmailLinkLoading] = useState(false);
 
   const [forgotDialogOpen, setForgotDialogOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCode, setOtpCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState('');
-  const [forgotLoading, setForgotLoading] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
+  const [registerForm, setRegisterForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [registerError, setRegisterError] = useState('');
+  const [registerSuccess, setRegisterSuccess] = useState('');
+  const [registerLoading, setRegisterLoading] = useState(false);
+
+  const {
+    login,
+    sendLoginLink,
+    registerUserRequest,
+    sendResetPassword,
+    authMessage,
+    clearAuthMessage
+  } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/';
+
+  const normalizeLoginEmail = value => {
+    const localPart = value.trim().toLowerCase().replace(/@bluetokaicoffee\.com$/i, '');
+    return `${localPart}${LOGIN_EMAIL_DOMAIN}`;
+  };
 
   const handleOpenForgotDialog = () => {
     setForgotDialogOpen(true);
     setForgotEmail('');
-    setOtpSent(false);
-    setOtpCode('');
-    setNewPassword('');
-    setConfirmPassword('');
     setForgotError('');
     setForgotSuccess('');
   };
@@ -56,7 +81,71 @@ export default function Login() {
     setForgotDialogOpen(false);
   };
 
-  const handleSendOTP = async (e) => {
+  const handleOpenRegisterDialog = () => {
+    setRegisterDialogOpen(true);
+    setRegisterForm({
+      name: '',
+      email: '',
+      phone: '',
+      password: '',
+      confirmPassword: ''
+    });
+    setRegisterError('');
+    setRegisterSuccess('');
+  };
+
+  const handleCloseRegisterDialog = () => {
+    setRegisterDialogOpen(false);
+  };
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      setError('Please fill in all fields.');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      await login(normalizeLoginEmail(email), password);
+      navigate(from, { replace: true });
+    } catch (err) {
+      setError(typeof err === 'string' ? err : 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailLinkLogin = async () => {
+    if (!email.trim()) {
+      setError('Enter your email initials before requesting the OTP link.');
+      return;
+    }
+
+    setError('');
+    setEmailLinkLoading(true);
+    console.log('[NSO Login] OTP link request started.', {
+      localPart: email.trim().toLowerCase(),
+      email: normalizeLoginEmail(email)
+    });
+
+    try {
+      await sendLoginLink(normalizeLoginEmail(email));
+      setError('');
+      console.log('[NSO Login] OTP link request finished successfully.', {
+        email: normalizeLoginEmail(email)
+      });
+    } catch (err) {
+      console.error('[NSO Login] OTP link request failed.', err);
+      setError(typeof err === 'string' ? err : 'Failed to send sign-in link.');
+    } finally {
+      setEmailLinkLoading(false);
+    }
+  };
+
+  const handleSendResetEmail = async e => {
     e.preventDefault();
     if (!forgotEmail.trim()) {
       setForgotError('Please enter your email address.');
@@ -65,194 +154,161 @@ export default function Login() {
 
     const forgotEmailLower = forgotEmail.trim().toLowerCase();
     if (!forgotEmailLower.endsWith('@bluetokaicoffee.com') && !forgotEmailLower.endsWith('@gottea.in')) {
-      setForgotError('Only email addresses with the domain @bluetokaicoffee.com or @gottea.in are allowed.');
+      setForgotError('Use your approved company email address (@bluetokaicoffee.com or @gottea.in).');
       return;
     }
 
     setForgotError('');
     setForgotSuccess('');
-    setForgotLoading('otp');
+    setForgotLoading(true);
 
     try {
-      const response = await axios.post('/api/auth/forgot-password', {
-        email: forgotEmail.trim()
-      });
-      setForgotSuccess(response.data?.message || 'OTP sent successfully!');
-      setOtpSent(true);
+      await sendResetPassword(forgotEmail.trim());
+      setForgotSuccess('Password reset email sent. Check your inbox.');
     } catch (err) {
-      setForgotError(err.response?.data?.error || 'Failed to send OTP. Please check if your email is registered.');
+      setForgotError(typeof err === 'string' ? err : 'Failed to send reset email.');
     } finally {
-      setForgotLoading('');
+      setForgotLoading(false);
     }
   };
 
-  const handleResetPasswordWithOTP = async (e) => {
+  const handleRegisterInput = (field, value) => {
+    setRegisterForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleRegisterSubmit = async e => {
     e.preventDefault();
-    if (!otpCode.trim() || !newPassword || !confirmPassword) {
-      setForgotError('All fields are required.');
+    const { name, email: registrationEmail, phone, password: registrationPassword, confirmPassword } = registerForm;
+
+    if (!name.trim() || !registrationEmail.trim() || !phone.trim() || !registrationPassword || !confirmPassword) {
+      setRegisterError('Please fill in all registration fields.');
       return;
     }
 
-    if (newPassword !== confirmPassword) {
-      setForgotError('New passwords do not match.');
+    const normalizedEmail = registrationEmail.trim().toLowerCase();
+    const validDomain = normalizedEmail.endsWith('@bluetokaicoffee.com') || normalizedEmail.endsWith('@gottea.in');
+    if (!validDomain) {
+      setRegisterError('Use your approved company email address (@bluetokaicoffee.com or @gottea.in).');
       return;
     }
 
-    if (newPassword.length < 6) {
-      setForgotError('New password must be at least 6 characters long.');
+    if (registrationPassword.length < 6) {
+      setRegisterError('Password must be at least 6 characters long.');
       return;
     }
 
-    setForgotError('');
-    setForgotSuccess('');
-    setForgotLoading('reset');
+    if (registrationPassword !== confirmPassword) {
+      setRegisterError('Passwords do not match.');
+      return;
+    }
+
+    setRegisterError('');
+    setRegisterSuccess('');
+    setRegisterLoading(true);
 
     try {
-      const response = await axios.post('/api/auth/verify-otp-reset', {
-        email: forgotEmail.trim(),
-        otp: otpCode.trim(),
-        newPassword
+      await registerUserRequest({
+        name,
+        email: normalizedEmail,
+        phone,
+        password: registrationPassword
       });
-      setForgotSuccess(response.data?.message || 'Password reset successful!');
+      setRegisterSuccess('Registration request submitted. Wait for admin approval before logging in.');
       setTimeout(() => {
-        setForgotDialogOpen(false);
-      }, 2500);
+        setRegisterDialogOpen(false);
+      }, 1500);
     } catch (err) {
-      setForgotError(err.response?.data?.error || 'Failed to reset password. Please check your OTP.');
+      setRegisterError(typeof err === 'string' ? err : 'Registration failed. Please try again.');
     } finally {
-      setForgotLoading('');
-    }
-  };
-  
-  const { login, confirmLogin, terminationMessage, clearTerminationMessage } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  
-  // Redirect to redirectPath or default to dashboard /
-  const from = location.state?.from?.pathname || '/';
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!email.trim() || !password.trim()) {
-      setError('Please fill in all fields.');
-      return;
-    }
-
-    // Email domain validation on client side
-    const emailLower = email.trim().toLowerCase();
-    if (!emailLower.endsWith('@bluetokaicoffee.com') && !emailLower.endsWith('@gottea.in')) {
-      setError('Please enter a valid email ID. Only email addresses with the domain @bluetokaicoffee.com or @gottea.in are allowed.');
-      return;
-    }
-
-    setError('');
-    setLoading(true);
-
-    try {
-      await login(email.trim(), password);
-      navigate(from, { replace: true });
-    } catch (err) {
-      if (err?.conflict) {
-        // Active session detected — open the first warning dialog
-        setConflictDialogOpen(true);
-      } else {
-        setError(typeof err === 'string' ? err : 'Login failed. Please check your credentials.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Conflict dialog handlers ───────────────────────────────────────────────
-  const handleConflictNo = () => {
-    setConflictDialogOpen(false);
-  };
-
-  const handleConflictYes = () => {
-    setConflictDialogOpen(false);
-    setConfirmDialogOpen(true);
-  };
-
-  const handleConfirmAction = async (action) => {
-    setConfirmLoading(action);
-    try {
-      await confirmLogin(action);
-      setConfirmDialogOpen(false);
-      navigate(from, { replace: true });
-    } catch (err) {
-      setError(typeof err === 'string' ? err : 'Login failed. Please try again.');
-      setConfirmDialogOpen(false);
-    } finally {
-      setConfirmLoading('');
+      setRegisterLoading(false);
     }
   };
 
   return (
-    <Box sx={{
-      minHeight: '100vh',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      bgcolor: 'background.default',
-      backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(0, 122, 140, 0.06) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(229, 169, 59, 0.04) 0%, transparent 40%)',
-      px: 2,
-      flexDirection: 'column',
-      gap: 2
-    }}>
-
-      {/* ── Session Termination Banner ──────────────────────────────────── */}
-      {terminationMessage && (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
+        backgroundImage: `linear-gradient(rgba(242, 252, 254, 0.78), rgba(242, 252, 254, 0.68)), url(${loginBackground})`,
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundSize: 'cover',
+        px: 2,
+        flexDirection: 'column',
+        gap: 2
+      }}
+    >
+      {authMessage && (
         <Alert
-          severity="error"
-          onClose={clearTerminationMessage}
+          severity="info"
+          onClose={clearAuthMessage}
           sx={{
             maxWidth: 450,
             width: '100%',
-            borderRadius: '14px',
+            borderRadius: '18px',
             fontWeight: 600,
-            fontSize: '0.88rem',
-            boxShadow: '0 4px 16px rgba(220,38,38,0.12)'
+            fontSize: '0.88rem'
           }}
         >
-          {terminationMessage}
+          {authMessage}
         </Alert>
       )}
-      <Card sx={{
-        maxWidth: 450,
-        width: '100%',
-        bgcolor: 'background.paper',
-        borderRadius: '24px',
-        border: '1px solid',
-        borderColor: 'divider',
-        boxShadow: '0 20px 45px rgba(0,0,0,0.06)',
-        overflow: 'hidden',
-        transition: 'transform 0.3s ease-in-out',
-        '&:hover': {
-          transform: 'translateY(-2px)'
-        }
-      }}>
-        <CardContent sx={{ p: { xs: 3, sm: 5 } }}>
+
+      <Card
+        sx={{
+          maxWidth: 450,
+          width: '100%',
+          bgcolor: 'background.paper',
+          borderRadius: '28px',
+          border: '1px solid',
+          borderColor: 'divider',
+          boxShadow: '0 24px 60px rgba(15, 23, 42, 0.10)',
+          overflow: 'hidden',
+          backdropFilter: 'blur(22px)',
+          WebkitBackdropFilter: 'blur(22px)'
+        }}
+      >
+        <CardContent sx={{ p: { xs: 3, sm: 5 }, position: 'relative' }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(111,205,220,0.06) 100%)',
+              pointerEvents: 'none'
+            }}
+          />
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 4 }}>
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 1.5,
-              mb: 3,
-              p: 1,
-              borderRadius: '20px',
-              bgcolor: 'rgba(0, 173, 198, 0.05)',
-              border: '1px solid rgba(0, 173, 198, 0.1)'
-            }}>
-              <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 48, width: 48, borderRadius: '50%', objectFit: 'cover' }} />
-              <img src={suchaliLogo} alt="Suchali's" style={{ height: 48, width: 48, borderRadius: '50%', objectFit: 'cover' }} />
-              <img src={gotTeaLogo} alt="Got Tea" style={{ height: 48, width: 48, borderRadius: '50%', objectFit: 'cover' }} />
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 1.5,
+                mb: 3,
+                p: 1.2,
+                borderRadius: '999px',
+                bgcolor: 'rgba(255,255,255,0.55)',
+                border: '1px solid rgba(63, 174, 191, 0.12)',
+                boxShadow: '0 10px 25px rgba(111,205,220,0.12)',
+                position: 'relative',
+                zIndex: 1
+              }}
+            >
+              <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 48, width: 48, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 18px rgba(15,23,42,0.12)' }} />
+              <img src={suchaliLogo} alt="Suchali's" style={{ height: 48, width: 48, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 18px rgba(15,23,42,0.12)' }} />
+              <img src={gotTeaLogo} alt="Got Tea" style={{ height: 48, width: 48, borderRadius: '50%', objectFit: 'cover', boxShadow: '0 8px 18px rgba(15,23,42,0.12)' }} />
             </Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 1, letterSpacing: '0.02em' }}>
+            <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: '0.18em', fontWeight: 800, mb: 1, position: 'relative', zIndex: 1 }}>
+              Welcome Back
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', mb: 1, letterSpacing: '-0.02em', position: 'relative', zIndex: 1 }}>
               NSO Portal Login
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-              Enter your credentials to manage new store operations
+            <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', maxWidth: 300, position: 'relative', zIndex: 1 }}>
+              Sign in with password or request an email OTP link
             </Typography>
           </Box>
 
@@ -266,17 +322,22 @@ export default function Login() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
               <TextField
                 fullWidth
-                label="Bluetokai Email Address"
-                type="email"
-                placeholder="name@bluetokaicoffee.com"
+                label="Email Address"
+                type="text"
+                placeholder="your.initials"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value.replace(/@bluetokaicoffee\.com$/i, ''))}
                 required
                 slotProps={{
                   input: {
                     startAdornment: (
                       <InputAdornment position="start" sx={{ color: 'text.secondary' }}>
                         <EmailIcon fontSize="small" />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end" sx={{ color: 'text.secondary', fontSize: '0.92rem' }}>
+                        {LOGIN_EMAIL_DOMAIN}
                       </InputAdornment>
                     ),
                     sx: { borderRadius: '12px' }
@@ -290,7 +351,7 @@ export default function Login() {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={e => setPassword(e.target.value)}
                 required
                 slotProps={{
                   input: {
@@ -312,11 +373,7 @@ export default function Login() {
               />
 
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: -1.5 }}>
-                <Button 
-                  onClick={handleOpenForgotDialog} 
-                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.85rem' }} 
-                  color="primary"
-                >
+                <Button onClick={handleOpenForgotDialog} sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.85rem' }} color="primary">
                   Forgot Password?
                 </Button>
               </Box>
@@ -330,30 +387,55 @@ export default function Login() {
                   py: 1.8,
                   fontSize: '0.95rem',
                   fontWeight: 700,
-                  borderRadius: '12px',
+                  borderRadius: '16px',
                   boxShadow: 'none',
                   '&:hover': {
-                    boxShadow: '0 8px 20px rgba(0, 173, 198, 0.3)'
+                    boxShadow: '0 16px 32px rgba(111, 205, 220, 0.28)'
                   }
                 }}
                 fullWidth
               >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Log In'}
+                {loading ? <CircularProgress size={24} color="inherit" /> : 'Log In With Password'}
+              </Button>
+
+              <Button
+                variant="outlined"
+                size="large"
+                type="button"
+                disabled={emailLinkLoading}
+                onClick={handleEmailLinkLogin}
+                startIcon={emailLinkLoading ? <CircularProgress size={18} color="inherit" /> : <MarkEmailReadIcon />}
+                sx={{
+                  py: 1.5,
+                  fontSize: '0.9rem',
+                  fontWeight: 700,
+                  borderRadius: '16px',
+                  backgroundColor: 'rgba(255,255,255,0.36)'
+                }}
+                fullWidth
+              >
+                {emailLinkLoading ? 'Sending Link...' : 'Login With OTP Link'}
+              </Button>
+
+              <Button
+                variant="text"
+                type="button"
+                onClick={handleOpenRegisterDialog}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  alignSelf: 'center'
+                }}
+              >
+                New User? Register for Approval
               </Button>
             </Box>
           </form>
-
-          <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
-            <Typography variant="caption" sx={{ color: 'text.secondary', textAlign: 'center', maxWidth: 320 }}>
-              Only email addresses with the domain <strong>@bluetokaicoffee.com</strong> or <strong>@gottea.in</strong> are allowed. Seed account default: <em>Bluetokai@123</em>.
-            </Typography>
-          </Box>
         </CardContent>
       </Card>
 
-      {/* Forgot Password Dialog */}
-      <Dialog 
-        open={forgotDialogOpen} 
+      <Dialog
+        open={forgotDialogOpen}
         onClose={handleCloseForgotDialog}
         maxWidth="xs"
         fullWidth
@@ -361,15 +443,15 @@ export default function Login() {
           sx: { borderRadius: '16px', p: 1 }
         }}
       >
-        <DialogTitle sx={{ fontWeight: 800 }}>Forgot Password</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800 }}>Reset Password</DialogTitle>
         <DialogContent>
           {forgotError && <Alert severity="error" sx={{ mb: 2, borderRadius: '8px', fontSize: '0.85rem' }}>{forgotError}</Alert>}
           {forgotSuccess && (
-            <Alert 
-              severity="success" 
-              sx={{ 
-                mb: 2, 
-                borderRadius: '8px', 
+            <Alert
+              severity="success"
+              sx={{
+                mb: 2,
+                borderRadius: '8px',
                 fontSize: '0.85rem',
                 color: '#000000',
                 fontWeight: 700,
@@ -383,263 +465,110 @@ export default function Login() {
             </Alert>
           )}
 
-          {!otpSent ? (
-            <form onSubmit={handleSendOTP}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-                Enter your registered Bluetokai email address. We will send you a 6-digit verification OTP to reset your password.
-              </Typography>
-              <TextField
-                autoFocus
-                margin="dense"
-                label="Email Address"
-                type="email"
-                placeholder="name@bluetokaicoffee.com"
-                fullWidth
-                variant="outlined"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                required
-                slotProps={{
-                  input: {
-                    sx: { borderRadius: '10px' }
-                  }
-                }}
-              />
-              <DialogActions sx={{ px: 0, pb: 0, mt: 2 }}>
-                <Button onClick={handleCloseForgotDialog} color="inherit" sx={{ fontWeight: 600 }}>
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit" 
-                  variant="contained" 
-                  color="primary" 
-                  disabled={forgotLoading === 'otp'}
-                  sx={{ fontWeight: 700, borderRadius: '8px' }}
-                >
-                  {forgotLoading === 'otp' ? <CircularProgress size={20} color="inherit" /> : 'Send OTP'}
-                </Button>
-              </DialogActions>
-            </form>
-          ) : (
-            <form onSubmit={handleResetPasswordWithOTP}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-                Please enter the 6-digit OTP sent to <strong>{forgotEmail}</strong> and enter your new password.
-              </Typography>
-              <TextField
-                autoFocus
-                margin="dense"
-                label="Enter OTP"
-                type="text"
-                placeholder="123456"
-                fullWidth
-                variant="outlined"
-                value={otpCode}
-                onChange={(e) => setOtpCode(e.target.value)}
-                required
-                sx={{ mb: 2 }}
-                slotProps={{
-                  input: {
-                    sx: { borderRadius: '10px' }
-                  }
-                }}
-              />
-              <TextField
-                margin="dense"
-                label="New Password"
-                type="password"
-                placeholder="••••••••"
-                fullWidth
-                variant="outlined"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                sx={{ mb: 2 }}
-                slotProps={{
-                  input: {
-                    sx: { borderRadius: '10px' }
-                  }
-                }}
-              />
-              <TextField
-                margin="dense"
-                label="Confirm New Password"
-                type="password"
-                placeholder="••••••••"
-                fullWidth
-                variant="outlined"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                slotProps={{
-                  input: {
-                    sx: { borderRadius: '10px' }
-                  }
-                }}
-              />
-              <DialogActions sx={{ px: 0, pb: 0, mt: 3 }}>
-                <Button onClick={() => setOtpSent(false)} color="inherit" sx={{ fontWeight: 600 }}>
-                  Back
-                </Button>
-                <Button 
-                  type="submit" 
-                  variant="contained" 
-                  color="primary" 
-                  disabled={forgotLoading === 'reset'}
-                  sx={{ fontWeight: 700, borderRadius: '8px' }}
-                >
-                  {forgotLoading === 'reset' ? <CircularProgress size={20} color="inherit" /> : 'Reset Password'}
-                </Button>
-              </DialogActions>
-            </form>
-          )}
+          <form onSubmit={handleSendResetEmail}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+              A password reset email will be sent to your registered company address.
+            </Typography>
+            <TextField
+              autoFocus
+              margin="dense"
+              label="Email Address"
+              type="email"
+              placeholder="name@company.com"
+              fullWidth
+              variant="outlined"
+              value={forgotEmail}
+              onChange={e => setForgotEmail(e.target.value)}
+              required
+              slotProps={{
+                input: {
+                  sx: { borderRadius: '10px' }
+                }
+              }}
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 2.5 }}>
+              <Button onClick={handleCloseForgotDialog} color="inherit" sx={{ fontWeight: 600 }}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="contained" color="primary" disabled={forgotLoading} sx={{ fontWeight: 700, borderRadius: '8px' }}>
+                {forgotLoading ? <CircularProgress size={20} color="inherit" /> : 'Send Reset Email'}
+              </Button>
+            </Box>
+          </form>
         </DialogContent>
       </Dialog>
 
-      {/* ── Dialog 1: Session Conflict Warning ─────────────────────────────── */}
       <Dialog
-        open={conflictDialogOpen}
-        onClose={handleConflictNo}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '20px', p: 1, overflow: 'visible' } }}
-      >
-        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
-          <Box sx={{
-            bgcolor: 'rgba(245, 158, 11, 0.12)',
-            borderRadius: '12px',
-            p: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}>
-            <WarningAmberIcon sx={{ color: '#d97706', fontSize: 26 }} />
-          </Box>
-          Active Session Detected
-        </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-            This user ID is already logged in on{' '}
-            <strong style={{ color: '#1e293b' }}>another browser / device</strong>.
-            Are you sure you want to proceed?
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
-          <Button
-            onClick={handleConflictNo}
-            variant="outlined"
-            color="inherit"
-            sx={{ fontWeight: 700, borderRadius: '10px', flex: 1 }}
-          >
-            No, Cancel
-          </Button>
-          <Button
-            onClick={handleConflictYes}
-            variant="contained"
-            sx={{
-              fontWeight: 700,
-              borderRadius: '10px',
-              flex: 1,
-              bgcolor: '#d97706',
-              '&:hover': { bgcolor: '#b45309' }
-            }}
-          >
-            Yes, Continue
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ── Dialog 2: Choose Action ─────────────────────────────────────────── */}
-      <Dialog
-        open={confirmDialogOpen}
-        onClose={() => !confirmLoading && setConfirmDialogOpen(false)}
+        open={registerDialogOpen}
+        onClose={handleCloseRegisterDialog}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+        PaperProps={{
+          sx: { borderRadius: '16px', p: 1 }
+        }}
       >
-        <DialogTitle sx={{ fontWeight: 800, pb: 0.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <DevicesOtherIcon sx={{ color: '#007a8c' }} />
-            Choose Login Option
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Please choose one of the following options:
-          </Typography>
+        <DialogTitle sx={{ fontWeight: 800 }}>New User Registration</DialogTitle>
+        <DialogContent>
+          {registerError && <Alert severity="error" sx={{ mb: 2, borderRadius: '8px', fontSize: '0.85rem' }}>{registerError}</Alert>}
+          {registerSuccess && <Alert severity="success" sx={{ mb: 2, borderRadius: '8px', fontSize: '0.85rem' }}>{registerSuccess}</Alert>}
 
-          {/* Option A — Force Logout */}
-          <Box
-            onClick={() => !confirmLoading && handleConfirmAction('force_logout')}
-            sx={{
-              border: '2px solid',
-              borderColor: confirmLoading === 'force_logout' ? '#007a8c' : 'divider',
-              borderRadius: '14px',
-              p: 2.5,
-              mb: 2,
-              cursor: confirmLoading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s',
-              '&:hover': { borderColor: '#007a8c', bgcolor: 'rgba(0,122,140,0.04)' }
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-              <Box sx={{ bgcolor: 'rgba(0,122,140,0.1)', borderRadius: '10px', p: 1, mt: 0.3 }}>
-                {confirmLoading === 'force_logout'
-                  ? <CircularProgress size={22} sx={{ color: '#007a8c' }} />
-                  : <ExitToAppIcon sx={{ color: '#007a8c', fontSize: 22 }} />}
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-                  Logout from Another Device and Login Here
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                  The existing active session will be terminated automatically. The other browser will be redirected to the login page.
-                </Typography>
-              </Box>
+          <form onSubmit={handleRegisterSubmit}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+              Submit your details. An admin must approve your request before you can log in.
+            </Typography>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                label="Full Name"
+                fullWidth
+                value={registerForm.name}
+                onChange={e => handleRegisterInput('name', e.target.value)}
+                required
+              />
+              <TextField
+                label="Company Email"
+                type="email"
+                fullWidth
+                placeholder="name@bluetokaicoffee.com"
+                value={registerForm.email}
+                onChange={e => handleRegisterInput('email', e.target.value)}
+                required
+              />
+              <TextField
+                label="Phone Number"
+                fullWidth
+                value={registerForm.phone}
+                onChange={e => handleRegisterInput('phone', e.target.value)}
+                required
+              />
+              <TextField
+                label="Password"
+                type="password"
+                fullWidth
+                value={registerForm.password}
+                onChange={e => handleRegisterInput('password', e.target.value)}
+                required
+              />
+              <TextField
+                label="Confirm Password"
+                type="password"
+                fullWidth
+                value={registerForm.confirmPassword}
+                onChange={e => handleRegisterInput('confirmPassword', e.target.value)}
+                required
+              />
             </Box>
-          </Box>
 
-          <Divider sx={{ my: 1.5 }}><Typography variant="caption" color="text.disabled">OR</Typography></Divider>
-
-          {/* Option B — Allow Both */}
-          <Box
-            onClick={() => !confirmLoading && handleConfirmAction('allow_both')}
-            sx={{
-              border: '2px solid',
-              borderColor: confirmLoading === 'allow_both' ? '#059669' : 'divider',
-              borderRadius: '14px',
-              p: 2.5,
-              cursor: confirmLoading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s',
-              '&:hover': { borderColor: '#059669', bgcolor: 'rgba(5,150,105,0.04)' }
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-              <Box sx={{ bgcolor: 'rgba(5,150,105,0.1)', borderRadius: '10px', p: 1, mt: 0.3 }}>
-                {confirmLoading === 'allow_both'
-                  ? <CircularProgress size={22} sx={{ color: '#059669' }} />
-                  : <GroupIcon sx={{ color: '#059669', fontSize: 22 }} />}
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-                  Login Here Too
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                  Both sessions will remain active simultaneously. No other browser will be affected.
-                </Typography>
-              </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 3 }}>
+              <Button onClick={handleCloseRegisterDialog} color="inherit" sx={{ fontWeight: 600 }}>
+                Cancel
+              </Button>
+              <Button type="submit" variant="contained" disabled={registerLoading} sx={{ fontWeight: 700, borderRadius: '8px' }}>
+                {registerLoading ? <CircularProgress size={20} color="inherit" /> : 'Submit Request'}
+              </Button>
             </Box>
-          </Box>
+          </form>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3 }}>
-          <Button
-            onClick={() => setConfirmDialogOpen(false)}
-            disabled={!!confirmLoading}
-            color="inherit"
-            sx={{ fontWeight: 600, borderRadius: '10px' }}
-          >
-            Cancel
-          </Button>
-        </DialogActions>
       </Dialog>
     </Box>
   );
