@@ -1973,11 +1973,11 @@ function executeProcessDocx(
 
 // Helper function to convert Docx to Pdf via Microsoft Word AppleScript (osascript)
 function convertDocxToPdf(docxPath: string, pdfPath: string): Promise<void> {
-  const escapePath = (p: string) => p.replace(/"/g, '\\"');
+  const tempScriptPath = docxPath.replace(/\.docx$/, '.scpt');
   const appleScript = `
 tell application "Microsoft Word"
-    set docPath to POSIX file "${escapePath(docxPath)}"
-    set pdfPath to POSIX file "${escapePath(pdfPath)}"
+    set docPath to POSIX file "${docxPath}"
+    set pdfPath to POSIX file "${pdfPath}"
     open docPath
     set activeDoc to active document
     save as activeDoc file format format PDF file name pdfPath
@@ -1985,16 +1985,27 @@ tell application "Microsoft Word"
 end tell
   `;
   
-  const escapeArg = (arg: string) => `'${arg.replace(/'/g, "'\\''")}'`;
-  const command = `osascript -e ${escapeArg(appleScript)}`;
-
   return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        console.error('osascript conversion error:', error, stderr);
-        return reject(error);
+    fs.writeFile(tempScriptPath, appleScript, 'utf8', (err) => {
+      if (err) {
+        return reject(err);
       }
-      resolve();
+      
+      const escapeArg = (arg: string) => `'${arg.replace(/'/g, "'\\''")}'`;
+      const command = `osascript ${escapeArg(tempScriptPath)}`;
+      
+      exec(command, (execErr, stdout, stderr) => {
+        // Clean up the temp script file
+        if (fs.existsSync(tempScriptPath)) {
+          try { fs.unlinkSync(tempScriptPath); } catch (e) {}
+        }
+        
+        if (execErr) {
+          console.error('osascript execution error:', execErr, stderr);
+          return reject(execErr);
+        }
+        resolve();
+      });
     });
   });
 }
