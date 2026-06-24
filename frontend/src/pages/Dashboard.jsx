@@ -15,7 +15,7 @@ import CalendarToday from '@mui/icons-material/CalendarToday';
 import Upcoming from '@mui/icons-material/Upcoming';
 import Cancel from '@mui/icons-material/Cancel';
 import TaskAlt from '@mui/icons-material/TaskAlt';
-import axios from 'axios';
+import axios from '../utils/api';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
 import { normalizeListResponse } from '../utils/api';

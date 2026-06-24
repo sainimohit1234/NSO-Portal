@@ -9,9 +9,9 @@ const router = Router();
 router.use(authenticateToken);
 
 // Get SMTP configuration
-router.get('/smtp', authorizeRoles('SUPER_ADMIN'), (req, res) => {
+router.get('/smtp', authorizeRoles('SUPER_ADMIN'), async (req, res) => {
   try {
-    const config = getSMTPConfig();
+    const config = await getSMTPConfig();
     res.json(config);
   } catch (error) {
     console.error('Error fetching SMTP config:', error);
@@ -20,7 +20,7 @@ router.get('/smtp', authorizeRoles('SUPER_ADMIN'), (req, res) => {
 });
 
 // Update SMTP configuration
-router.put('/smtp', authorizeRoles('SUPER_ADMIN'), (req, res) => {
+router.put('/smtp', authorizeRoles('SUPER_ADMIN'), async (req, res) => {
   try {
     const { smtpHost, smtpPort, smtpSecure, smtpUser, smtpPass } = req.body;
     if (!smtpHost || !smtpUser) {
@@ -36,7 +36,7 @@ router.put('/smtp', authorizeRoles('SUPER_ADMIN'), (req, res) => {
       smtpPass: smtpPass || ''
     };
 
-    saveSMTPConfig(config);
+    await saveSMTPConfig(config);
     res.json({ message: 'SMTP configuration saved successfully', config });
   } catch (error) {
     console.error('Error saving SMTP config:', error);
@@ -105,9 +105,9 @@ router.post('/smtp/test', authorizeRoles('SUPER_ADMIN'), async (req, res) => {
 });
 
 // Get email recipient configuration
-router.get('/email-recipients', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), (req, res) => {
+router.get('/email-recipients', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), async (req, res) => {
   try {
-    const config = getEmailRecipients();
+    const config = await getEmailRecipients();
     res.json(config);
   } catch (error) {
     console.error('Error fetching email recipients:', error);
@@ -116,7 +116,7 @@ router.get('/email-recipients', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'
 });
 
 // Update email recipient configuration
-router.put('/email-recipients', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), (req, res) => {
+router.put('/email-recipients', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), async (req, res) => {
   try {
     const currentUser = (req as any).user;
     const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
@@ -129,7 +129,7 @@ router.put('/email-recipients', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'
     if (!Array.isArray(config)) {
       return res.status(400).json({ error: 'Configuration must be an array of categories' });
     }
-    saveEmailRecipients(config);
+    await saveEmailRecipients(config);
     res.json({ message: 'Email recipient configuration saved successfully', config });
   } catch (error) {
     console.error('Error saving email recipients:', error);

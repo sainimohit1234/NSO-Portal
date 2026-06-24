@@ -13,7 +13,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EditIcon from '@mui/icons-material/Edit';
 import DownloadIcon from '@mui/icons-material/Download';
-import axios from 'axios';
+import axios, { normalizeListResponse } from '../utils/api';
 
 export default function ImagesDocs() {
   const [documents, setDocuments] = useState([]);
@@ -51,7 +51,7 @@ export default function ImagesDocs() {
     try {
       setLoading(true);
       const res = await axios.get('/api/global-docs');
-      setDocuments(res.data);
+      setDocuments(normalizeListResponse(res.data));
       setErrorMsg('');
     } catch (err) {
       setErrorMsg('Failed to load links.');

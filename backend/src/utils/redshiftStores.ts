@@ -1,5 +1,7 @@
-import { PrismaClient, Store } from '@prisma/client';
+import { PrismaClient } from '../lib/prisma-mock';
 const { Pool } = require('pg');
+
+type Store = any;
 
 type RedshiftStoreRow = {
   cafe_name?: string | null;
@@ -322,12 +324,12 @@ export async function fetchRedshiftStores() {
   return result.rows;
 }
 
-export async function syncRedshiftStores(prisma: PrismaClient, force = false) {
+export async function upsertStore(prisma: any, record: any, forceUpdate = false) {
   if (!isConfigured()) {
     return { synced: 0, skipped: true };
   }
 
-  if (!force && Date.now() - lastSyncAt < syncIntervalMs) {
+  if (!forceUpdate && Date.now() - lastSyncAt < syncIntervalMs) {
     return { synced: 0, skipped: true };
   }
 

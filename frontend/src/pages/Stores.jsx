@@ -7,7 +7,7 @@ import {
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 import { fetchStoresFromFirestore } from '../services/storeService';

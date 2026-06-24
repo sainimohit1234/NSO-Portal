@@ -16,7 +16,7 @@ import LockOpenIcon from '@mui/icons-material/LockOpen';
 import CheckIcon from '@mui/icons-material/Check';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 import { fetchStoresFromFirestore } from '../services/storeService';
@@ -84,7 +84,7 @@ export default function AggregatorMail() {
         console.error('Failed to load stores from Firestore, falling back to API:', err);
         try {
           const res = await axios.get('/api/stores');
-          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']) || [];
           const filtered = stores.filter(s => s.status === 'COMPLIANCE_APPROVED' || s.status === 'LIVE');
           setStores(filtered);
         } catch (apiError) {

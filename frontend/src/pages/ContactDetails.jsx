@@ -8,7 +8,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import CloseIcon from '@mui/icons-material/Close';
-import axios from 'axios';
+import axios, { normalizeListResponse } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 const DESIGNATIONS = ['Café Manager', 'Area Manager', 'City Head'];
@@ -38,8 +38,9 @@ export default function ContactDetails() {
   const fetchContacts = () => {
     axios.get('/api/contacts')
       .then(res => {
-        setContacts(res.data);
-        setFilteredContacts(res.data);
+        const normalized = normalizeListResponse(res.data, ['contacts', 'data', 'items']);
+        setContacts(normalized);
+        setFilteredContacts(normalized);
       })
       .catch(err => console.error(err));
   };

@@ -1,7 +1,4 @@
-import fs from 'fs';
-import path from 'path';
-
-const configPath = path.resolve(__dirname, '../../../email_recipients.json');
+import { firebaseAdmin } from '../lib/firebase-admin';
 
 export interface EmailCategory {
   id: string;
@@ -61,34 +58,28 @@ const DEFAULT_RECIPIENTS: EmailCategory[] = [
   }
 ];
 
-export function getEmailRecipients(): EmailCategory[] {
+export async function getEmailRecipients(): Promise<EmailCategory[]> {
   let config = [...DEFAULT_RECIPIENTS];
-  if (fs.existsSync(configPath)) {
-    try {
-      const fileData = fs.readFileSync(configPath, 'utf8');
-      const parsed = JSON.parse(fileData);
-      
-      // Ensure all defaults exist in parsed
+  try {
+    const doc = await firebaseAdmin.firestore().collection('system').doc('email_recipients').get();
+    if (doc.exists) {
+      const parsed = doc.data()?.categories || [];
       for (const def of DEFAULT_RECIPIENTS) {
         if (!parsed.find((c: EmailCategory) => c.id === def.id)) {
           parsed.push(def);
         }
       }
       config = parsed;
-    } catch (e) {
-      console.error('Failed to parse email_recipients.json, falling back to defaults', e);
+    } else {
+      await saveEmailRecipients(config);
     }
+  } catch (e) {
+    console.error('Failed to fetch email_recipients from Firestore, falling back to defaults', e);
   }
   
-  // Save merged or default config back to ensure it's up to date
-  try {
-    saveEmailRecipients(config);
-  } catch (e) {
-    console.error('Failed to write default email_recipients.json', e);
-  }
   return config;
 }
 
-export function saveEmailRecipients(config: EmailCategory[]): void {
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf8');
+export async function saveEmailRecipients(config: EmailCategory[]): Promise<void> {
+  await firebaseAdmin.firestore().collection('system').doc('email_recipients').set({ categories: config });
 }

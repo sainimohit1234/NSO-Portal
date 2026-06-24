@@ -9,7 +9,7 @@ import {
   Select, InputAdornment, Autocomplete
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
-import axios from 'axios';
+import axios from '../utils/api';
 
 import { useAuth } from '../context/AuthContext';
 import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
@@ -174,7 +174,7 @@ export default function EditStore() {
     Promise.all(fetchPromises).then(([storesRes, contactsRes]) => {
       const stores = normalizeListResponse(storesRes.data, ['stores', 'data', 'items']);
       const contacts = normalizeListResponse(contactsRes.data, ['contacts', 'data', 'items']);
-      const currentStore = stores.find(s => s.id === parseInt(id));
+      const currentStore = stores.find(s => String(s.id) === String(id));
       if (!currentStore) {
         setErrorMsg('Store not found.');
         return;

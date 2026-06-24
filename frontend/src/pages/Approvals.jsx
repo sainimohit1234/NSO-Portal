@@ -10,7 +10,7 @@ import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 import { fetchStoresFromFirestore } from '../services/storeService';

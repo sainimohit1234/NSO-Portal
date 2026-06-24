@@ -31,7 +31,7 @@ import {
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import axios from 'axios';
+import axios from '../utils/api';
 
 const fieldsGuide = [
   { field: 'cafeName', status: 'Not Editable' },

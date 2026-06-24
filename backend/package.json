@@ -1,18 +1,22 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "prisma db push --schema=prisma/schema.prisma && nodemon src/index.ts",
+    "dev": "nodemon src/index.ts",
+    "build": "tsc",
     "sync:firestore-stores": "node scripts/sync-redshift-to-firestore.mjs"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
+  "engines": {
+    "node": "20"
+  },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@google-cloud/storage": "^7.21.0",
     "cors": "^2.8.6",
     "csv-parser": "^3.2.1",
     "csv-writer": "^1.6.0",
@@ -20,11 +24,14 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "firebase": "^12.15.0",
+    "firebase-admin": "^13.10.0",
+    "firebase-functions": "^7.2.5",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^8.0.11",
     "pg": "^8.21.0",
+    "uuid": "^14.0.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -37,7 +44,6 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^8.0.1",
     "nodemon": "^3.1.14",
-    "prisma": "^5.22.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }

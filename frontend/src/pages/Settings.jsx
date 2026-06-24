@@ -15,8 +15,9 @@ import CloseIcon from '@mui/icons-material/Close';
 import SettingsIcon from '@mui/icons-material/Settings';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { normalizeListResponse } from '../utils/api';
 
 const ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE', 'USER'];
 
@@ -131,9 +132,17 @@ export default function Settings() {
   const [savingSmtp, setSavingSmtp] = useState(false);
 
   const fetchUsers = () => {
+    console.log("Settings.jsx: fetchUsers called");
     axios.get('/api/users')
-      .then(res => setUsers(res.data))
-      .catch(err => console.error(err));
+      .then(res => {
+        console.log("Settings.jsx: fetchUsers raw response data:", res.data);
+        const normalized = normalizeListResponse(res.data, ['users', 'data', 'items']);
+        console.log("Settings.jsx: fetchUsers normalized list:", normalized);
+        setUsers(normalized);
+      })
+      .catch(err => {
+        console.error("Settings.jsx: fetchUsers error:", err);
+      });
   };
 
   useEffect(() => { fetchUsers(); }, []);
@@ -412,16 +421,21 @@ export default function Settings() {
     return { bgcolor: info.bg, color: info.color, borderColor: info.border };
   };
 
-  const filteredUsers = users.filter(user => {
+  console.log("Settings.jsx: Render evaluation", { currentUser, usersCount: users?.length, filters });
+  const filteredUsers = (users || []).filter(user => {
+    if (!user) return false;
     // Hide Super Admin and Admin if user is Manager
     if (currentUser?.role === 'MANAGER' && ['SUPER_ADMIN', 'ADMIN'].includes(user.role)) return false;
 
-    const matchName = user.name.toLowerCase().includes(filters.name.toLowerCase());
-    const matchEmail = user.email.toLowerCase().includes(filters.email.toLowerCase());
-    const matchPhone = (user.phone || '').toLowerCase().includes(filters.phone.toLowerCase());
+    const matchName = (user.name || '').toLowerCase().includes((filters.name || '').toLowerCase());
+    const matchEmail = (user.email || '').toLowerCase().includes((filters.email || '').toLowerCase());
+    const matchPhone = (user.phone || '').toLowerCase().includes((filters.phone || '').toLowerCase());
     const matchRole = !filters.role || user.role === filters.role;
-    return matchName && matchEmail && matchPhone && matchRole;
+    const isMatched = matchName && matchEmail && matchPhone && matchRole;
+    console.log(`Settings.jsx: Filtering user ${user.email} (role: ${user.role}):`, { matchName, matchEmail, matchPhone, matchRole, isMatched });
+    return isMatched;
   });
+  console.log("Settings.jsx: filteredUsers result:", filteredUsers);
 
   return (
     <Box sx={{ py: 1 }}>

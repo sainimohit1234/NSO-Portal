@@ -8,7 +8,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/Pending';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 import { fetchStoresFromFirestore } from '../services/storeService';

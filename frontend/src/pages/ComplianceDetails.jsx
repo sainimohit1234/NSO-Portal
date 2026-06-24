@@ -14,7 +14,7 @@ import WarningIcon from '@mui/icons-material/Warning';
 import SearchIcon from '@mui/icons-material/Search';
 import DownloadIcon from '@mui/icons-material/Download';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { getCurrentStatusTextFormat } from '../utils/status';
 
@@ -211,7 +211,7 @@ export default function ComplianceDetails() {
     setLoading(true);
     axios.get(`/api/stores`)
       .then(res => {
-        const found = res.data.find(s => s.id === parseInt(id));
+        const found = res.data.find(s => String(s.id) === String(id));
         if (found) {
           setStore(found);
           setFssaiNo(found.fssaiNo || '');

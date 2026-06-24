@@ -7,7 +7,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Select, InputAdornment, Snackbar, Autocomplete
 } from '@mui/material';
-import axios from 'axios';
+import axios from '../utils/api';
 import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';

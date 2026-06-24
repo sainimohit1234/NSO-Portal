@@ -1,14 +1,14 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 import { verifyPassword, hashPassword } from '../utils/auth';
 import { getSMTPConfig } from '../utils/smtp';
+import { firebaseAdmin } from '../lib/firebase-admin';
 
 // Helper function to send email via nodemailer
 async function sendOTPEmail(email: string, otp: string) {
-  const smtpConfig = getSMTPConfig();
+  const smtpConfig = await getSMTPConfig();
   const transporter = nodemailer.createTransport({
     host: smtpConfig.smtpHost,
     port: smtpConfig.smtpPort,
@@ -63,7 +63,7 @@ async function sendOTPEmail(email: string, otp: string) {
 }
 
 const router = Router();
-const prisma = new PrismaClient();
+const db = firebaseAdmin.firestore();
 const JWT_SECRET = process.env.JWT_SECRET || 'bluetokai_jwt_secret_key_2026';
 
 interface AuthenticatedRequest extends Request {
@@ -71,7 +71,7 @@ interface AuthenticatedRequest extends Request {
 }
 
 // Authentication middleware
-export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   let token = authHeader && authHeader.split(' ')[1];
   
@@ -83,39 +83,36 @@ export const authenticateToken = (req: AuthenticatedRequest, res: Response, next
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, async (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
-    }
-    const user = decoded as any;
-    req.user = user;
+  try {
+    const decodedToken = await firebaseAdmin.auth().verifyIdToken(token);
+    const email = decodedToken.email;
 
-    // Check for session termination and update heartbeat (only if user.id exists)
-    if (user && user.id) {
-      try {
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
-        if (dbUser) {
-          // activeSessionId null = "allow_both" mode — no enforcement
-          if (user.sessionId && dbUser.activeSessionId && dbUser.activeSessionId !== user.sessionId) {
-            return res.status(401).json({ error: 'SESSION_TERMINATED' });
-          }
-
-          // Update heartbeat and lastLoginAt
-          await prisma.user.update({
-            where: { id: user.id },
-            data: {
-              lastActiveAt: new Date(),
-              ...(!dbUser.lastLoginAt ? { lastLoginAt: new Date() } : {})
-            }
-          }).catch(e => console.error('Failed to update lastActiveAt:', e));
-        }
-      } catch (e) {
-        console.error('Session check error:', e);
-      }
+    if (!email) {
+      return res.status(401).json({ error: 'Token missing email claim' });
     }
+
+    const userQuery = await db.collection('users').where('email', '==', email.toLowerCase()).get();
+    if (userQuery.empty) {
+      return res.status(401).json({ error: 'User not found in database' });
+    }
+
+    const dbUser = { id: userQuery.docs[0].id, ...userQuery.docs[0].data() } as any;
+    req.user = dbUser;
+
+    // Update heartbeat and lastLoginAt
+    const updates: any = { lastActiveAt: new Date().toISOString() };
+    if (!dbUser.lastLoginAt) {
+      updates.lastLoginAt = new Date().toISOString();
+    }
+    
+    await db.collection('users').doc(dbUser.id).update(updates)
+      .catch(e => console.error('Failed to update lastActiveAt:', e));
 
     next();
-  });
+  } catch (error) {
+    console.error('Firebase token verification error:', error);
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
 };
 
 // Role authorization middleware
@@ -139,13 +136,12 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase() }
-    });
-
-    if (!user) {
+    const userQuery = await db.collection('users').where('email', '==', email.toLowerCase()).get();
+    if (userQuery.empty) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
+
+    const user = { id: userQuery.docs[0].id, ...userQuery.docs[0].data() } as any;
 
     const isPasswordValid = verifyPassword(password, user.password);
     if (!isPasswordValid) {
@@ -153,24 +149,21 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // ── Session conflict check ──
-    // A session conflict is only active if activeSessionId is set AND the last active heartbeat is within the last 60 seconds
     if (user.activeSessionId && user.lastActiveAt) {
       const timeSinceLastActivity = Date.now() - new Date(user.lastActiveAt).getTime();
       if (timeSinceLastActivity < 60 * 1000) {
-        // The other session is actively polling/interactive — signal conflict
         return res.status(200).json({ conflict: true });
       }
     }
 
     // ── No conflict or session is stale — normal login ──
     const sessionId = crypto.randomUUID();
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { 
-        lastLoginAt: new Date(), 
-        lastActiveAt: new Date(), 
-        activeSessionId: sessionId 
-      }
+    const now = new Date().toISOString();
+    
+    await db.collection('users').doc(user.id).update({
+      lastLoginAt: now, 
+      lastActiveAt: now, 
+      activeSessionId: sessionId 
     });
 
     const token = jwt.sign(
@@ -190,8 +183,6 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // ─── POST /login/confirm ─────────────────────────────────────────────────────
-// Called after user decides how to handle a session conflict.
-// action = "force_logout" | "allow_both"
 router.post('/login/confirm', async (req: Request, res: Response) => {
   try {
     const { email, password, action } = req.body;
@@ -199,36 +190,30 @@ router.post('/login/confirm', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'email, password and action are required' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
-    if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+    const userQuery = await db.collection('users').where('email', '==', email.toLowerCase()).get();
+    if (userQuery.empty) return res.status(401).json({ error: 'Invalid email or password' });
+
+    const user = { id: userQuery.docs[0].id, ...userQuery.docs[0].data() } as any;
 
     const isPasswordValid = verifyPassword(password, user.password);
     if (!isPasswordValid) return res.status(401).json({ error: 'Invalid email or password' });
 
     let sessionId: string | undefined;
+    const now = new Date().toISOString();
 
     if (action === 'force_logout') {
-      // Generate a new sessionId — old JWT's sessionId no longer matches → SESSION_TERMINATED on poll
       sessionId = crypto.randomUUID();
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { 
-          lastLoginAt: new Date(), 
-          lastActiveAt: new Date(), 
-          activeSessionId: sessionId 
-        }
+      await db.collection('users').doc(user.id).update({
+        lastLoginAt: now, 
+        lastActiveAt: now, 
+        activeSessionId: sessionId 
       });
     } else if (action === 'allow_both') {
-      // Clear activeSessionId so no session is enforced — both browsers remain valid
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { 
-          lastLoginAt: new Date(), 
-          lastActiveAt: new Date(), 
-          activeSessionId: null 
-        }
+      await db.collection('users').doc(user.id).update({
+        lastLoginAt: now, 
+        lastActiveAt: now, 
+        activeSessionId: null 
       });
-      // sessionId intentionally omitted from JWT — middleware skips enforcement
     } else {
       return res.status(400).json({ error: 'Invalid action. Use "force_logout" or "allow_both".' });
     }
@@ -252,8 +237,9 @@ router.post('/login/confirm', async (req: Request, res: Response) => {
 // ─── GET /me ─────────────────────────────────────────────────────────────────
 router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const userDoc = await db.collection('users').doc(req.user.id).get();
+    if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
+    const user = { id: userDoc.id, ...userDoc.data() } as any;
 
     res.json({ id: user.id, email: user.email, name: user.name, role: user.role, permissions: user.permissions });
   } catch (error) {
@@ -265,10 +251,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
 // ─── POST /logout ─────────────────────────────────────────────────────────────
 router.post('/logout', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    await prisma.user.update({
-      where: { id: req.user.id },
-      data: { activeSessionId: null }
-    });
+    await db.collection('users').doc(req.user.id).update({ activeSessionId: null });
     res.json({ message: 'Logged out successfully' });
   } catch (error) {
     console.error('Logout error:', error);
@@ -284,14 +267,15 @@ router.post('/reset-password', authenticateToken, async (req: AuthenticatedReque
       return res.status(400).json({ error: 'Old password and new password are required' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const userDoc = await db.collection('users').doc(req.user.id).get();
+    if (!userDoc.exists) return res.status(404).json({ error: 'User not found' });
+    const user = userDoc.data() as any;
 
     const isPasswordValid = verifyPassword(oldPassword, user.password);
     if (!isPasswordValid) return res.status(400).json({ error: 'Incorrect old password' });
 
     const newPasswordHash = hashPassword(newPassword);
-    await prisma.user.update({ where: { id: req.user.id }, data: { password: newPasswordHash } });
+    await db.collection('users').doc(req.user.id).update({ password: newPasswordHash });
 
     res.json({ message: 'Password reset successful' });
   } catch (error) {
@@ -306,18 +290,21 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
-    if (!user) return res.status(404).json({ error: 'Please enter a registered Bluetokai email ID.' });
+    const userQuery = await db.collection('users').where('email', '==', email.toLowerCase().trim()).get();
+    if (userQuery.empty) return res.status(404).json({ error: 'Please enter a registered Bluetokai email ID.' });
+    
+    const userId = userQuery.docs[0].id;
+    const user = userQuery.docs[0].data() as any;
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    const expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-    await prisma.user.update({ where: { id: user.id }, data: { otpCode: otp, otpExpiry: expiry } });
+    await db.collection('users').doc(userId).update({ otpCode: otp, otpExpiry: expiry });
 
     sendOTPEmail(user.email, otp);
     console.log(`\n[OTP DEBUG] Sent password reset OTP for ${user.email}: ${otp}\n`);
 
-    const smtpConfig = getSMTPConfig();
+    const smtpConfig = await getSMTPConfig();
     const isLocalTesting = !smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email';
 
     res.json({ 
@@ -340,8 +327,11 @@ router.post('/verify-otp-reset', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email, OTP, and new password are required' });
     }
 
-    const user = await prisma.user.findUnique({ where: { email: email.toLowerCase().trim() } });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const userQuery = await db.collection('users').where('email', '==', email.toLowerCase().trim()).get();
+    if (userQuery.empty) return res.status(404).json({ error: 'User not found' });
+    
+    const userId = userQuery.docs[0].id;
+    const user = userQuery.docs[0].data() as any;
 
     if (!user.otpCode || user.otpCode !== otp) {
       return res.status(400).json({ error: 'Invalid OTP code.' });
@@ -351,9 +341,10 @@ router.post('/verify-otp-reset', async (req: Request, res: Response) => {
     }
 
     const newPasswordHash = hashPassword(newPassword);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { password: newPasswordHash, otpCode: null, otpExpiry: null }
+    await db.collection('users').doc(userId).update({ 
+      password: newPasswordHash, 
+      otpCode: null, 
+      otpExpiry: null 
     });
 
     res.json({ message: 'Password reset successful. You can now log in with your new password.' });
