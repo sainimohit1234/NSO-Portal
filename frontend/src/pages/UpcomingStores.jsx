@@ -102,7 +102,13 @@ export default function UpcomingStores() {
       const [year, month] = filters.launchMonthYear.split('-');
       result = result.filter(s => {
         if (s.tentativeDryLaunchDate) {
-          const parts = s.tentativeDryLaunchDate.split('-');
+          const dateStr = typeof s.tentativeDryLaunchDate === 'string'
+            ? s.tentativeDryLaunchDate
+            : (s.tentativeDryLaunchDate?.seconds
+                ? new Date(s.tentativeDryLaunchDate.seconds * 1000).toISOString().split('T')[0]
+                : '');
+          if (!dateStr) return false;
+          const parts = dateStr.split('-');
           return parts.length >= 2 && parts[0] === year && parts[1] === month;
         }
         return false;
@@ -137,14 +143,26 @@ export default function UpcomingStores() {
     });
   };
 
+  const parseDate = (val) => {
+    if (!val) return null;
+    if (typeof val === 'object') {
+      if (val.seconds !== undefined) return new Date(val.seconds * 1000);
+      if (typeof val.toDate === 'function') return val.toDate();
+      return null;
+    }
+    return new Date(val);
+  };
+
   const formatDateString = (dateStr) => {
     if (!dateStr) return '—';
     try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
+      const d = parseDate(dateStr);
+      if (!d || isNaN(d.getTime())) {
+        return typeof dateStr === 'object' ? '—' : String(dateStr);
+      }
       return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     } catch {
-      return dateStr;
+      return typeof dateStr === 'object' ? '—' : String(dateStr);
     }
   };
 

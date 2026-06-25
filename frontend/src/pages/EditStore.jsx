@@ -39,6 +39,31 @@ const OptionalBadge = () => (
   }} />
 );
 
+const safeGetDateString = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') {
+    return val.split('T')[0];
+  }
+  try {
+    let d;
+    if (typeof val === 'object') {
+      if (val.seconds !== undefined) {
+        d = new Date(val.seconds * 1000);
+      } else if (typeof val.toDate === 'function') {
+        d = val.toDate();
+      } else {
+        return '';
+      }
+    } else {
+      d = new Date(val);
+    }
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().split('T')[0];
+  } catch {
+    return '';
+  }
+};
+
 export default function EditStore() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -209,23 +234,21 @@ export default function EditStore() {
         latitude: currentStore.latt !== null && currentStore.long !== null
           ? `${currentStore.latt},${currentStore.long}`
           : (currentStore.latitude || ''),
-        launchDate: currentStore.launchDate
-          ? currentStore.launchDate.split('T')[0]
-          : '',
+        launchDate: safeGetDateString(currentStore.launchDate),
         petFriendly: currentStore.petFriendly || '',
-        projectStartDate: currentStore.projectStartDate ? currentStore.projectStartDate.split('T')[0] : '',
-        projectHandoverDate: currentStore.projectHandoverDate ? currentStore.projectHandoverDate.split('T')[0] : '',
-        tentativeDryLaunchDate: currentStore.tentativeDryLaunchDate ? currentStore.tentativeDryLaunchDate.split('T')[0] : '',
+        projectStartDate: safeGetDateString(currentStore.projectStartDate),
+        projectHandoverDate: safeGetDateString(currentStore.projectHandoverDate),
+        tentativeDryLaunchDate: safeGetDateString(currentStore.tentativeDryLaunchDate),
         highlights: currentStore.highlights || '',
         expectedSalesVal: expectedSalesVal,
         expectedSalesUnit: expectedSalesUnit,
         nearbyCafes: currentStore.nearbyCafes || '',
-        inStoreLiveDate: currentStore.inStoreLiveDate ? currentStore.inStoreLiveDate.split('T')[0] : '',
-        deliveryLiveDate: currentStore.deliveryLiveDate ? currentStore.deliveryLiveDate.split('T')[0] : '',
+        inStoreLiveDate: safeGetDateString(currentStore.inStoreLiveDate),
+        deliveryLiveDate: safeGetDateString(currentStore.deliveryLiveDate),
         inStoreClosed: currentStore.inStoreClosed ?? false,
         deliveryClosed: currentStore.deliveryClosed ?? false,
-        inStoreClosedDate: currentStore.inStoreClosedDate ? currentStore.inStoreClosedDate.split('T')[0] : '',
-        deliveryClosedDate: currentStore.deliveryClosedDate ? currentStore.deliveryClosedDate.split('T')[0] : ''
+        inStoreClosedDate: safeGetDateString(currentStore.inStoreClosedDate),
+        deliveryClosedDate: safeGetDateString(currentStore.deliveryClosedDate)
       };
       // Split stored "Month Year" into separate dropdown values
       if (currentStore.cafeLaunchMonth) {
@@ -408,29 +431,29 @@ export default function EditStore() {
   const deliveryClosedValue = deliveryClosedWatched !== undefined ? deliveryClosedWatched : (store?.deliveryClosed ?? false);
 
   const inStoreClosedDateWatched = watch('inStoreClosedDate');
-  const inStoreClosedDateValue = inStoreClosedDateWatched !== undefined ? inStoreClosedDateWatched : (store?.inStoreClosedDate ? store.inStoreClosedDate.split('T')[0] : '');
+  const inStoreClosedDateValue = inStoreClosedDateWatched !== undefined ? inStoreClosedDateWatched : safeGetDateString(store?.inStoreClosedDate);
 
   const deliveryClosedDateWatched = watch('deliveryClosedDate');
-  const deliveryClosedDateValue = deliveryClosedDateWatched !== undefined ? deliveryClosedDateWatched : (store?.deliveryClosedDate ? store.deliveryClosedDate.split('T')[0] : '');
+  const deliveryClosedDateValue = deliveryClosedDateWatched !== undefined ? deliveryClosedDateWatched : safeGetDateString(store?.deliveryClosedDate);
 
   const inStoreLiveDateWatched = watch('inStoreLiveDate');
-  const inStoreLiveDateValue = inStoreLiveDateWatched !== undefined ? inStoreLiveDateWatched : (store?.inStoreLiveDate ? store.inStoreLiveDate.split('T')[0] : '');
+  const inStoreLiveDateValue = inStoreLiveDateWatched !== undefined ? inStoreLiveDateWatched : safeGetDateString(store?.inStoreLiveDate);
 
   const deliveryLiveDateWatched = watch('deliveryLiveDate');
-  const deliveryLiveDateValue = deliveryLiveDateWatched !== undefined ? deliveryLiveDateWatched : (store?.deliveryLiveDate ? store.deliveryLiveDate.split('T')[0] : '');
+  const deliveryLiveDateValue = deliveryLiveDateWatched !== undefined ? deliveryLiveDateWatched : safeGetDateString(store?.deliveryLiveDate);
 
   const formatDateString = (dateStr) => {
     if (!dateStr) return '—';
     try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
+      const d = new Date(safeGetDateString(dateStr));
+      if (isNaN(d.getTime())) return typeof dateStr === 'object' ? '—' : String(dateStr);
       const day = String(d.getDate()).padStart(2, '0');
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const month = months[d.getMonth()];
       const year = d.getFullYear();
       return `${day}-${month}-${year}`;
     } catch {
-      return dateStr;
+      return typeof dateStr === 'object' ? '—' : String(dateStr);
     }
   };
 
@@ -890,8 +913,8 @@ export default function EditStore() {
                   if (val === 'CLOSED') {
                     setTempInStoreClosed(watch('inStoreClosed') ?? store?.inStoreClosed ?? false);
                     setTempDeliveryClosed(watch('deliveryClosed') ?? store?.deliveryClosed ?? false);
-                    setTempInStoreClosedDate(watch('inStoreClosedDate') ?? (store?.inStoreClosedDate ? store.inStoreClosedDate.split('T')[0] : '') ?? '');
-                    setTempDeliveryClosedDate(watch('deliveryClosedDate') ?? (store?.deliveryClosedDate ? store.deliveryClosedDate.split('T')[0] : '') ?? '');
+                    setTempInStoreClosedDate(watch('inStoreClosedDate') ?? safeGetDateString(store?.inStoreClosedDate) ?? '');
+                    setTempDeliveryClosedDate(watch('deliveryClosedDate') ?? safeGetDateString(store?.deliveryClosedDate) ?? '');
                     setClosureDialogError('');
                     setClosureDialogOpen(true);
                   } else {
@@ -1098,7 +1121,7 @@ export default function EditStore() {
                             {...(canEditGoLive ? register('inStoreLiveDate', { 
                               required: inStoreLiveValue ? 'Required when In-Store is enabled' : false 
                             }) : {})}
-                            value={canEditGoLive ? undefined : (store?.inStoreLiveDate ? store.inStoreLiveDate.split('T')[0] : '')}
+                            value={canEditGoLive ? undefined : safeGetDateString(store?.inStoreLiveDate)}
                             error={canEditGoLive ? !!errors.inStoreLiveDate : false}
                             helperText={canEditGoLive ? errors.inStoreLiveDate?.message : ''}
                             disabled={!canEditGoLive}
@@ -1136,7 +1159,7 @@ export default function EditStore() {
                             {...(canEditGoLive ? register('deliveryLiveDate', { 
                               required: deliveryLiveValue ? 'Required when Delivery is enabled' : false 
                             }) : {})}
-                            value={canEditGoLive ? undefined : (store?.deliveryLiveDate ? store.deliveryLiveDate.split('T')[0] : '')}
+                            value={canEditGoLive ? undefined : safeGetDateString(store?.deliveryLiveDate)}
                             error={canEditGoLive ? !!errors.deliveryLiveDate : false}
                             helperText={canEditGoLive ? errors.deliveryLiveDate?.message : ''}
                             disabled={!canEditGoLive}

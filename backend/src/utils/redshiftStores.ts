@@ -369,3 +369,8 @@ export async function upsertStore(prisma: any, record: any, forceUpdate = false)
 export function hasRedshiftStoreConfig() {
   return isConfigured();
 }
+
+export async function syncStoresFromRedshift() {
+  const prisma = new PrismaClient();
+  return upsertStore(prisma, null, false);
+}

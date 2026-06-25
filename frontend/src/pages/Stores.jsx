@@ -40,32 +40,44 @@ export default function Stores() {
     { value: '12', label: 'December' },
   ];
 
+  const parseDate = (val) => {
+    if (!val) return null;
+    if (typeof val === 'object') {
+      if (val.seconds !== undefined) return new Date(val.seconds * 1000);
+      if (typeof val.toDate === 'function') return val.toDate();
+      return null;
+    }
+    return new Date(val);
+  };
+
   const formatDateString = (dateStr) => {
     if (!dateStr) return '—';
     try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
+      const d = parseDate(dateStr);
+      if (!d || isNaN(d.getTime())) {
+        return typeof dateStr === 'object' ? '—' : String(dateStr);
+      }
       return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
     } catch {
-      return dateStr;
+      return typeof dateStr === 'object' ? '—' : String(dateStr);
     }
   };
 
   const getDayCount = (liveDateStr, closureDateStr, isLive, isClosed) => {
     if (!liveDateStr) return '—';
-    const liveDate = new Date(liveDateStr);
-    if (isNaN(liveDate.getTime())) return '—';
+    const liveDate = parseDate(liveDateStr);
+    if (!liveDate || isNaN(liveDate.getTime())) return '—';
     
     let endDate;
     if (isClosed && closureDateStr) {
-      endDate = new Date(closureDateStr);
+      endDate = parseDate(closureDateStr);
     } else if (isLive) {
       endDate = new Date();
     } else {
       return '—';
     }
 
-    if (isNaN(endDate.getTime())) return '—';
+    if (!endDate || isNaN(endDate.getTime())) return '—';
     
     const diffTime = endDate.getTime() - liveDate.getTime();
     const diffDays = Math.max(0, Math.round(diffTime / (1000 * 60 * 60 * 24)));
@@ -160,13 +172,17 @@ export default function Stores() {
       if (filters.expiryType === 'fssai') {
         result = result.filter(s => {
           if (!s.fssaiExpiry) return false;
-          const parts = s.fssaiExpiry.split('-');
+          const fssaiStr = typeof s.fssaiExpiry === 'string' ? s.fssaiExpiry : (s.fssaiExpiry?.seconds ? new Date(s.fssaiExpiry.seconds * 1000).toISOString().split('T')[0] : '');
+          if (!fssaiStr) return false;
+          const parts = fssaiStr.split('-');
           return parts.length >= 2 && parts[1] === filters.expiryMonth;
         });
       } else if (filters.expiryType === 'rent') {
         result = result.filter(s => {
           if (!s.rentExpiry) return false;
-          const parts = s.rentExpiry.split('-');
+          const rentStr = typeof s.rentExpiry === 'string' ? s.rentExpiry : (s.rentExpiry?.seconds ? new Date(s.rentExpiry.seconds * 1000).toISOString().split('T')[0] : '');
+          if (!rentStr) return false;
+          const parts = rentStr.split('-');
           return parts.length >= 2 && parts[1] === filters.expiryMonth;
         });
       }
@@ -184,8 +200,8 @@ export default function Stores() {
         result = result.filter(s => {
           if (s.status !== 'LIVE') return false;
           if (s.launchDate) {
-            const launchDateObj = new Date(s.launchDate);
-            if (!isNaN(launchDateObj.getTime())) {
+            const launchDateObj = parseDate(s.launchDate);
+            if (launchDateObj && !isNaN(launchDateObj.getTime())) {
               return launchDateObj.getMonth() === now.getMonth() && 
                      launchDateObj.getFullYear() === now.getFullYear();
             }
@@ -230,8 +246,8 @@ export default function Stores() {
 
           result = result.filter(s => {
             if (s.launchDate) {
-              const d = new Date(s.launchDate);
-              if (!isNaN(d.getTime())) {
+              const d = parseDate(s.launchDate);
+              if (d && !isNaN(d.getTime())) {
                 return d.getFullYear() === parseInt(year, 10) && (d.getMonth() + 1) === monthNum;
               }
             }

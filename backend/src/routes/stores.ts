@@ -396,7 +396,8 @@ router.get('/', async (req, res) => {
     });
     res.json(stores);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch stores' });
+    console.error('[Stores GET] Error fetching stores:', error);
+    res.status(500).json({ error: 'Failed to fetch stores', details: error instanceof Error ? error.message : String(error) });
   }
 });
 

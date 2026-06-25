@@ -49,8 +49,8 @@ function waitForAuthState() {
 function normalizeStoreDocument(docSnapshot) {
   const data = docSnapshot.data();
   return {
-    id: data.id ?? docSnapshot.id,
-    ...data
+    ...data,
+    id: docSnapshot.id
   };
 }
 

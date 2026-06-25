@@ -16,16 +16,9 @@ function processWhere(where: any, query: any) {
     if (key === 'OR' || key === 'NOT' || key === 'AND') continue;
     
     if (typeof value === 'object' && value !== null) {
-      if ('contains' in value) {
-        // Firestore doesn't support generic contains, this is a mock limitation
-        // We will just fetch and filter in memory if needed, or ignore for now.
-      } else if ('lte' in value) {
-        query = query.where(key, '<=', value.lte);
-      } else if ('gte' in value) {
-        query = query.where(key, '>=', value.gte);
-      } else if ('not' in value) {
-        query = query.where(key, '!=', value.not);
-      }
+      // Skip range/contains/not filters at the Firestore database query level
+      // to avoid type mismatch issues (e.g. comparing string dates to Date objects).
+      // These will be fully filtered in memory by findMany.
     } else {
       // Direct equality
       if (key === 'id') {
@@ -66,7 +59,7 @@ class MockDelegate {
           data[key] = data[key].toDate().toISOString();
         }
       }
-      return { id: doc.id, ...data };
+      return { ...data, id: doc.id };
     });
 
     if (args?.where) {
@@ -98,11 +91,13 @@ class MockDelegate {
              if (notMatch) match = false;
           } else if (value && typeof value === 'object') {
              if ('contains' in value) {
-               if (!item[key] || !String(item[key]).includes((value as any).contains)) match = false;
+                if (!item[key] || !String(item[key]).includes((value as any).contains)) match = false;
              } else if ('not' in value) {
-               if (item[key] === (value as any).not) match = false;
+                if (item[key] === (value as any).not) match = false;
              } else if ('lte' in value) {
-               if (new Date(item[key]) > new Date((value as any).lte)) match = false;
+                if (new Date(item[key]) > new Date((value as any).lte)) match = false;
+             } else if ('gte' in value) {
+                if (new Date(item[key]) < new Date((value as any).gte)) match = false;
              }
           } else {
              if (key === 'id') {
@@ -166,7 +161,7 @@ class MockDelegate {
              data[key] = data[key].toDate().toISOString();
            }
          }
-         return { id: doc.id, ...data };
+         return { ...data, id: doc.id };
        }
     }
     
@@ -208,7 +203,7 @@ class MockDelegate {
         docData[key] = docData[key].toDate().toISOString();
       }
     }
-    return { id: doc.id, ...docData };
+    return { ...docData, id: doc.id };
   }
 
   async updateMany(args: any) {

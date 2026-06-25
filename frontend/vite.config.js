@@ -13,12 +13,12 @@ export default defineConfig({
     allowedHosts: ['nso.new.bluetokaicoffee.com', 'localhost', '127.0.0.1'],
     proxy: {
       '/api': {
-        target: 'http://localhost:5001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false
       },
       '/uploads': {
-        target: 'http://localhost:5001',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false
       }
