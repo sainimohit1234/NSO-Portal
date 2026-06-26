@@ -198,8 +198,24 @@ export default function BulkAction() {
         setErrors(err.response.data.errors);
       } else if (err.response?.data?.error) {
          setErrors([{ message: err.response.data.error }]);
+      } else if (err.response?.data?.message) {
+         setErrors([{ message: err.response.data.message }]);
       } else {
-        setErrors([{ message: 'An unexpected error occurred during upload.' }]);
+        let details = '';
+        if (err.response?.data) {
+          if (typeof err.response.data === 'string') {
+            if (err.response.data.includes('<pre>')) {
+              const match = err.response.data.match(/<pre>([\s\S]*?)<\/pre>/);
+              details = match ? match[1] : err.response.data.substring(0, 250);
+            } else {
+              details = err.response.data.substring(0, 250);
+            }
+          } else {
+            details = JSON.stringify(err.response.data);
+          }
+        }
+        const errMsg = err.message || 'An unexpected error occurred during upload.';
+        setErrors([{ message: details ? `${errMsg} (${details})` : errMsg }]);
       }
     } finally {
       setUploadLoading(false);

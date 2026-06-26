@@ -4,6 +4,98 @@ import { Router } from 'express';
 import { PrismaClient } from '../lib/prisma-mock';
 import { authenticateToken, authorizeRoles } from './auth';
 import multer from 'multer';
+import busboy from 'busboy';
+
+const parseMultipart = (req: any, writeToDisk: boolean = false): Promise<{ fields: any; file: any }> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const bb = busboy({ headers: req.headers });
+      const fields: any = {};
+      let fileData: any = null;
+
+      bb.on('file', (fieldname, file, info) => {
+        const { filename, mimeType } = info;
+        const chunks: any[] = [];
+
+        file.on('data', (data) => {
+          chunks.push(data);
+        });
+
+        file.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          if (writeToDisk) {
+            const uploadDir = path.resolve(process.cwd(), 'uploads');
+            if (!fs.existsSync(uploadDir)) {
+              fs.mkdirSync(uploadDir, { recursive: true });
+            }
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            const ext = filename ? path.extname(filename) : '';
+            const savedName = fieldname + '-' + uniqueSuffix + ext;
+            const filePath = path.join(uploadDir, savedName);
+            fs.writeFileSync(filePath, buffer);
+            fileData = {
+              fieldname,
+              originalname: filename,
+              encoding: '7bit',
+              mimetype: mimeType,
+              buffer,
+              size: buffer.length,
+              filename: savedName,
+              path: filePath
+            };
+          } else {
+            fileData = {
+              fieldname,
+              originalname: filename,
+              encoding: '7bit',
+              mimetype: mimeType,
+              buffer,
+              size: buffer.length
+            };
+          }
+        });
+      });
+
+      bb.on('field', (name, val) => {
+        fields[name] = val;
+      });
+
+      bb.on('finish', () => {
+        resolve({ fields, file: fileData });
+      });
+
+      bb.on('error', (err) => {
+        reject(err);
+      });
+
+      if (req.rawBody) {
+        bb.end(req.rawBody);
+      } else {
+        req.pipe(bb);
+      }
+    } catch (err) {
+      reject(err);
+    }
+  });
+};
+
+const parseMultipartMiddleware = (writeToDisk: boolean = false) => {
+  return async (req: any, res: any, next: any) => {
+    const contentType = req.headers['content-type'] || '';
+    if (!contentType.includes('multipart/form-data')) {
+      return next();
+    }
+    try {
+      const { fields, file } = await parseMultipart(req, writeToDisk);
+      req.body = { ...req.body, ...fields };
+      req.file = file;
+      next();
+    } catch (err: any) {
+      console.error('Multipart parse error:', err);
+      res.status(400).json({ error: 'Multipart parsing failed', message: err.message });
+    }
+  };
+};
 import csvParser from 'csv-parser';
 import { createObjectCsvStringifier } from 'csv-writer';
 import { Readable } from 'stream';
@@ -173,7 +265,7 @@ router.use(async (req: any, res, next) => {
 });
 
 // POST /upload-file (Upload a compliance document)
-router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), uploadCompliance.single('file'), async (req: any, res) => {
+router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), parseMultipartMiddleware(true), async (req: any, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
@@ -1499,7 +1591,7 @@ router.get('/bulk/download', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), 
 
 
 // Bulk Upload Stores
-router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), upload.single('file'), async (req: any, res) => {
+router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), parseMultipartMiddleware(false), async (req: any, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
