@@ -1417,19 +1417,39 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
 router.get('/bulk/download', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req, res) => {
   try {
     const { action, brand } = req.query;
-    
-    const csvStringifier = createObjectCsvStringifier({
-      header: STORE_CSV_HEADERS,
-    });
+
+    // ── CSV helper: safely convert any value to a CSV-safe string ──────────
+    const csvSafe = (val: any): string => {
+      if (val === null || val === undefined) return '';
+      if (val instanceof Date) return val.toISOString().split('T')[0];
+      if (typeof val === 'object') {
+        // Arrays / objects → JSON string (avoids [object Object] in CSV)
+        try { return JSON.stringify(val); } catch { return ''; }
+      }
+      return String(val);
+    };
+
+    // Wrap a value in quotes if it contains comma, quote, or newline
+    const csvCell = (val: any): string => {
+      const s = csvSafe(val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    };
+
+    const headers = STORE_CSV_HEADERS.map(h => h.id);
+
+    // Build header row
+    const headerRow = headers.map(h => csvCell(h)).join(',');
 
     let records: any[] = [];
-    
+
     if (action === 'modify' && brand) {
       let whereClause: any;
 
       if (brand === 'ALL_BRANDS') {
-        // No brand filter — fetch every store
-        whereClause = undefined;
+        whereClause = undefined; // No filter — fetch every store
       } else if (brand === 'BLUE_TOKAI_SUCHALI') {
         whereClause = {
           OR: [
@@ -1443,33 +1463,40 @@ router.get('/bulk/download', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), 
       }
 
       records = await prisma.store.findMany(whereClause ? { where: whereClause } : {});
-
-      // Convert dates to strings for CSV
-      // Note: prisma-mock already converts Firestore Timestamps to ISO strings,
-      // so launchDate may already be a string. Handle both cases.
-      records = records.map(r => ({
-        ...r,
-        launchDate: r.launchDate
-          ? (r.launchDate instanceof Date
-              ? r.launchDate.toISOString().split('T')[0]
-              : String(r.launchDate).split('T')[0])
-          : '',
-      }));
-    } else if (action === 'create') {
-      records = [];
     }
+    // action === 'create' → records stays []
 
-    const headerString = csvStringifier.getHeaderString();
-    const recordsString = records.length > 0 ? csvStringifier.stringifyRecords(records) : '';
+    // Build data rows — safely handle every field value
+    const dataRows = records.map(record => {
+      return headers.map(fieldId => {
+        let val = record[fieldId];
+        // Normalise date fields
+        if (fieldId === 'launchDate' && val) {
+          if (val instanceof Date) {
+            val = val.toISOString().split('T')[0];
+          } else {
+            // Already a string (prisma-mock converts Firestore Timestamps to ISO strings)
+            val = String(val).split('T')[0];
+          }
+        }
+        return csvCell(val);
+      }).join(',');
+    });
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="${action}_stores_${brand || 'template'}.csv"`);
-    res.send(headerString + recordsString);
-  } catch (error) {
-    console.error('Download bulk error:', error);
-    res.status(500).json({ error: 'Failed to generate CSV' });
+    const csvContent = [headerRow, ...dataRows].join('\r\n');
+
+    const brandLabel = brand === 'ALL_BRANDS' ? 'all_brands' : (brand || 'template');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${action}_stores_${brandLabel}.csv"`);
+    res.send(csvContent);
+  } catch (error: any) {
+    const msg = error?.message || String(error);
+    console.error('Download bulk error:', msg, error?.stack);
+    // Return the real error message so the frontend can display it
+    res.status(500).json({ error: `Failed to generate CSV: ${msg}` });
   }
 });
+
 
 // Bulk Upload Stores
 router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), upload.single('file'), async (req: any, res) => {
