@@ -1436,10 +1436,16 @@ router.get('/bulk/download', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), 
           brand: brand as string
         },
       });
-      // Convert dates to ISO strings for CSV
+      // Convert dates to strings for CSV
+      // Note: prisma-mock already converts Firestore Timestamps to ISO strings,
+      // so launchDate may already be a string. Handle both cases.
       records = records.map(r => ({
         ...r,
-        launchDate: r.launchDate ? r.launchDate.toISOString().split('T')[0] : '',
+        launchDate: r.launchDate
+          ? (r.launchDate instanceof Date
+              ? r.launchDate.toISOString().split('T')[0]
+              : String(r.launchDate).split('T')[0])
+          : '',
       }));
     } else if (action === 'create') {
       records = [];

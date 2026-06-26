@@ -128,7 +128,21 @@ export default function BulkAction() {
       link.parentNode.removeChild(link);
     } catch (err) {
       console.error(err);
-      setErrors([{ message: 'Failed to download file. Please try again later.' }]);
+      // When responseType is 'blob', error responses come back as blobs too.
+      // Parse the blob to extract the real error message.
+      try {
+        if (err.response?.data instanceof Blob) {
+          const text = await err.response.data.text();
+          const json = JSON.parse(text);
+          setErrors([{ message: json.error || json.message || 'Failed to download file.' }]);
+        } else if (err.response?.data?.error) {
+          setErrors([{ message: err.response.data.error }]);
+        } else {
+          setErrors([{ message: 'Failed to download file. Please try again later.' }]);
+        }
+      } catch {
+        setErrors([{ message: 'Failed to download file. Please try again later.' }]);
+      }
     } finally {
       setLoading(false);
     }
