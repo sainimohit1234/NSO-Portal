@@ -1613,7 +1613,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), u
 
           // Compute non-contact fields modifications
           const NOT_EDITABLE_FIELDS = [
-            'cafeName', 'cafeCode', 'cafeModel', 'state', 'pinCode', 'zone', 
+            'cafeName', 'cafeCode', 'cafeModel', 'zone', 
             'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
             'fssaiLicense', 'gstCertificateLink', 'isLocked', 'brand'
           ];
@@ -1727,7 +1727,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), u
 
             // Remove non-editable fields from update payload
             const NOT_EDITABLE_FIELDS = [
-              'cafeName', 'cafeCode', 'cafeModel', 'state', 'pinCode', 'zone', 
+              'cafeName', 'cafeCode', 'cafeModel', 'zone', 
               'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
               'fssaiLicense', 'gstCertificateLink'
             ];
