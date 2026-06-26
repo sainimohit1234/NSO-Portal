@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { PrismaClient } from '../lib/prisma-mock';
 import { authenticateToken, authorizeRoles } from './auth';
 import multer from 'multer';
-import busboy from 'busboy';
+const busboy = require('busboy');
 
 const parseMultipart = (req: any, writeToDisk: boolean = false): Promise<{ fields: any; file: any }> => {
   return new Promise((resolve, reject) => {
