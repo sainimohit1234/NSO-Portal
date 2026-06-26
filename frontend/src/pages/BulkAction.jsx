@@ -88,7 +88,9 @@ const fieldsGuide = [
 export default function BulkAction() {
   const [tabValue, setTabValue] = useState(0); // 0 = Create, 1 = Modify
   const [brand, setBrand] = useState('');
-  const [loading, setLoading] = useState(false);
+  // Separate loading states so Download and Upload spinners are independent
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
   const [errors, setErrors] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
   
@@ -105,11 +107,11 @@ export default function BulkAction() {
 
   const handleDownload = async () => {
     if (!brand) {
-        setErrors([{ message: 'Please select a brand before downloading.' }]);
-        return;
+      setErrors([{ message: 'Please select a brand before downloading.' }]);
+      return;
     }
     
-    setLoading(true);
+    setDownloadLoading(true);
     setErrors(null);
     setSuccessMsg('');
     
@@ -122,10 +124,12 @@ export default function BulkAction() {
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${currentAction}_stores_${brand || 'template'}.csv`);
+      const brandLabel = brand === 'ALL_BRANDS' ? 'all_brands' : brand.toLowerCase();
+      link.setAttribute('download', `${currentAction}_stores_${brandLabel}.csv`);
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
       // When responseType is 'blob', error responses come back as blobs too.
@@ -144,13 +148,17 @@ export default function BulkAction() {
         setErrors([{ message: 'Failed to download file. Please try again later.' }]);
       }
     } finally {
-      setLoading(false);
+      setDownloadLoading(false);
     }
   };
 
   const handleUploadClick = () => {
     if (!brand) {
       setErrors([{ message: 'Please select a brand before uploading.' }]);
+      return;
+    }
+    if (brand === 'ALL_BRANDS') {
+      setErrors([{ message: 'Please select a specific brand for uploading. "All Brands" is only available for download.' }]);
       return;
     }
     if (fileInputRef.current) {
@@ -165,7 +173,7 @@ export default function BulkAction() {
     // Reset input
     e.target.value = null;
 
-    setLoading(true);
+    setUploadLoading(true);
     setErrors(null);
     setSuccessMsg('');
 
@@ -194,9 +202,11 @@ export default function BulkAction() {
         setErrors([{ message: 'An unexpected error occurred during upload.' }]);
       }
     } finally {
-      setLoading(false);
+      setUploadLoading(false);
     }
   };
+
+  const isAllBrands = brand === 'ALL_BRANDS';
 
   return (
     <Box sx={{ maxWidth: 1600, mx: 'auto', py: 2, px: 1 }}>
@@ -226,7 +236,7 @@ export default function BulkAction() {
 
           {errors && errors.length > 0 && (
              <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }}>
-             <AlertTitle sx={{ fontWeight: 700 }}>Validation Errors Found</AlertTitle>
+             <AlertTitle sx={{ fontWeight: 700 }}>Error</AlertTitle>
              <List dense sx={{ py: 0 }}>
                {errors.map((err, i) => (
                  <ListItem key={i} sx={{ py: 0 }}>
@@ -234,9 +244,6 @@ export default function BulkAction() {
                  </ListItem>
                ))}
              </List>
-             <Typography variant="caption" sx={{ mt: 1, display: 'block', fontWeight: 600 }}>
-               Please correct these errors in your CSV file and try uploading again.
-             </Typography>
            </Alert>
           )}
 
@@ -251,6 +258,19 @@ export default function BulkAction() {
                 variant="outlined"
                 helperText="Required"
               >
+                {tabValue === 1 && (
+                  <MenuItem value="ALL_BRANDS">
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{
+                          width: 8, height: 8, borderRadius: '50%',
+                          bgcolor: 'primary.main', flexShrink: 0
+                        }}
+                      />
+                      All Brands (Download Only)
+                    </Box>
+                  </MenuItem>
+                )}
                 <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's Artisan Bakehouse</MenuItem>
                 <MenuItem value="GOT_TEA">Got Tea</MenuItem>
               </TextField>
@@ -268,18 +288,20 @@ export default function BulkAction() {
                     1. Download {tabValue === 0 ? 'Template' : 'Existing Data'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    {tabValue === 0 
-                      ? 'Download the CSV template with the correct headers required for store creation.' 
-                      : 'Download a CSV file containing all existing stores for the selected brand.'}
+                    {tabValue === 0
+                      ? 'Download the CSV template with the correct headers required for store creation.'
+                      : isAllBrands
+                        ? 'Download a CSV file containing all stores across every brand.'
+                        : 'Download a CSV file containing all existing stores for the selected brand.'}
                   </Typography>
                   <Button 
                     variant="outlined" 
                     fullWidth 
                     onClick={handleDownload}
-                    disabled={loading || !brand}
-                    startIcon={<FileDownloadIcon />}
+                    disabled={downloadLoading || !brand}
+                    startIcon={downloadLoading ? <CircularProgress size={18} color="inherit" /> : <FileDownloadIcon />}
                   >
-                    Download CSV
+                    {downloadLoading ? 'Downloading...' : 'Download CSV'}
                   </Button>
                 </CardContent>
               </Card>
@@ -307,11 +329,17 @@ export default function BulkAction() {
                     color="success"
                     fullWidth 
                     onClick={handleUploadClick}
-                    disabled={loading || !brand}
-                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <FileUploadIcon />}
+                    disabled={uploadLoading || !brand || isAllBrands}
+                    startIcon={uploadLoading ? <CircularProgress size={18} color="inherit" /> : <FileUploadIcon />}
+                    title={isAllBrands ? '"All Brands" is not available for upload. Please select a specific brand.' : ''}
                   >
-                    Upload CSV
+                    {uploadLoading ? 'Uploading...' : 'Upload CSV'}
                   </Button>
+                  {isAllBrands && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                      Select a specific brand to enable upload
+                    </Typography>
+                  )}
                 </CardContent>
               </Card>
             </Grid>

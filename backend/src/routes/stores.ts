@@ -1425,17 +1425,25 @@ router.get('/bulk/download', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), 
     let records: any[] = [];
     
     if (action === 'modify' && brand) {
-      records = await prisma.store.findMany({
-        where: brand === 'BLUE_TOKAI_SUCHALI' ? {
+      let whereClause: any;
+
+      if (brand === 'ALL_BRANDS') {
+        // No brand filter — fetch every store
+        whereClause = undefined;
+      } else if (brand === 'BLUE_TOKAI_SUCHALI') {
+        whereClause = {
           OR: [
             { brand: 'BLUE_TOKAI_SUCHALI' },
             { brand: null },
             { brand: '' }
           ]
-        } : {
-          brand: brand as string
-        },
-      });
+        };
+      } else {
+        whereClause = { brand: brand as string };
+      }
+
+      records = await prisma.store.findMany(whereClause ? { where: whereClause } : {});
+
       // Convert dates to strings for CSV
       // Note: prisma-mock already converts Firestore Timestamps to ISO strings,
       // so launchDate may already be a string. Handle both cases.
