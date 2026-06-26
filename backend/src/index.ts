@@ -79,9 +79,14 @@ if (process.env.NODE_ENV === 'production') {
 
 export const api = functions.https.onRequest({ invoker: 'public' }, app);
 
-// Always start the HTTP server so Render (and direct Node.js runs) can serve traffic.
-// Firebase Cloud Functions would also handle via the `api` export if deployed there.
-const PORT = parseInt(process.env.PORT || '3000', 10);
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Firebase Cloud Functions (Gen 2) runs on Cloud Run and manages its own HTTP server.
+// Calling app.listen() there causes EADDRINUSE because the port is already in use.
+// Only bind a port when running locally or on a direct-Node.js host (e.g. Render).
+const isCloudFunctions = !!process.env.K_SERVICE || !!process.env.FUNCTION_TARGET;
+if (!isCloudFunctions) {
+  const PORT = parseInt(process.env.PORT || '3000', 10);
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
