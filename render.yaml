@@ -4,8 +4,8 @@ services:
     name: nsm-portal
     env: node
     plan: free
-    buildCommand: npm install --prefix frontend --production=false && npm run build --prefix frontend && npm install --prefix backend --production=false && npx --prefix backend prisma generate --schema=backend/prisma/schema.prisma && npx --prefix backend prisma db push --schema=backend/prisma/schema.prisma --accept-data-loss
-    startCommand: npx ts-node backend/src/index.ts
+    buildCommand: npm install --prefix frontend --production=false && npm run build --prefix frontend && npm install --prefix backend --production=false
+    startCommand: TS_NODE_PROJECT=./backend/tsconfig.json node -r ./backend/node_modules/ts-node/register ./backend/src/index.ts
     envVars:
       - key: PORT
         value: 5001

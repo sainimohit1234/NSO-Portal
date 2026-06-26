@@ -79,8 +79,9 @@ if (process.env.NODE_ENV === 'production') {
 
 export const api = functions.https.onRequest({ invoker: 'public' }, app);
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(3000, () => {
-    console.log('Server is running on port 3000');
-  });
-}
+// Always start the HTTP server so Render (and direct Node.js runs) can serve traffic.
+// Firebase Cloud Functions would also handle via the `api` export if deployed there.
+const PORT = parseInt(process.env.PORT || '3000', 10);
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
