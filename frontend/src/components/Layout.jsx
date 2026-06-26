@@ -39,6 +39,7 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import TuneIcon from '@mui/icons-material/Tune';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
+import ViewWeekIcon from '@mui/icons-material/ViewWeek';
 import Chip from '@mui/material/Chip';
 import { useAuth } from '../context/AuthContext';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
@@ -127,6 +128,7 @@ export default function Layout() {
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
     { text: 'All Stores', icon: <Store />, path: '/stores', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
+    { text: 'Expansion Pipeline', icon: <ViewWeekIcon />, path: '/expansion-pipeline', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
     { text: 'New Store Creation', icon: <AddCircleOutlined />, path: '/stores/new', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
     { text: 'All Upcoming Stores', icon: <CalendarTodayIcon />, path: '/upcoming-stores', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
     { text: 'NSO Approval', icon: <AssignmentTurnedIn />, path: '/approvals', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },

@@ -69,14 +69,14 @@ export default function Approvals() {
   const fetchStores = () => {
     fetchStoresFromFirestore()
       .then(stores => {
-        setStores(stores.filter(s => ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD', 'INCOMPLETE_INFORMATION'].includes(s.status)));
+        setStores(stores.filter(s => s.isActive !== false && s.isActive !== 'false' && ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD'].includes(s.status)));
       })
       .catch(async err => {
         console.error('Failed to load stores from Firestore, falling back to API:', err);
         try {
           const res = await axios.get('/api/stores');
           const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
-          setStores(stores.filter(s => ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD', 'INCOMPLETE_INFORMATION'].includes(s.status)));
+          setStores(stores.filter(s => s.isActive !== false && s.isActive !== 'false' && ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD'].includes(s.status)));
         } catch (apiError) {
           console.error(apiError);
         }
@@ -350,6 +350,7 @@ export default function Approvals() {
                             <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
                             {canApprove && <MenuItem value="APPROVED">Approved</MenuItem>}
                             {canApprove && <MenuItem value="ON_HOLD">On Hold</MenuItem>}
+                            {canApprove && <MenuItem value="INCOMPLETE_INFORMATION">Incomplete Information</MenuItem>}
                           </TextField>
                         )}
                       </TableCell>

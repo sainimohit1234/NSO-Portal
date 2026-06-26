@@ -64,6 +64,12 @@ const safeGetDateString = (val) => {
   }
 };
 
+const compareStoreIds = (id1, id2) => {
+  if (!id1 || !id2) return false;
+  const normalize = (val) => String(val).toLowerCase().replace(/o/g, '0').replace(/[il1]/g, 'l');
+  return normalize(id1) === normalize(id2);
+};
+
 export default function EditStore() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -199,9 +205,13 @@ export default function EditStore() {
     Promise.all(fetchPromises).then(([storesRes, contactsRes]) => {
       const stores = normalizeListResponse(storesRes.data, ['stores', 'data', 'items']);
       const contacts = normalizeListResponse(contactsRes.data, ['contacts', 'data', 'items']);
-      const currentStore = stores.find(s => String(s.id) === String(id));
+      const currentStore = stores.find(s => compareStoreIds(s.id, id));
       if (!currentStore) {
         setErrorMsg('Store not found.');
+        return;
+      }
+      if (String(currentStore.id) !== String(id)) {
+        navigate(`/stores/${currentStore.id}`, { replace: true, state: location.state });
         return;
       }
       setStore(currentStore);
@@ -308,18 +318,62 @@ export default function EditStore() {
     }
   }, [pinCodeValue, setValue]);
 
-  // Launch Date → Cafe Launch Month & Year auto-fill (for non-Super Admin)
+  // Auto-extract PIN code from Address field
+  const cafeAddressValue = watch('cafeAddress');
+  useEffect(() => {
+    if (cafeAddressValue) {
+      const match = cafeAddressValue.match(/\b\d{6}\b/);
+      if (match) {
+        const extractedPin = match[0];
+        if (pinCodeValue !== extractedPin) {
+          setValue('pinCode', extractedPin, { shouldValidate: true, shouldDirty: true });
+        }
+      }
+    }
+  }, [cafeAddressValue, pinCodeValue, setValue]);
+
+  // Email ID Auto-Population based on Cafe Name and Brand
+  const cafeNameValue = watch('cafeName');
+  const brandValue = watch('brand');
+  const cafeMailIdValue = watch('cafeMailId');
+  const isMailIdDirty = formState.dirtyFields.cafeMailId;
+  const isCmMailIdDirty = formState.dirtyFields.cmMailId;
+  const isCafeNameDirty = formState.dirtyFields.cafeName;
+  const isBrandDirty = formState.dirtyFields.brand;
+
+  useEffect(() => {
+    const shouldAutoGenerate = cafeNameValue && brandValue && (
+      !cafeMailIdValue ||
+      ((isCafeNameDirty || isBrandDirty) && !isMailIdDirty)
+    );
+
+    if (shouldAutoGenerate) {
+      const cleanCafeName = String(cafeNameValue).replace(/\s+/g, '').toLowerCase();
+      let cafeMail = '';
+      if (brandValue === 'BLUE_TOKAI_SUCHALI') {
+        cafeMail = `${cleanCafeName}@bluetokaicoffee.com`;
+      } else if (brandValue === 'GOT_TEA') {
+        cafeMail = `${cleanCafeName}@gottea.in`;
+      }
+      setValue('cafeMailId', cafeMail, { shouldValidate: true });
+      if (!isCmMailIdDirty) {
+        setValue('cmMailId', cafeMail ? `cm.${cafeMail}` : '', { shouldValidate: true });
+      }
+    }
+  }, [cafeNameValue, brandValue, cafeMailIdValue, isMailIdDirty, isCmMailIdDirty, isCafeNameDirty, isBrandDirty, setValue]);
+
+  // Launch Date → Cafe Launch Month & Year auto-fill (for non-Super Admin & non-Admin)
   const launchDateValue = watch('launchDate');
   useEffect(() => {
-    if (!isSuperAdmin && launchDateValue && String(launchDateValue).trim()) {
+    if (!isSuperAdmin && !isAdmin && launchDateValue && String(launchDateValue).trim()) {
       const d = new Date(launchDateValue);
       if (!isNaN(d.getTime())) {
         const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-        setValue('cafeLaunchMonth', monthNames[d.getMonth()], { shouldDirty: true });
-        setValue('cafeLaunchYear', String(d.getFullYear()), { shouldDirty: true });
+        setValue('cafeLaunchMonth', monthNames[d.getMonth()], { shouldDirty: true, shouldValidate: true });
+        setValue('cafeLaunchYear', String(d.getFullYear()), { shouldDirty: true, shouldValidate: true });
       }
     }
-  }, [launchDateValue, isSuperAdmin, setValue]);
+  }, [launchDateValue, isSuperAdmin, isAdmin, setValue]);
 
   // Unique contacts by designation
   const areaManagers = contacts.filter(c => c.designation === 'Area Manager');
@@ -701,9 +755,9 @@ export default function EditStore() {
         cafeLaunchMonth: data.cafeLaunchMonth && data.cafeLaunchYear
           ? `${data.cafeLaunchMonth} ${data.cafeLaunchYear}`
           : data.cafeLaunchMonth || '',
-        areaManagerId: data.areaManagerId ? parseInt(data.areaManagerId, 10) : null,
-        cityHeadId: data.cityHeadId ? parseInt(data.cityHeadId, 10) : null,
-        cafeManagerId: data.cafeManagerId ? parseInt(data.cafeManagerId, 10) : null,
+        areaManagerId: data.areaManagerId || null,
+        cityHeadId: data.cityHeadId || null,
+        cafeManagerId: data.cafeManagerId || null,
         expectedSales: data.expectedSalesVal
           ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
           : null,
@@ -738,9 +792,9 @@ export default function EditStore() {
         cafeLaunchMonth: data.cafeLaunchMonth && data.cafeLaunchYear
           ? `${data.cafeLaunchMonth} ${data.cafeLaunchYear}`
           : data.cafeLaunchMonth || '',
-        areaManagerId: data.areaManagerId ? parseInt(data.areaManagerId, 10) : null,
-        cityHeadId: data.cityHeadId ? parseInt(data.cityHeadId, 10) : null,
-        cafeManagerId: data.cafeManagerId ? parseInt(data.cafeManagerId, 10) : null,
+        areaManagerId: data.areaManagerId || null,
+        cityHeadId: data.cityHeadId || null,
+        cafeManagerId: data.cafeManagerId || null,
         expectedSales: data.expectedSalesVal
           ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
           : null,
@@ -1496,7 +1550,7 @@ export default function EditStore() {
                       helperText={errors.cafePhoneNumber?.message}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <TextField 
                       fullWidth 
                       label="Café Mail ID" 
@@ -1508,12 +1562,12 @@ export default function EditStore() {
                           return valLower.endsWith('@bluetokaicoffee.com') || valLower.endsWith('@gottea.in') || 'Only @bluetokaicoffee.com or @gottea.in emails are allowed';
                         }
                       })} 
-                      disabled={!canEditContacts} 
+                      disabled={!isSuperAdmin && !isAdmin} 
                       error={!!errors.cafeMailId}
                       helperText={errors.cafeMailId?.message}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <TextField 
                       fullWidth 
                       label="CM Mail ID" 
@@ -1524,7 +1578,7 @@ export default function EditStore() {
                           return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || 'Enter a valid email address';
                         }
                       })} 
-                      disabled={!canEditContacts} 
+                      disabled={!isSuperAdmin && !isAdmin} 
                       error={!!errors.cmMailId}
                       helperText={errors.cmMailId?.message}
                     />
@@ -1545,26 +1599,13 @@ export default function EditStore() {
                   <Grid size={{ xs: 12, sm: 2 }}>
                     <TextField 
                       fullWidth 
-                      label="Café Manager Mail ID" 
-                      type="email" 
-                      {...register('cafeManagerMailId')} 
-                      InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
-                      error={!!errors.cafeManagerMailId}
-                      helperText={errors.cafeManagerMailId?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
                       label="Café Manager Contact No." 
                       {...register('cafeManagerContactNo')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.cafeManagerContactNo}
                       helperText={errors.cafeManagerContactNo?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
                     />
                   </Grid>
                 </Grid>
@@ -1593,10 +1634,10 @@ export default function EditStore() {
                       type="email" 
                       {...register('areaManagerEmail')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.areaManagerEmail}
                       helperText={errors.areaManagerEmail?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
@@ -1605,10 +1646,10 @@ export default function EditStore() {
                       label="Area Manager Contact No." 
                       {...register('areaManagerPhone')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.areaManagerPhone}
                       helperText={errors.areaManagerPhone?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
@@ -1636,10 +1677,10 @@ export default function EditStore() {
                       type="email" 
                       {...register('cityHeadEmail')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.cityHeadEmail} 
                       helperText={errors.cityHeadEmail?.message || "Auto-filled"} 
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }} 
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }} 
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
@@ -1648,10 +1689,10 @@ export default function EditStore() {
                       label="City Head Contact No." 
                       {...register('cityHeadPhone')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.cityHeadPhone} 
                       helperText={errors.cityHeadPhone?.message || "Auto-filled"} 
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }} 
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }} 
                     />
                   </Grid>
                 </Grid>
@@ -1771,8 +1812,8 @@ export default function EditStore() {
                     <TextField fullWidth type="date" label="Tentative Dry Launch Date" InputLabelProps={{ shrink: true }} {...register('tentativeDryLaunchDate')} disabled={!canEditBasicDetails} />
                   </Grid>
                   <Grid size={{ xs: 60, sm: 12 }}>
-                    {isSuperAdmin ? (
-                      // Super Admin: manual dropdown override
+                    {isSuperAdmin || isAdmin ? (
+                      // Super Admin or Admin: manual dropdown override
                       <>
                         <TextField
                           fullWidth
@@ -2024,13 +2065,11 @@ export default function EditStore() {
                     variant="contained" 
                     size="large" 
                     type="submit" 
-                    disabled={loading || (!canEditBasicDetails && !canEditContacts && !canEditFinance && !canEditGoLive && !canEditClosure) || !isGoLiveFormValid() || !isClosureFormValid() || (store?.status === 'INCOMPLETE_INFORMATION' && !isApprovedSelectable)} 
+                    disabled={loading || (!canEditBasicDetails && !canEditContacts && !canEditFinance && !canEditGoLive && !canEditClosure) || !isGoLiveFormValid() || !isClosureFormValid()} 
                     sx={{ px: 4, borderRadius: '8px' }}
                   >
                     {loading ? (
                       <CircularProgress size={24} color="inherit" />
-                    ) : store?.status === 'INCOMPLETE_INFORMATION' ? (
-                      'Submit for NSO Approval'
                     ) : (
                       'Save Changes'
                     )}

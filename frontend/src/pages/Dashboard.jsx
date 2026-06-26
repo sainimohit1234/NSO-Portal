@@ -56,8 +56,10 @@ export default function Dashboard() {
       });
   }, []);
 
-  // No filtering applied to dashboard, show all stores
-  const filteredStores = stores;
+  // Only count active stores in dashboard stats
+  const filteredStores = useMemo(() => {
+    return stores.filter(s => s.isActive !== false && s.isActive !== 'false');
+  }, [stores]);
 
   // Helpers for Expired/Expiring soon logic
   const isLicenseExpired = (s) => {
@@ -113,15 +115,21 @@ export default function Dashboard() {
 
   // Compute stats dynamically
   const stats = useMemo(() => {
-    const liveStoreCount = filteredStores.filter(s => s.status === 'LIVE').length;
-    const totalCafeCount = filteredStores.filter(s => !isInventoryStore(s)).length;
-    const upcomingStoreCount = filteredStores.filter(s => getCurrentStatus(s) === 'Upcoming Store').length;
+    const isTargetStore = (s) => {
+      const code = (s.cafeCode || '').toUpperCase();
+      return code.startsWith('CA') || code.startsWith('GOT') || code.startsWith('CAGT');
+    };
+    const targetStores = filteredStores.filter(isTargetStore);
+
+    const liveStoreCount = targetStores.filter(s => s.status === 'LIVE' && s.isActive !== false && s.isActive !== 'false').length;
     const closedStoreCount = filteredStores.filter(s => getCurrentStatus(s) === 'Closed').length;
-    const pendingApprovalCount = filteredStores.filter(s => s.status === 'PENDING_APPROVAL').length;
-    const readyToGoLiveCount = filteredStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live').length;
-    const readyToGoLiveStores = filteredStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live');
-    const fssaiThisMonthCount = filteredStores.filter(isFssaiExpiringThisMonth).length;
-    const rentThisMonthCount = filteredStores.filter(isRentExpiringThisMonth).length;
+    const totalCafeCount = targetStores.filter(s => !isInventoryStore(s) && getCurrentStatus(s) !== 'Closed').length + closedStoreCount;
+    const upcomingStoreCount = targetStores.filter(s => getCurrentStatus(s) === 'Upcoming Store').length;
+    const pendingApprovalCount = targetStores.filter(s => s.status === 'PENDING_APPROVAL').length;
+    const readyToGoLiveCount = targetStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live').length;
+    const readyToGoLiveStores = targetStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live');
+    const fssaiThisMonthCount = targetStores.filter(isFssaiExpiringThisMonth).length;
+    const rentThisMonthCount = targetStores.filter(isRentExpiringThisMonth).length;
 
     const areaManagersData = aggregateManagers(filteredStores, 'areaManager');
     const cityHeadsData = aggregateManagers(filteredStores, 'cityHead');

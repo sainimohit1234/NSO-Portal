@@ -18,6 +18,7 @@ import ComplianceDetails from './pages/ComplianceDetails';
 import AggregatorMail from './pages/AggregatorMail';
 import UpcomingStores from './pages/UpcomingStores';
 import ImagesDocs from './pages/ImagesDocs';
+import ExpansionPipeline from './pages/ExpansionPipeline';
 import DeleteBranches from './pages/DeleteBranches';
 import UserRegistrations from './pages/UserRegistrations';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -61,6 +62,10 @@ const router = createBrowserRouter([
       {
         path: 'stores',
         element: <Stores />
+      },
+      {
+        path: 'expansion-pipeline',
+        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE']}><ExpansionPipeline /></ProtectedRoute>
       },
       {
         path: 'stores/new',

@@ -76,8 +76,8 @@ export default function AggregatorMail() {
   const fetchStores = () => {
     fetchStoresFromFirestore()
       .then(stores => {
-        // Filter: COMPLIANCE_APPROVED or LIVE
-        const filtered = stores.filter(s => s.status === 'COMPLIANCE_APPROVED' || s.status === 'LIVE');
+        // Filter: COMPLIANCE_APPROVED or LIVE and active
+        const filtered = stores.filter(s => s.isActive !== false && s.isActive !== 'false' && (s.status === 'COMPLIANCE_APPROVED' || s.status === 'LIVE'));
         setStores(filtered);
       })
       .catch(async err => {
@@ -85,7 +85,7 @@ export default function AggregatorMail() {
         try {
           const res = await axios.get('/api/stores');
           const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']) || [];
-          const filtered = stores.filter(s => s.status === 'COMPLIANCE_APPROVED' || s.status === 'LIVE');
+          const filtered = stores.filter(s => s.isActive !== false && s.isActive !== 'false' && (s.status === 'COMPLIANCE_APPROVED' || s.status === 'LIVE'));
           setStores(filtered);
         } catch (apiError) {
           console.error(apiError);

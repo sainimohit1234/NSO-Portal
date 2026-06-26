@@ -6,7 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "sync:firestore-stores": "node scripts/sync-redshift-to-firestore.mjs"
+    "sync:firestore-stores": "node scripts/sync-redshift-to-firestore.mjs",
+    "extract-pincodes": "ts-node src/scripts/extract-pincodes.ts"
   },
   "keywords": [],
   "author": "",

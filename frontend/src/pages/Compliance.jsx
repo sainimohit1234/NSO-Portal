@@ -28,12 +28,14 @@ export default function Compliance() {
   const fetchStores = () => {
     fetchStoresFromFirestore()
       .then(stores => {
-        // Show stores that are NSO_APPROVED, legacy APPROVED, COMPLIANCE_APPROVED, or LIVE
+        // Show stores that are NSO_APPROVED, legacy APPROVED, COMPLIANCE_APPROVED, or LIVE and are active
         const filtered = stores.filter(s => 
-          s.status === 'NSO_APPROVED' || 
-          s.status === 'APPROVED' || 
-          s.status === 'COMPLIANCE_APPROVED' ||
-          s.status === 'LIVE'
+          s.isActive !== false &&
+          s.isActive !== 'false' &&
+          (s.status === 'NSO_APPROVED' || 
+           s.status === 'APPROVED' || 
+           s.status === 'COMPLIANCE_APPROVED' ||
+           s.status === 'LIVE')
         );
         setStores(filtered);
       })
@@ -43,10 +45,12 @@ export default function Compliance() {
           const res = await axios.get('/api/stores');
           const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
           const filtered = stores.filter(s => 
-            s.status === 'NSO_APPROVED' || 
-            s.status === 'APPROVED' || 
-            s.status === 'COMPLIANCE_APPROVED' ||
-            s.status === 'LIVE'
+            s.isActive !== false &&
+            s.isActive !== 'false' &&
+            (s.status === 'NSO_APPROVED' || 
+             s.status === 'APPROVED' || 
+             s.status === 'COMPLIANCE_APPROVED' ||
+             s.status === 'LIVE')
           );
           setStores(filtered);
         } catch (apiError) {

@@ -25,12 +25,28 @@ function processWhere(where: any, query: any) {
         // Prisma uses Int id, Firestore uses string doc id. 
         // We assume documents have an 'id' field stored, or we query by FieldPath.documentId()
         query = query.where('id', '==', value);
+      } else if (key === 'isActive') {
+        // Skip database-level filtering for isActive to support in-memory default of true for missing fields
       } else {
         query = query.where(key, '==', value);
       }
     }
   }
   return query;
+}
+
+function mapDocumentData(modelName: string, docId: string, data: any) {
+  if (!data) return null;
+  const mapped = { ...data };
+  for (const key of Object.keys(mapped)) {
+    if (mapped[key] && typeof mapped[key].toDate === 'function') {
+      mapped[key] = mapped[key].toDate().toISOString();
+    }
+  }
+  if (modelName === 'store' && mapped.isActive === undefined) {
+    mapped.isActive = true;
+  }
+  return { ...mapped, id: docId };
 }
 
 class MockDelegate {
@@ -52,14 +68,7 @@ class MockDelegate {
     // For OR/NOT and complex queries, fetch all and filter in memory
     const snapshot = await query.get();
     let results = snapshot.docs.map((doc: any) => {
-      const data = doc.data() || {};
-      // Convert Firestore Timestamps to ISO strings for consistent serialization
-      for (const key of Object.keys(data)) {
-        if (data[key] && typeof data[key].toDate === 'function') {
-          data[key] = data[key].toDate().toISOString();
-        }
-      }
-      return { ...data, id: doc.id };
+      return mapDocumentData(this.modelName, doc.id, doc.data() || {});
     });
 
     if (args?.where) {
@@ -127,12 +136,16 @@ class MockDelegate {
     if (args?.include) {
        for (const result of results) {
           if (args.include.areaManager && result.areaManagerId) {
-             const amDoc = await db.collection('users').doc(String(result.areaManagerId)).get();
+             const amDoc = await db.collection('contacts').doc(String(result.areaManagerId)).get();
              if (amDoc.exists) result.areaManager = { id: amDoc.id, ...amDoc.data() };
           }
           if (args.include.cityHead && result.cityHeadId) {
-             const chDoc = await db.collection('users').doc(String(result.cityHeadId)).get();
+             const chDoc = await db.collection('contacts').doc(String(result.cityHeadId)).get();
              if (chDoc.exists) result.cityHead = { id: chDoc.id, ...chDoc.data() };
+          }
+          if (args.include.cafeManager && result.cafeManagerId) {
+             const cmDoc = await db.collection('contacts').doc(String(result.cafeManagerId)).get();
+             if (cmDoc.exists) result.cafeManager = { id: cmDoc.id, ...cmDoc.data() };
           }
           if (args.include.user && result.userId) {
              const uDoc = await db.collection('users').doc(String(result.userId)).get();
@@ -155,13 +168,7 @@ class MockDelegate {
     if (args.where.id) {
        const doc = await db.collection(this.collectionName).doc(String(args.where.id)).get();
        if (doc.exists) {
-         const data = doc.data() || {};
-         for (const key of Object.keys(data)) {
-           if (data[key] && typeof data[key].toDate === 'function') {
-             data[key] = data[key].toDate().toISOString();
-           }
-         }
-         return { ...data, id: doc.id };
+         return mapDocumentData(this.modelName, doc.id, doc.data() || {});
        }
     }
     
@@ -196,14 +203,7 @@ class MockDelegate {
     }
     await db.collection(this.collectionName).doc(docId).update(data);
     const doc = await db.collection(this.collectionName).doc(docId).get();
-    const docData = doc.data() || {};
-    // Convert Firestore Timestamps back to ISO strings
-    for (const key of Object.keys(docData)) {
-      if (docData[key] && typeof docData[key].toDate === 'function') {
-        docData[key] = docData[key].toDate().toISOString();
-      }
-    }
-    return { ...docData, id: doc.id };
+    return mapDocumentData(this.modelName, doc.id, doc.data() || {});
   }
 
   async updateMany(args: any) {

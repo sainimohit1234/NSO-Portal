@@ -34,6 +34,34 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'NSM Portal Backend is running' });
 });
 
+app.get('/api/temp-live-codes', async (req, res) => {
+  try {
+    const db = firebaseAdmin.firestore();
+    const snapshot = await db.collection('stores').get();
+    const liveStores = [];
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      const code = (data.cafeCode || '').toUpperCase();
+      const isTarget = code.startsWith('CA') || code.startsWith('GOT') || code.startsWith('CAGT');
+      const isActive = data.isActive !== false;
+      const isLive = data.status === 'LIVE';
+
+      if (isActive && isTarget && isLive) {
+        liveStores.push({
+          cafeCode: data.cafeCode,
+          cafeName: data.cafeName
+        });
+      }
+    });
+
+    liveStores.sort((a, b) => a.cafeCode.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    res.json({ count: liveStores.length, codes: liveStores });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 app.use('/api/stores', storeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/contacts', contactRoutes);

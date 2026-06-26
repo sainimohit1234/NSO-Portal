@@ -560,11 +560,11 @@ Thank you to everyone involved in making this upcoming launch possible. Let's ma
 
 Best Regards,`;
 
-    const html = `<div style="font-family: Arial, sans-serif; line-height: 1.6; width: 100%; margin: 0; padding: 24px 0; text-align: center;">
+    const html = `<div style="font-family: Arial, sans-serif; line-height: 1.6; width: 100%; margin: 0; padding: 24px 0; text-align: left;">
   <p style="font-weight: bold; margin-bottom: 24px;">Dear Team,</p>
   <p style="font-weight: bold; margin-bottom: 24px;">🎉 We are excited to share that a new café is scheduled to launch soon! 🎉</p>
   <p style="margin-bottom: 24px;">Please find the upcoming café details below:</p>
-  <div style="margin-bottom: 24px; line-height: 1.8; text-align: center;">
+  <div style="margin-bottom: 24px; line-height: 1.8; text-align: left;">
     <strong>Brand Name:</strong> ${brandName}<br />
     <strong>Cafe Name:</strong> ${store.cafeName || 'N/A'}<br />
     <strong>Cafe Code:</strong> ${store.cafeCode || 'N/A'}<br />
@@ -583,7 +583,7 @@ Best Regards,`;
     const toHeader = toEmails.length > 0 ? toEmails.join(', ') : (smtpConfig.smtpUser || 'analytics@bluetokaicoffee.com');
     const ccHeader = ccEmails.length > 0 ? ccEmails.join(', ') : undefined;
 
-    const threadMessageId = getThreadMessageId(store.cafeCode);
+    const threadMessageId = await getThreadMessageId(store.cafeCode);
     const mailSubject = threadMessageId ? `Re: ${subject}` : subject;
 
     const mailOptions: any = {
@@ -618,13 +618,13 @@ Best Regards,`;
       const info = await testTransporter.sendMail(mailOptions);
       console.log('Auto Café Launch Email sent to Ethereal: %s', nodemailer.getTestMessageUrl(info));
       if (!threadMessageId) {
-        saveThreadMessageId(store.cafeCode, info.messageId);
+        await saveThreadMessageId(store.cafeCode, info.messageId);
       }
     } else {
       const info = await transporter.sendMail(mailOptions);
       console.log('Auto Café Launch Email sent successfully: %s', info.messageId);
       if (!threadMessageId) {
-        saveThreadMessageId(store.cafeCode, info.messageId);
+        await saveThreadMessageId(store.cafeCode, info.messageId);
       }
     }
   } catch (error) {
@@ -675,7 +675,7 @@ Every milestone brings us closer to opening our doors, and we are excited to see
 
 The countdown has begun, and we can't wait to celebrate another amazing café opening! ☕🎊`;
 
-    const html = `<div style="font-family: Arial, sans-serif; line-height: 1.6; width: 100%; margin: 0; padding: 24px 0; text-align: center;">
+    const html = `<div style="font-family: Arial, sans-serif; line-height: 1.6; width: 100%; margin: 0; padding: 24px 0; text-align: left;">
   <p style="font-weight: bold; margin-bottom: 24px;">Dear Team,</p>
   <p style="font-weight: bold; margin-bottom: 24px;">🎉 Exciting Update: Compliance Phase Started for Our Upcoming Café 🎉</p>
   <p style="font-weight: bold; margin-bottom: 24px;">We are delighted to share another exciting milestone in the journey of our upcoming café! 🎉✨🎉✨</p>
@@ -690,7 +690,7 @@ The countdown has begun, and we can't wait to celebrate another amazing café op
     const toHeader = toEmails.length > 0 ? toEmails.join(', ') : (smtpConfig.smtpUser || 'analytics@bluetokaicoffee.com');
     const ccHeader = ccEmails.length > 0 ? ccEmails.join(', ') : undefined;
 
-    const threadMessageId = getThreadMessageId(store.cafeCode);
+    const threadMessageId = await getThreadMessageId(store.cafeCode);
     const mailSubject = threadMessageId ? `Re: ${subject}` : subject;
 
     const mailOptions: any = {
@@ -725,13 +725,13 @@ The countdown has begun, and we can't wait to celebrate another amazing café op
       const info = await testTransporter.sendMail(mailOptions);
       console.log('Auto Café NSO Approved Email sent to Ethereal: %s', nodemailer.getTestMessageUrl(info));
       if (!threadMessageId) {
-        saveThreadMessageId(store.cafeCode, info.messageId);
+        await saveThreadMessageId(store.cafeCode, info.messageId);
       }
     } else {
       const info = await transporter.sendMail(mailOptions);
       console.log('Auto Café NSO Approved Email sent successfully: %s', info.messageId);
       if (!threadMessageId) {
-        saveThreadMessageId(store.cafeCode, info.messageId);
+        await saveThreadMessageId(store.cafeCode, info.messageId);
       }
     }
   } catch (error) {
@@ -772,9 +772,9 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req: 
         latt: req.body.latt ? parseFloat(req.body.latt) : null,
         long: req.body.long ? parseFloat(req.body.long) : null,
         launchDate: req.body.launchDate ? new Date(req.body.launchDate) : null,
-        areaManagerId: req.body.areaManagerId ? parseInt(req.body.areaManagerId) : null,
-        cityHeadId: req.body.cityHeadId ? parseInt(req.body.cityHeadId) : null,
-        cafeManagerId: req.body.cafeManagerId ? parseInt(req.body.cafeManagerId) : null,
+        areaManagerId: req.body.areaManagerId || null,
+        cityHeadId: req.body.cityHeadId || null,
+        cafeManagerId: req.body.cafeManagerId || null,
       },
     });
     
@@ -1366,13 +1366,13 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     
     // Parse foreign keys if they exist
     if (updateData.hasOwnProperty('areaManagerId')) {
-      updateData.areaManagerId = updateData.areaManagerId ? parseInt(updateData.areaManagerId) : null;
+      updateData.areaManagerId = updateData.areaManagerId || null;
     }
     if (updateData.hasOwnProperty('cityHeadId')) {
-      updateData.cityHeadId = updateData.cityHeadId ? parseInt(updateData.cityHeadId) : null;
+      updateData.cityHeadId = updateData.cityHeadId || null;
     }
     if (updateData.hasOwnProperty('cafeManagerId')) {
-      updateData.cafeManagerId = updateData.cafeManagerId ? parseInt(updateData.cafeManagerId) : null;
+      updateData.cafeManagerId = updateData.cafeManagerId || null;
     }
 
     // Remove fields we don't want to blindly update from body if they are handled elsewhere
@@ -1402,10 +1402,6 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       triggerNsoApprovedEmail(store);
     }
 
-    if (wasIncompleteInformation && store.status === 'PENDING_APPROVAL') {
-      // Trigger launch notification on successful completion of details
-      triggerUpcomingLaunchEmail(store);
-    }
 
     res.json(store);
   } catch (error: any) {

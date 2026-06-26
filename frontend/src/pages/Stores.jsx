@@ -144,7 +144,7 @@ export default function Stores() {
     let result = stores;
 
     // Filter out inactive stores (isActive is false)
-    result = result.filter(s => s.isActive !== false);
+    result = result.filter(s => s.isActive !== false && s.isActive !== 'false');
 
     // Brand Filter
     if (filters.brand) {
@@ -570,22 +570,22 @@ Store Operations Portal`;
       </Card>
 
       <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden' }}>
-        <TableContainer component={Paper} elevation={0}>
-          <Table>
+        <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
+          <Table stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Current Status</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Cafe Code</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Cafe Name</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Address</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Live Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Closure Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Day Count</TableCell>
-                {filters.expiryType === 'fssai' && <TableCell sx={{ fontWeight: 700 }}>FSSAI Expiry</TableCell>}
-                {filters.expiryType === 'rent' && <TableCell sx={{ fontWeight: 700 }}>Rent Expiry</TableCell>}
-                {isSuperAdmin && <TableCell sx={{ fontWeight: 700 }}>Mail Status</TableCell>}
-                <TableCell align="center" sx={{ fontWeight: 700 }}>Locked</TableCell>
+                <TableCell>Current Status</TableCell>
+                <TableCell>Cafe Code</TableCell>
+                <TableCell>Cafe Name</TableCell>
+                <TableCell>Address</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Live Date</TableCell>
+                <TableCell>Closure Date</TableCell>
+                <TableCell>Day Count</TableCell>
+                {filters.expiryType === 'fssai' && <TableCell>FSSAI Expiry</TableCell>}
+                {filters.expiryType === 'rent' && <TableCell>Rent Expiry</TableCell>}
+                {isSuperAdmin && <TableCell>Mail Status</TableCell>}
+                <TableCell align="center">Locked</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -610,7 +610,7 @@ Store Operations Portal`;
                       hover 
                       onClick={() => navigate(`/stores/${store.id}`, { state: { from: '/stores' } })}
                       sx={{ 
-                        '&:last-child td, &:last-child th': { border: 0 }, 
+                        '&:last-child td, &:last-child th': { borderBottom: 0 }, 
                         cursor: 'pointer' 
                       }}
                     >
@@ -702,7 +702,7 @@ Store Operations Portal`;
                           }} 
                         />
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>{store.cafeCode}</TableCell>
+                      <TableCell sx={{ fontWeight: 800, color: 'primary.main' }}>{store.cafeCode}</TableCell>
                       <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           {store.cafeName}
@@ -713,7 +713,7 @@ Store Operations Portal`;
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.825rem' }}>
+                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.825rem', fontWeight: 800 }}>
                         {(() => {
                           const addr = store.cafeAddress || store.address || '';
                           const city = store.city || '';
@@ -787,53 +787,53 @@ Store Operations Portal`;
                         />
                       </TableCell>
 
-                      <TableCell sx={{ fontSize: '0.825rem' }}>
+                      <TableCell sx={{ fontSize: '0.825rem', fontWeight: 800 }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                           {store.inStoreLive && (
                             <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                              <span style={{ fontWeight: 600 }}>In-Store:</span> {formatDateString(store.inStoreLiveDate)}
+                              <span style={{ fontWeight: 800 }}>In-Store:</span> {formatDateString(store.inStoreLiveDate)}
                             </Box>
                           )}
                           {store.deliveryLive && (
                             <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                              <span style={{ fontWeight: 600 }}>Delivery:</span> {formatDateString(store.deliveryLiveDate)}
+                              <span style={{ fontWeight: 800 }}>Delivery:</span> {formatDateString(store.deliveryLiveDate)}
                             </Box>
                           )}
                           {!store.inStoreLive && !store.deliveryLive && '—'}
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ fontSize: '0.825rem' }}>
+                      <TableCell sx={{ fontSize: '0.825rem', fontWeight: 800 }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                           {store.inStoreClosed && (
                             <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                              <span style={{ fontWeight: 600 }}>In-Store:</span> {formatDateString(store.inStoreClosedDate)}
+                              <span style={{ fontWeight: 800 }}>In-Store:</span> {formatDateString(store.inStoreClosedDate)}
                             </Box>
                           )}
                           {store.deliveryClosed && (
                             <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                              <span style={{ fontWeight: 600 }}>Delivery:</span> {formatDateString(store.deliveryClosedDate)}
+                              <span style={{ fontWeight: 800 }}>Delivery:</span> {formatDateString(store.deliveryClosedDate)}
                             </Box>
                           )}
                           {!store.inStoreClosed && !store.deliveryClosed && '—'}
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ fontSize: '0.825rem' }}>
+                      <TableCell sx={{ fontSize: '0.825rem', fontWeight: 800 }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                           <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                            <span style={{ fontWeight: 600 }}>In-Store:</span> {getDayCount(store.inStoreLiveDate, store.inStoreClosedDate, store.inStoreLive, store.inStoreClosed)}
+                            <span style={{ fontWeight: 800 }}>In-Store:</span> {getDayCount(store.inStoreLiveDate, store.inStoreClosedDate, store.inStoreLive, store.inStoreClosed)}
                           </Box>
                           <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                            <span style={{ fontWeight: 600 }}>Delivery:</span> {getDayCount(store.deliveryLiveDate, store.deliveryClosedDate, store.deliveryLive, store.deliveryClosed)}
+                            <span style={{ fontWeight: 800 }}>Delivery:</span> {getDayCount(store.deliveryLiveDate, store.deliveryClosedDate, store.deliveryLive, store.deliveryClosed)}
                           </Box>
                         </Box>
                       </TableCell>
                       {filters.expiryType === 'fssai' && (
-                        <TableCell sx={{ fontWeight: 600, color: 'error.main' }}>
+                        <TableCell sx={{ fontWeight: 800, color: 'error.main' }}>
                           {formatDateString(store.fssaiExpiry)}
                         </TableCell>
                       )}
                       {filters.expiryType === 'rent' && (
-                        <TableCell sx={{ fontWeight: 600, color: 'error.main' }}>
+                        <TableCell sx={{ fontWeight: 800, color: 'error.main' }}>
                           {formatDateString(store.rentExpiry)}
                         </TableCell>
                       )}

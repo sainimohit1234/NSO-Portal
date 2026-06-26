@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useBlocker } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { 
@@ -64,77 +64,80 @@ const FIELD_LABELS = {
   launchStatus: 'Launch Status'
 };
 
+const DEFAULT_FORM_VALUES = {
+  brand: '',
+  cafeName: '',
+  cafeCode: '',
+  cafeModel: '',
+  menu: '',
+  cafeAddress: '',
+  city: '',
+  state: '',
+  pinCode: '',
+  zone: 'North',
+  cafeLocationGoogleLink: '',
+  latitude: '',
+  latt: '',
+  long: '',
+  cafeOpenTiming: '',
+  cafeClosingTime: '',
+  actualClosingTime: '',
+  gstNo: '',
+  gstCertificateLink: '',
+  fssaiLicense: '',
+  fssaiNo: '',
+  cafePhoneNumber: '',
+  cafeMailId: '',
+  cafeManagerMailId: '',
+  cafeManagerContactNo: '',
+  areaManagerEmail: '',
+  areaManagerPhone: '',
+  cityHeadEmail: '',
+  cityHeadPhone: '',
+  blueTokaiSwiggyRID: '',
+  blueTokaiZomatoRID: '',
+  suchaliSwiggyRID: '',
+  suchaliZomatoRID: '',
+  gotTeaSwiggyRID: '',
+  gotTeaZomatoRID: '',
+  newPricingCategory: '',
+  newPricingSubCategory: '',
+  cluster: '',
+  cafeLaunchMonth: '',
+  cafeLaunchYear: '',
+  cafeOpeningHr: '',
+  platformType: '',
+  tradingArea: '',
+  launchStatus: 'Upcoming Store',
+  launchDate: '',
+  smokingZone: '',
+  parkingOption: '',
+  wheelchairAccessibility: '',
+  mailStatus: 'Pending for S/Z',
+  areaManagerId: null,
+  cityHeadId: null,
+  cafeManagerId: null,
+  cafeManagerName: '',
+  areaManagerName: '',
+  cityHeadName: '',
+  petFriendly: '',
+  projectStartDate: '',
+  projectHandoverDate: '',
+  tentativeDryLaunchDate: '',
+  highlights: '',
+  expectedSalesVal: '',
+  expectedSalesUnit: 'Lakhs',
+  nearbyCafes: ''
+};
+
 const NewStore = () => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isAdmin = user?.role === 'ADMIN';
   const canEditContacts = isSuperAdmin || user?.permissions?.includes('EDIT_CONTACTS');
 
   const { register, handleSubmit, setValue, watch, formState, reset, formState: { errors } } = useForm({
-    defaultValues: {
-      brand: '',
-      cafeName: '',
-      cafeCode: '',
-      cafeModel: '',
-      menu: '',
-      cafeAddress: '',
-      city: '',
-      state: '',
-      pinCode: '',
-      zone: 'North',
-      cafeLocationGoogleLink: '',
-      latitude: '',
-      latt: '',
-      long: '',
-      cafeOpenTiming: '',
-      cafeClosingTime: '',
-      actualClosingTime: '',
-      gstNo: '',
-      gstCertificateLink: '',
-      fssaiLicense: '',
-      fssaiNo: '',
-      cafePhoneNumber: '',
-      cafeMailId: '',
-      cafeManagerMailId: '',
-      cafeManagerContactNo: '',
-      areaManagerEmail: '',
-      areaManagerPhone: '',
-      cityHeadEmail: '',
-      cityHeadPhone: '',
-      blueTokaiSwiggyRID: '',
-      blueTokaiZomatoRID: '',
-      suchaliSwiggyRID: '',
-      suchaliZomatoRID: '',
-      gotTeaSwiggyRID: '',
-      gotTeaZomatoRID: '',
-      newPricingCategory: '',
-      newPricingSubCategory: '',
-      cluster: '',
-      cafeLaunchMonth: '',
-      cafeLaunchYear: '',
-      cafeOpeningHr: '',
-      platformType: '',
-      tradingArea: '',
-      launchStatus: 'Upcoming Store',
-      launchDate: '',
-      smokingZone: '',
-      parkingOption: '',
-      wheelchairAccessibility: '',
-      mailStatus: 'Pending for S/Z',
-      areaManagerId: null,
-      cityHeadId: null,
-      cafeManagerId: null,
-      cafeManagerName: '',
-      areaManagerName: '',
-      cityHeadName: '',
-      petFriendly: '',
-      projectStartDate: '',
-      projectHandoverDate: '',
-      tentativeDryLaunchDate: '',
-      highlights: '',
-      expectedSalesVal: '',
-      expectedSalesUnit: 'Lakhs',
-      nearbyCafes: ''
-    }
+    defaultValues: DEFAULT_FORM_VALUES
   });
 
   const selectedBrand = watch('brand');
@@ -151,8 +154,52 @@ const NewStore = () => {
   const isSavedRef = useRef(false);
   const navigate = useNavigate();
 
+  const allValues = watch();
+
+  // A helper to check if any field (other than brand/status/defaults) has been modified by the user
+  const hasEnteredData = useMemo(() => {
+    // List of keys to ignore when checking if user entered any data
+    const ignoredKeys = [
+      'brand',
+      'launchStatus',
+      'mailStatus',
+      'expectedSalesUnit',
+      'zone',
+      'cafeMailId',
+      'cmMailId',
+      'cafeLaunchMonth',
+      'cafeLaunchYear',
+      'latt',
+      'long',
+      'areaManagerName',
+      'areaManagerEmail',
+      'areaManagerPhone',
+      'cityHeadName',
+      'cityHeadEmail',
+      'cityHeadPhone',
+      'cafeManagerName',
+      'cafeManagerMailId',
+      'cafeManagerContactNo'
+    ];
+
+    for (const key of Object.keys(allValues)) {
+      if (ignoredKeys.includes(key)) continue;
+
+      const currentValue = allValues[key];
+      const defaultValue = DEFAULT_FORM_VALUES[key];
+
+      if (currentValue !== defaultValue) {
+        if (typeof currentValue === 'string' && currentValue.trim() === '') {
+          continue;
+        }
+        return true;
+      }
+    }
+    return false;
+  }, [allValues]);
+
   // Track if form has unsaved changes
-  const hasDirtyFields = Object.keys(formState.dirtyFields).length > 0;
+  const hasDirtyFields = Object.keys(formState.dirtyFields).length > 0 && hasEnteredData;
   const isDirty = hasDirtyFields && !isSavedRef.current;
 
   // Watch latitude to auto-fill latt and long
@@ -210,6 +257,54 @@ const NewStore = () => {
       setValue('state', '', { shouldValidate: true });
     }
   }, [pinCodeValue, setValue]);
+
+  // Auto-extract PIN code from Address field
+  const cafeAddressValue = watch('cafeAddress');
+  useEffect(() => {
+    if (cafeAddressValue) {
+      const match = cafeAddressValue.match(/\b\d{6}\b/);
+      if (match) {
+        const extractedPin = match[0];
+        if (pinCodeValue !== extractedPin) {
+          setValue('pinCode', extractedPin, { shouldValidate: true });
+        }
+      }
+    }
+  }, [cafeAddressValue, pinCodeValue, setValue]);
+
+  // Email ID Auto-Population based on Cafe Name and Brand
+  const cafeNameValue = watch('cafeName');
+  const brandValue = watch('brand');
+
+  useEffect(() => {
+    if (cafeNameValue && brandValue) {
+      const cleanCafeName = String(cafeNameValue).replace(/\s+/g, '').toLowerCase();
+      let cafeMail = '';
+      if (brandValue === 'BLUE_TOKAI_SUCHALI') {
+        cafeMail = `${cleanCafeName}@bluetokaicoffee.com`;
+      } else if (brandValue === 'GOT_TEA') {
+        cafeMail = `${cleanCafeName}@gottea.in`;
+      }
+      setValue('cafeMailId', cafeMail, { shouldValidate: true });
+      setValue('cmMailId', cafeMail ? `cm.${cafeMail}` : '', { shouldValidate: true });
+    } else {
+      setValue('cafeMailId', '', { shouldValidate: true });
+      setValue('cmMailId', '', { shouldValidate: true });
+    }
+  }, [cafeNameValue, brandValue, setValue]);
+
+  // Launch Date → Cafe Launch Month & Year auto-fill (for non-Super Admin & non-Admin)
+  const launchDateValue = watch('launchDate');
+  useEffect(() => {
+    if (!isSuperAdmin && !isAdmin && launchDateValue && String(launchDateValue).trim()) {
+      const d = new Date(launchDateValue);
+      if (!isNaN(d.getTime())) {
+        const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        setValue('cafeLaunchMonth', monthNames[d.getMonth()], { shouldValidate: true });
+        setValue('cafeLaunchYear', String(d.getFullYear()), { shouldValidate: true });
+      }
+    }
+  }, [launchDateValue, isSuperAdmin, isAdmin, setValue]);
 
   // Warn user about unsaved changes on browser back / refresh
   useEffect(() => {
@@ -350,9 +445,9 @@ const NewStore = () => {
         long: pendingSubmitData.long ? parseFloat(pendingSubmitData.long) : null,
         lat: pendingSubmitData.latitude ? parseFloat(pendingSubmitData.latitude) : null,
         lng: pendingSubmitData.long ? parseFloat(pendingSubmitData.long) : null,
-        areaManagerId: pendingSubmitData.areaManagerId ? parseInt(pendingSubmitData.areaManagerId, 10) : null,
-        cityHeadId: pendingSubmitData.cityHeadId ? parseInt(pendingSubmitData.cityHeadId, 10) : null,
-        cafeManagerId: pendingSubmitData.cafeManagerId ? parseInt(pendingSubmitData.cafeManagerId, 10) : null,
+        areaManagerId: pendingSubmitData.areaManagerId || null,
+        cityHeadId: pendingSubmitData.cityHeadId || null,
+        cafeManagerId: pendingSubmitData.cafeManagerId || null,
         expectedSales: pendingSubmitData.expectedSalesVal
           ? `₹${pendingSubmitData.expectedSalesVal} ${pendingSubmitData.expectedSalesUnit || 'Lakhs'}`
           : null,
@@ -695,7 +790,7 @@ const NewStore = () => {
                       disabled={!canEditContacts}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <TextField 
                       fullWidth 
                       label="Café Mail ID" 
@@ -709,10 +804,10 @@ const NewStore = () => {
                       })} 
                       error={!!errors.cafeMailId}
                       helperText={errors.cafeMailId?.message}
-                      disabled={!canEditContacts}
+                      disabled={!isSuperAdmin && !isAdmin}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
+                  <Grid size={{ xs: 12, sm: 3 }}>
                     <TextField 
                       fullWidth 
                       label="CM Mail ID" 
@@ -725,7 +820,7 @@ const NewStore = () => {
                       })} 
                       error={!!errors.cmMailId}
                       helperText={errors.cmMailId?.message}
-                      disabled={!canEditContacts}
+                      disabled={!isSuperAdmin && !isAdmin}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
@@ -744,26 +839,13 @@ const NewStore = () => {
                   <Grid size={{ xs: 12, sm: 2 }}>
                     <TextField 
                       fullWidth 
-                      label="Café Manager Mail ID" 
-                      type="email" 
-                      {...register('cafeManagerMailId')} 
-                      InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
-                      error={!!errors.cafeManagerMailId}
-                      helperText={errors.cafeManagerMailId?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
                       label="Café Manager Contact No." 
                       {...register('cafeManagerContactNo')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.cafeManagerContactNo}
                       helperText={errors.cafeManagerContactNo?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
                     />
                   </Grid>
                 </Grid>
@@ -792,10 +874,10 @@ const NewStore = () => {
                       type="email" 
                       {...register('areaManagerEmail')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.areaManagerEmail}
                       helperText={errors.areaManagerEmail?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
@@ -804,10 +886,10 @@ const NewStore = () => {
                       label="Area Manager Contact No." 
                       {...register('areaManagerPhone')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.areaManagerPhone}
                       helperText={errors.areaManagerPhone?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
@@ -835,10 +917,10 @@ const NewStore = () => {
                       type="email" 
                       {...register('cityHeadEmail')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.cityHeadEmail} 
                       helperText={errors.cityHeadEmail?.message || "Auto-filled"} 
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 2 }}>
@@ -847,10 +929,10 @@ const NewStore = () => {
                       label="City Head Contact No." 
                       {...register('cityHeadPhone')} 
                       InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: true }}
+                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                       error={!!errors.cityHeadPhone} 
                       helperText={errors.cityHeadPhone?.message || "Auto-filled"} 
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
                     />
                   </Grid>
                 </Grid>
@@ -942,34 +1024,51 @@ const NewStore = () => {
                     <TextField fullWidth type="date" label="Tentative Dry Launch Date" InputLabelProps={{ shrink: true }} {...register('tentativeDryLaunchDate')} />
                   </Grid>
                   <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField
-                      fullWidth
-                      select
-                      label="Cafe Launch Month & Year"
-                      value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (!val) {
-                          setValue('cafeLaunchMonth', '', { shouldDirty: true });
-                          setValue('cafeLaunchYear', '', { shouldDirty: true });
-                        } else {
-                          const parts = val.split(' ');
-                          setValue('cafeLaunchMonth', parts[0], { shouldDirty: true });
-                          setValue('cafeLaunchYear', parts[1], { shouldDirty: true });
-                        }
-                      }}
-                      SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
-                    >
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      {LAUNCH_YEARS.map(y =>
-                        MONTH_NAMES.map(m => (
-                          <MenuItem key={`${m}-${y}`} value={`${m} ${y}`}>{m} {y}</MenuItem>
-                        ))
-                      )}
-                    </TextField>
-                    {/* Hidden fields to keep RHF state in sync */}
-                    <input type="hidden" {...register('cafeLaunchMonth')} />
-                    <input type="hidden" {...register('cafeLaunchYear')} />
+                    {isSuperAdmin || isAdmin ? (
+                      <>
+                        <TextField
+                          fullWidth
+                          select
+                          label="Cafe Launch Month & Year"
+                          value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (!val) {
+                              setValue('cafeLaunchMonth', '', { shouldDirty: true });
+                              setValue('cafeLaunchYear', '', { shouldDirty: true });
+                            } else {
+                              const parts = val.split(' ');
+                              setValue('cafeLaunchMonth', parts[0], { shouldDirty: true });
+                              setValue('cafeLaunchYear', parts[1], { shouldDirty: true });
+                            }
+                          }}
+                          SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
+                        >
+                          <MenuItem value="">— Clear Selection —</MenuItem>
+                          {LAUNCH_YEARS.map(y =>
+                            MONTH_NAMES.map(m => (
+                              <MenuItem key={`${m}-${y}`} value={`${m} ${y}`}>{m} {y}</MenuItem>
+                            ))
+                          )}
+                        </TextField>
+                        <input type="hidden" {...register('cafeLaunchMonth')} />
+                        <input type="hidden" {...register('cafeLaunchYear')} />
+                      </>
+                    ) : (
+                      <>
+                        <TextField
+                          fullWidth
+                          label="Cafe Launch Month & Year"
+                          value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
+                          InputLabelProps={{ shrink: true }}
+                          InputProps={{ readOnly: true }}
+                          helperText="Auto-filled from Launch Date"
+                          sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                        />
+                        <input type="hidden" {...register('cafeLaunchMonth')} />
+                        <input type="hidden" {...register('cafeLaunchYear')} />
+                      </>
+                    )}
                   </Grid>
                   <Grid size={{ xs: 60, sm: 12 }}>
                     <TextField 
@@ -1250,22 +1349,59 @@ const NewStore = () => {
       <Dialog
         open={confirmOpen}
         onClose={handleCancelSubmit}
-        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 400 } }}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper' } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.25rem', color: 'text.primary' }}>
-          {pendingSubmitData && checkIsComplete(pendingSubmitData) ? 'Submit for NSO Approval' : 'Create a New Store'}
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.25rem', color: 'text.primary', pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          Draft Email Preview
         </DialogTitle>
-        <DialogContent>
-          <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-            {getConfirmMessage()}
-          </Typography>
+        <DialogContent sx={{ pt: 3 }}>
+          {pendingSubmitData && (
+            <Box>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                The following automated email will be sent upon creating this store:
+              </Typography>
+              <Box sx={{ p: 2.5, bgcolor: '#f8fafc', borderRadius: '8px', border: '1px solid', borderColor: 'divider', mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Subject: Upcoming Café Launch Announcement - {pendingSubmitData.cafeName || 'Untitled Store'} | {pendingSubmitData.cafeCode || 'TEMP-CODE'} | {pendingSubmitData.city || 'N/A'} 🎉🎉
+                </Typography>
+                <Divider sx={{ my: 1.5 }} />
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'sans-serif', lineHeight: 1.6, textAlign: 'left' }}>
+                  {`Dear Team,
+
+🎉 We are excited to share that a new café is scheduled to launch soon! 🎉
+
+Please find the upcoming café details below:
+
+Brand Name: ${pendingSubmitData.brand === 'BLUE_TOKAI_SUCHALI' ? "Blue Tokai / Suchali's Artisan Bakehouse" : pendingSubmitData.brand === 'GOT_TEA' ? 'Got Tea' : pendingSubmitData.brand || 'N/A'}
+Cafe Name: ${pendingSubmitData.cafeName || 'Untitled Store'}
+Cafe Code: ${pendingSubmitData.cafeCode || 'TEMP-CODE'}
+Address: ${pendingSubmitData.cafeAddress || 'N/A'}
+City: ${pendingSubmitData.city || 'N/A'}
+State: ${pendingSubmitData.state || 'N/A'}
+Pin Code: ${pendingSubmitData.pinCode || 'N/A'}
+
+We are thrilled to continue expanding our presence and bringing our brand to a new location. This upcoming launch represents another important milestone in our growth journey.
+
+The team is working diligently to ensure a successful opening, and we look forward to welcoming our customers to this new café very soon.
+
+Further updates regarding the launch date and operational readiness will be shared shortly.
+
+Thank you to everyone involved in making this upcoming launch possible. Let's make this opening a great success!
+
+Best Regards,`}
+                </Typography>
+              </Box>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1.5 }}>
-          <Button onClick={handleConfirmSubmit} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700, px: 3 }}>
-            Confirm
+          <Button onClick={handleConfirmSubmit} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700, px: 4 }}>
+            OK
           </Button>
           <Button onClick={handleCancelSubmit} variant="outlined" color="inherit" sx={{ borderRadius: '8px', fontWeight: 700, px: 3 }}>
-            Cancel
+            Back
           </Button>
         </DialogActions>
       </Dialog>

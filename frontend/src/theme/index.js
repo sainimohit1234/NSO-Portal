@@ -4,7 +4,7 @@ const primaryMain = '#6fcddc';
 const primaryDark = '#3faebf';
 const primaryLight = '#dff6fa';
 const primaryDeep = '#123846';
-const surfaceBorder = alpha(primaryDark, 0.16);
+const surfaceBorder = alpha(primaryDeep, 0.38);
 const glassSurface = alpha('#ffffff', 0.68);
 const glassSurfaceStrong = alpha('#ffffff', 0.82);
 const frostedShadow = '0 16px 40px rgba(17, 24, 39, 0.07)';
@@ -33,7 +33,7 @@ const baseTheme = createTheme({
       secondary: '#4c6b75',
       disabled: '#89a5ad'
     },
-    divider: alpha('#8fbac5', 0.28),
+    divider: alpha(primaryDeep, 0.32),
     success: {
       main: '#1ca37c',
       light: '#def8f0',
@@ -148,7 +148,7 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 20,
-          border: `1px solid ${surfaceBorder}`,
+          border: `2px solid ${alpha(primaryDeep, 0.16)}`,
           boxShadow: frostedShadow,
           background: `linear-gradient(180deg, ${glassSurfaceStrong} 0%, ${glassSurface} 100%)`,
           backdropFilter: 'blur(22px)',
@@ -185,16 +185,27 @@ const baseTheme = createTheme({
           backdropFilter: 'blur(10px)',
           minHeight: 42,
           fontSize: '0.84rem',
+          fontWeight: 800,
           '& .MuiOutlinedInput-notchedOutline': {
-            borderColor: alpha(primaryDark, 0.18)
+            borderColor: alpha(primaryDeep, 0.16),
+            borderWidth: '1.5px'
           },
           '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: alpha(primaryDark, 0.34)
+            borderColor: alpha(primaryDeep, 0.32),
+            borderWidth: '1.5px'
           },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: primaryDark,
-            borderWidth: 1.5,
-            boxShadow: `0 0 0 4px ${alpha(primaryMain, 0.18)}`
+            borderColor: alpha(primaryDeep, 0.65),
+            borderWidth: '2px',
+            boxShadow: `0 0 0 4px ${alpha(primaryMain, 0.22)}`
+          },
+          '&.Mui-disabled': {
+            color: alpha('#16313a', 0.75),
+            WebkitTextFillColor: alpha('#16313a', 0.75),
+            '& .MuiOutlinedInput-notchedOutline': {
+              borderColor: alpha(primaryDeep, 0.10),
+              borderWidth: '1.5px'
+            }
           }
         },
         notchedOutline: {
@@ -222,9 +233,12 @@ const baseTheme = createTheme({
           position: 'relative',
           transform: 'none',
           marginBottom: 6,
-          fontWeight: 700,
-          fontSize: '0.78rem',
-          color: '#4c6b75',
+          fontWeight: 800,
+          fontSize: '0.8rem',
+          color: '#16313a',
+          '&.Mui-disabled': {
+            color: alpha('#16313a', 0.85)
+          },
           '&.Mui-focused': {
             color: primaryDeep
           }
@@ -281,12 +295,13 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiTableCell-root': {
-            backgroundColor: alpha(primaryMain, 0.10),
-            color: primaryDeep,
+            backgroundColor: primaryDeep,
+            color: '#ffffff',
             fontWeight: 800,
             textTransform: 'uppercase',
             fontSize: '0.72rem',
-            letterSpacing: '0.06em'
+            letterSpacing: '0.06em',
+            borderBottom: `2px solid ${primaryDeep}`
           }
         }
       }
@@ -294,10 +309,11 @@ const baseTheme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: `1px solid ${alpha(primaryDark, 0.10)}`,
+          borderBottom: `1.5px solid ${alpha(primaryDeep, 0.14)}`,
           paddingTop: 11,
           paddingBottom: 11,
-          fontSize: '0.8rem'
+          fontSize: '0.8rem',
+          fontWeight: 800
         }
       }
     },
@@ -327,7 +343,8 @@ const baseTheme = createTheme({
     MuiDivider: {
       styleOverrides: {
         root: {
-          borderColor: alpha(primaryDark, 0.12)
+          borderColor: alpha(primaryDeep, 0.16),
+          borderWidth: '1.5px'
         }
       }
     },

@@ -43,6 +43,12 @@ const dateInputToBackend = (dateStr) => {
   return dateStr;
 };
 
+const compareStoreIds = (id1, id2) => {
+  if (!id1 || !id2) return false;
+  const normalize = (val) => String(val).toLowerCase().replace(/o/g, '0').replace(/[il1]/g, 'l');
+  return normalize(id1) === normalize(id2);
+};
+
 export default function ComplianceDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -211,8 +217,12 @@ export default function ComplianceDetails() {
     setLoading(true);
     axios.get(`/api/stores`)
       .then(res => {
-        const found = res.data.find(s => String(s.id) === String(id));
+        const found = res.data.find(s => compareStoreIds(s.id, id));
         if (found) {
+          if (String(found.id) !== String(id)) {
+            navigate(`/compliance/${found.id}`, { replace: true });
+            return;
+          }
           setStore(found);
           setFssaiNo(found.fssaiNo || '');
           setFssaiStartDate(backendToDateInput(found.fssaiStartDate));

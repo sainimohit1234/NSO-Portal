@@ -40,8 +40,10 @@ export default function UpcomingStores() {
   useEffect(() => {
     fetchStoresFromFirestore()
       .then(stores => {
-        // Filter: show all stores that are in the setup/onboarding phase (i.e. not yet LIVE or CLOSED)
+        // Filter: show all stores that are in the setup/onboarding phase (i.e. not yet LIVE or CLOSED) and are active
         const upcoming = stores.filter(s => 
+          s.isActive !== false &&
+          s.isActive !== 'false' &&
           s.status !== 'LIVE' && 
           s.status !== 'Live' && 
           s.status !== 'CLOSED' && 
@@ -56,6 +58,8 @@ export default function UpcomingStores() {
           const res = await axios.get('/api/stores');
           const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
           const upcoming = stores.filter(s => 
+            s.isActive !== false &&
+            s.isActive !== 'false' &&
             s.status !== 'LIVE' && 
             s.status !== 'Live' && 
             s.status !== 'CLOSED' && 

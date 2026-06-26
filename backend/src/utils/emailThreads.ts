@@ -1,42 +1,36 @@
-import fs from 'fs';
-import path from 'path';
+import { firebaseAdmin } from '../lib/firebase-admin';
 
-const configPath = path.resolve(__dirname, '../../../email_threads.json');
+const db = firebaseAdmin.firestore();
 
 /**
- * Retrieves the message ID of the initial email sent for a given Cafe Code.
+ * Retrieves the message ID of the initial email sent for a given Cafe Code from Firestore.
  * Returns null if no thread exists.
  */
-export function getThreadMessageId(cafeCode: string): string | null {
-  if (fs.existsSync(configPath)) {
-    try {
-      const fileData = fs.readFileSync(configPath, 'utf8');
-      const parsed = JSON.parse(fileData);
-      return parsed[cafeCode] || null;
-    } catch (e) {
-      console.error('Failed to parse email_threads.json', e);
+export async function getThreadMessageId(cafeCode: string): Promise<string | null> {
+  try {
+    const docRef = db.collection('emailThreads').doc(cafeCode);
+    const docSnap = await docRef.get();
+    if (docSnap.exists) {
+      const data = docSnap.data();
+      return data?.messageId || null;
     }
+  } catch (e) {
+    console.error('Failed to get thread message ID from Firestore', e);
   }
   return null;
 }
 
 /**
- * Saves the message ID of the initial email sent for a given Cafe Code.
+ * Saves the message ID of the initial email sent for a given Cafe Code in Firestore.
  */
-export function saveThreadMessageId(cafeCode: string, messageId: string): void {
-  let parsed: Record<string, string> = {};
-  if (fs.existsSync(configPath)) {
-    try {
-      const fileData = fs.readFileSync(configPath, 'utf8');
-      parsed = JSON.parse(fileData);
-    } catch (e) {
-      console.error('Failed to parse email_threads.json, initializing empty thread storage', e);
-    }
-  }
-  parsed[cafeCode] = messageId;
+export async function saveThreadMessageId(cafeCode: string, messageId: string): Promise<void> {
   try {
-    fs.writeFileSync(configPath, JSON.stringify(parsed, null, 2), 'utf8');
+    const docRef = db.collection('emailThreads').doc(cafeCode);
+    await docRef.set({
+      messageId,
+      updatedAt: new Date().toISOString()
+    });
   } catch (e) {
-    console.error('Failed to write email_threads.json', e);
+    console.error('Failed to save thread message ID to Firestore', e);
   }
 }

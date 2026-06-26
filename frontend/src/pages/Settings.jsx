@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell, TableContainer,
@@ -210,14 +211,14 @@ export default function Settings() {
   const openEditDialog = (user) => {
     if (!isSuperAdmin && !(hasCreateUserPermission && user.role === currentUser?.role)) return;
     setEditingUser(user);
-    setForm({ 
-      name: user.name, 
-      email: user.email, 
-      password: '', 
-      oldPassword: user.password || '', 
-      phone: user.phone || '', 
-      role: user.role, 
-      permissions: user.permissions || '' 
+    setForm({
+      name: user.name,
+      email: user.email,
+      password: '',
+      oldPassword: user.password || '',
+      phone: user.phone || '',
+      role: user.role,
+      permissions: user.permissions || ''
     });
     setErrorMsg('');
     setUsernameError('');
@@ -381,7 +382,7 @@ export default function Settings() {
   const formatLastLogin = (lastLoginAt) => {
     if (!lastLoginAt) return '—';
     const date = new Date(lastLoginAt);
-    
+
     // Check if valid date
     if (isNaN(date.getTime())) return '—';
 
@@ -451,10 +452,10 @@ export default function Settings() {
       </Box>
 
       {successMsg && (
-        <Alert 
-          severity="success" 
-          sx={{ 
-            mb: 3, 
+        <Alert
+          severity="success"
+          sx={{
+            mb: 3,
             borderRadius: '12px',
             '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
           }}
@@ -686,15 +687,15 @@ export default function Settings() {
                 App Password Configuration Warning
               </Typography>
               <strong>IMPORTANT:</strong> Always configure a 16-character <strong>App Password</strong> generated from Google/Microsoft account settings. <strong>Do not</strong> use your standard email login password.
-              <br/><br/>
+              <br /><br />
               By using a generated App Password, any subsequent password changes made to the primary email account (<code>analytics@bluetokaicoffee.com</code>) <strong>will not affect</strong> or invalidate SMTP operations. The portal will continue to dispatch OTP emails automatically.
             </Alert>
 
             {smtpSuccess && (
-              <Alert 
-                severity="success" 
-                sx={{ 
-                  mb: 3, 
+              <Alert
+                severity="success"
+                sx={{
+                  mb: 3,
                   borderRadius: '10px',
                   '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
                 }}
@@ -703,10 +704,10 @@ export default function Settings() {
               </Alert>
             )}
             {smtpError && (
-              <Alert 
-                severity="error" 
-                sx={{ 
-                  mb: 3, 
+              <Alert
+                severity="error"
+                sx={{
+                  mb: 3,
                   borderRadius: '10px',
                   '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
                 }}
@@ -829,10 +830,10 @@ export default function Settings() {
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           {errorMsg && (
-            <Alert 
-              severity="error" 
-              sx={{ 
-                mb: 2, 
+            <Alert
+              severity="error"
+              sx={{
+                mb: 2,
                 borderRadius: '10px',
                 '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
               }}
@@ -927,8 +928,8 @@ export default function Settings() {
             </TextField>
             {form.role !== 'USER' && (
               <Box sx={{ mt: 1 }}>
-                <Button 
-                  variant="outlined" 
+                <Button
+                  variant="outlined"
                   onClick={handleOpenPermsDialog}
                   sx={{ borderRadius: '8px', fontWeight: 600 }}
                 >
@@ -968,8 +969,8 @@ export default function Settings() {
               <>
                 <FormControlLabel
                   control={
-                    <Switch 
-                      checked={tempPermissions.includes('APPROVER')} 
+                    <Switch
+                      checked={tempPermissions.includes('APPROVER')}
                       disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                       onChange={(e) => {
                         const perms = tempPermissions.split(',').filter(p => p);
@@ -984,8 +985,8 @@ export default function Settings() {
                 {form.role === 'FINANCE' && isSuperAdmin && (
                   <FormControlLabel
                     control={
-                      <Switch 
-                        checked={tempPermissions.includes('CREATE_USER')} 
+                      <Switch
+                        checked={tempPermissions.includes('CREATE_USER')}
                         disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                         onChange={(e) => {
                           const perms = tempPermissions.split(',').filter(p => p);
@@ -1000,8 +1001,8 @@ export default function Settings() {
                 )}
                 <FormControlLabel
                   control={
-                    <Switch 
-                      checked={tempPermissions.includes('EMAIL_DIRECTORY')} 
+                    <Switch
+                      checked={tempPermissions.includes('EMAIL_DIRECTORY')}
                       disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                       onChange={(e) => {
                         const perms = tempPermissions.split(',').filter(p => p);
@@ -1017,8 +1018,8 @@ export default function Settings() {
                   <>
                     <FormControlLabel
                       control={
-                        <Switch 
-                          checked={tempPermissions.split(',').map(p => p.trim()).includes('GO_LIVE')} 
+                        <Switch
+                          checked={tempPermissions.split(',').map(p => p.trim()).includes('GO_LIVE')}
                           disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                           onChange={(e) => {
                             const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
@@ -1032,8 +1033,8 @@ export default function Settings() {
                     />
                     <FormControlLabel
                       control={
-                        <Switch 
-                          checked={tempPermissions.split(',').map(p => p.trim()).includes('DELETE_BRANCH')} 
+                        <Switch
+                          checked={tempPermissions.split(',').map(p => p.trim()).includes('DELETE_BRANCH')}
                           disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                           onChange={(e) => {
                             const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
@@ -1047,8 +1048,8 @@ export default function Settings() {
                     />
                     <FormControlLabel
                       control={
-                        <Switch 
-                          checked={tempPermissions.split(',').map(p => p.trim()).includes('APPROVE_COMPLIANCE')} 
+                        <Switch
+                          checked={tempPermissions.split(',').map(p => p.trim()).includes('APPROVE_COMPLIANCE')}
                           disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                           onChange={(e) => {
                             const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
@@ -1067,8 +1068,8 @@ export default function Settings() {
               <>
                 <FormControlLabel
                   control={
-                    <Switch 
-                      checked={tempPermissions.includes('EDIT_CONTACTS')} 
+                    <Switch
+                      checked={tempPermissions.includes('EDIT_CONTACTS')}
                       disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                       onChange={(e) => {
                         const perms = tempPermissions.split(',').filter(p => p);
@@ -1082,8 +1083,8 @@ export default function Settings() {
                 />
                 <FormControlLabel
                   control={
-                    <Switch 
-                      checked={tempPermissions.includes('EDIT_STORES')} 
+                    <Switch
+                      checked={tempPermissions.includes('EDIT_STORES')}
                       disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                       onChange={(e) => {
                         const perms = tempPermissions.split(',').filter(p => p);
@@ -1097,8 +1098,8 @@ export default function Settings() {
                 />
                 <FormControlLabel
                   control={
-                    <Switch 
-                      checked={tempPermissions.includes('APPROVER')} 
+                    <Switch
+                      checked={tempPermissions.includes('APPROVER')}
                       disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                       onChange={(e) => {
                         const perms = tempPermissions.split(',').filter(p => p);
@@ -1112,8 +1113,8 @@ export default function Settings() {
                 />
                 <FormControlLabel
                   control={
-                    <Switch 
-                      checked={tempPermissions.includes('GO_LIVE')} 
+                    <Switch
+                      checked={tempPermissions.includes('GO_LIVE')}
                       disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                       onChange={(e) => {
                         const perms = tempPermissions.split(',').filter(p => p);
@@ -1128,8 +1129,8 @@ export default function Settings() {
                 {isSuperAdmin && (
                   <FormControlLabel
                     control={
-                      <Switch 
-                        checked={tempPermissions.includes('CREATE_USER')} 
+                      <Switch
+                        checked={tempPermissions.includes('CREATE_USER')}
                         disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                         onChange={(e) => {
                           const perms = tempPermissions.split(',').filter(p => p);
@@ -1144,8 +1145,8 @@ export default function Settings() {
                 )}
                 <FormControlLabel
                   control={
-                    <Switch 
-                      checked={tempPermissions.includes('EMAIL_DIRECTORY')} 
+                    <Switch
+                      checked={tempPermissions.includes('EMAIL_DIRECTORY')}
                       disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
                       onChange={(e) => {
                         const perms = tempPermissions.split(',').filter(p => p);
