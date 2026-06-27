@@ -2534,4 +2534,68 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
   }
 });
 
+// POST /:id/send-store-code-email (Send New Store Code Creation email and update status)
+router.post('/:id/send-store-code-email', authenticateToken, async (req: any, res) => {
+  const storeId = req.params.id;
+  const { to, cc, subject, body } = req.body;
+  if (!storeId) {
+    return res.status(400).json({ error: 'Invalid store ID.' });
+  }
+
+  try {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found.' });
+    }
+
+    const smtpConfig = await getSMTPConfig();
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.smtpHost,
+      port: smtpConfig.smtpPort,
+      secure: smtpConfig.smtpSecure,
+      auth: {
+        user: smtpConfig.smtpUser,
+        pass: smtpConfig.smtpPass
+      }
+    });
+
+    const mailOptions = {
+      from: '"NSM Operations" <analytics@bluetokaicoffee.com>',
+      to: to || '',
+      cc: cc || '',
+      subject: subject || `New Store Code Creation Request | ${store.cafeName}`,
+      text: body || ''
+    };
+
+    let info;
+    if (smtpConfig.smtpHost === 'smtp.ethereal.email') {
+      const testAccount = await nodemailer.createTestAccount();
+      const testTransporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+      info = await testTransporter.sendMail(mailOptions);
+      console.log('Store Code Email sent to Ethereal: %s', nodemailer.getTestMessageUrl(info));
+    } else {
+      info = await transporter.sendMail(mailOptions);
+    }
+
+    // Automatically update the project status to Ready for Construction in the database
+    await prisma.store.update({
+      where: { id: storeId },
+      data: { status: 'Ready for Construction' }
+    });
+
+    res.json({ message: 'Store code creation email sent and status updated successfully.', info });
+  } catch (error: any) {
+    console.error('Error sending store code email:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 export default router;

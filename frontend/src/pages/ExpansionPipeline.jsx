@@ -12,6 +12,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import LinkIcon from '@mui/icons-material/Link';
+import SendIcon from '@mui/icons-material/Send';
+import EditIcon from '@mui/icons-material/Edit';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -51,6 +53,10 @@ export default function ExpansionPipeline() {
 
   // Alert State
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // Ready for Construction Flow States
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, store: null, message: '', hasCode: false });
+  const [draftDialog, setDraftDialog] = useState({ open: false, store: null, to: '', cc: '', subject: '', body: '', isEditable: false });
 
   const loadData = () => {
     setLoading(true);
@@ -289,6 +295,156 @@ export default function ExpansionPipeline() {
       });
       setLoading(false);
     }
+  };
+
+  // Ready for Construction Flow Handlers
+  const handleStatusChangeToReady = (store) => {
+    const hasCode = !!(store.cafeCode && store.cafeCode.trim());
+    if (!hasCode) {
+      setConfirmDialog({
+        open: true,
+        store,
+        message: 'Are you sure you want to send this project to the NSO Team for further processing and send the Store Code Creation email?',
+        hasCode: false
+      });
+    } else {
+      setConfirmDialog({
+        open: true,
+        store,
+        message: 'Are you sure you want to send this project to the NSO Team for further processing?',
+        hasCode: true
+      });
+    }
+  };
+
+  const handleConfirmYes = async () => {
+    const store = confirmDialog.store;
+    const hasCode = confirmDialog.hasCode;
+    
+    // Close confirmation dialog
+    setConfirmDialog(prev => ({ ...prev, open: false, store: null }));
+
+    if (hasCode) {
+      // Scenario 2: Save status to Ready for Construction directly
+      try {
+        setLoading(true);
+        await axios.put(`/api/stores/${store.id}`, { status: 'Ready for Construction' });
+        setSnackbar({ open: true, message: 'Project status updated to Ready for Construction.', severity: 'success' });
+        loadData();
+      } catch (err) {
+        console.error(err);
+        setSnackbar({ open: true, message: 'Failed to update status.', severity: 'error' });
+        setLoading(false);
+      }
+    } else {
+      // Scenario 1: Open draft email dialog
+      try {
+        setLoading(true);
+        const [mappingsRes, templatesRes] = await Promise.all([
+          axios.get('/api/system/email-mappings'),
+          axios.get('/api/system/email-templates')
+        ]);
+        const mappings = mappingsRes.data || [];
+        const templates = templatesRes.data || {};
+        
+        // Find New Store Code Creation mapping
+        const mapping = mappings.find(m => 
+          (m.subCategory && m.subCategory.toLowerCase() === 'new store code creation') ||
+          (m.category && m.category.toLowerCase() === 'new store code creation')
+        );
+
+        // Find New Store Code Creation template
+        const templateKey = Object.keys(templates).find(k => k.toLowerCase() === 'new store code creation') || '';
+        const template = templateKey ? templates[templateKey] : null;
+
+        const defaultSubject = `New Store Code Creation Request - ${store.cafeName}`;
+        const defaultBody = `Hi Team,
+
+This is regarding the new store code creation request for our upcoming cafe. Please find the details below and initiate the store code creation process.
+
+Store Details:
+- Cafe Name: ${store.cafeName || 'N/A'}
+- Brand: ${store.brand === 'BLUE_TOKAI_SUCHALI' ? 'Blue Tokai / Suchali\'s' : 'Got Tea'}
+- City: ${store.city || 'N/A'}
+- State: ${store.state || 'N/A'}
+- Pin Code: ${store.pinCode || 'N/A'}
+- Address: ${store.cafeAddress || store.address || 'N/A'}
+- Café Model: ${store.cafeModel || 'N/A'}
+
+Best regards,
+Operations Team`;
+
+        let to = mapping?.to?.join(', ') || '';
+        let cc = mapping?.cc?.join(', ') || '';
+        let subject = defaultSubject;
+        let body = defaultBody;
+
+        if (template) {
+          subject = `${template.subject || 'New Store Code Creation Request'} - ${store.cafeName}`;
+          let tBody = template.body || '';
+          tBody = tBody.replace(/{cafeName}|\[Store Name\]/gi, store.cafeName || '');
+          tBody = tBody.replace(/{city}|\[City\]/gi, store.city || '');
+          tBody = tBody.replace(/{state}|\[State\]/gi, store.state || '');
+          tBody = tBody.replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '');
+          tBody = tBody.replace(/{model}|\[Model\]/gi, store.cafeModel || '');
+          body = tBody || defaultBody;
+        }
+
+        setDraftDialog({
+          open: true,
+          store,
+          to,
+          cc,
+          subject,
+          body,
+          isEditable: false
+        });
+      } catch (err) {
+        console.error('Failed to load email configurations', err);
+        setSnackbar({ open: true, message: 'Failed to prepare email draft.', severity: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleConfirmNo = () => {
+    setConfirmDialog({ open: false, store: null, message: '', hasCode: false });
+  };
+
+  const handleSendEmail = async () => {
+    const store = draftDialog.store;
+    try {
+      setLoading(true);
+      await axios.post(`/api/stores/${store.id}/send-store-code-email`, {
+        to: draftDialog.to,
+        cc: draftDialog.cc,
+        subject: draftDialog.subject,
+        body: draftDialog.body
+      });
+      setDraftDialog({ open: false, store: null, to: '', cc: '', subject: '', body: '', isEditable: false });
+      setSnackbar({ open: true, message: 'Email sent and status updated to Ready for Construction.', severity: 'success' });
+      loadData();
+    } catch (err) {
+      console.error(err);
+      setSnackbar({ open: true, message: 'Failed to send email.', severity: 'error' });
+      setLoading(false);
+    }
+  };
+
+  const handleDraftBack = () => {
+    const store = draftDialog.store;
+    setDraftDialog({ open: false, store: null, to: '', cc: '', subject: '', body: '', isEditable: false });
+    setConfirmDialog({
+      open: true,
+      store,
+      message: 'Are you sure you want to send this project to the NSO Team for further processing and send the Store Code Creation email?',
+      hasCode: false
+    });
+  };
+
+  const handleDraftModify = () => {
+    setDraftDialog(prev => ({ ...prev, isEditable: true }));
   };
 
   // File selection slot update
@@ -612,8 +768,14 @@ export default function ExpansionPipeline() {
                             <Select
                               value={currentStatus}
                               size="small"
-                              disabled={!rowEditable}
-                              onChange={(e) => handleFieldChange(store.id, 'status', e.target.value)}
+                              onChange={(e) => {
+                                const newStatus = e.target.value;
+                                if (newStatus === 'Ready for Construction') {
+                                  handleStatusChangeToReady(store);
+                                } else {
+                                  handleFieldChange(store.id, 'status', newStatus);
+                                }
+                              }}
                               fullWidth
                               sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                             >
@@ -976,6 +1138,133 @@ export default function ExpansionPipeline() {
             Done
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Ready for Construction Confirmation Dialog */}
+      <Dialog
+        open={confirmDialog.open}
+        onClose={handleConfirmNo}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Confirm Status Update</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ color: 'text.secondary', mt: 1 }}>
+            {confirmDialog.message}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, gap: 1 }}>
+          <Button 
+            onClick={handleConfirmNo} 
+            variant="outlined" 
+            sx={{ borderRadius: '10px', px: 3, fontWeight: 700 }}
+          >
+            No
+          </Button>
+          <Button 
+            onClick={handleConfirmYes} 
+            variant="contained" 
+            color="primary"
+            sx={{ borderRadius: '10px', px: 3, fontWeight: 700 }}
+          >
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Draft Store Code Creation Email Dialog */}
+      <Dialog
+        open={draftDialog.open}
+        onClose={() => {
+          // Do not close on background clicks
+        }}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Draft Email
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Store Code Creation — {draftDialog.store?.cafeName}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              onClick={handleDraftBack}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            >
+              Back
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+              disabled={draftDialog.isEditable}
+              onClick={handleDraftModify}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            >
+              Modify
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              startIcon={<SendIcon sx={{ fontSize: 16 }} />}
+              onClick={handleSendEmail}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            >
+              Send
+            </Button>
+          </Stack>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <TextField
+            fullWidth
+            label="To"
+            size="small"
+            value={draftDialog.to}
+            onChange={(e) => setDraftDialog(prev => ({ ...prev, to: e.target.value }))}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+          />
+          <TextField
+            fullWidth
+            label="CC"
+            size="small"
+            value={draftDialog.cc}
+            onChange={(e) => setDraftDialog(prev => ({ ...prev, cc: e.target.value }))}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+          />
+          <TextField
+            fullWidth
+            label="Subject"
+            size="small"
+            disabled={!draftDialog.isEditable}
+            value={draftDialog.subject}
+            onChange={(e) => setDraftDialog(prev => ({ ...prev, subject: e.target.value }))}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+          />
+          <TextField
+            fullWidth
+            label="Email Body"
+            size="small"
+            multiline
+            minRows={10}
+            maxRows={15}
+            disabled={!draftDialog.isEditable}
+            value={draftDialog.body}
+            onChange={(e) => setDraftDialog(prev => ({ ...prev, body: e.target.value }))}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+          />
+        </DialogContent>
       </Dialog>
 
       {/* Snackbar Alerts */}
