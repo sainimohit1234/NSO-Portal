@@ -1641,285 +1641,285 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
       }
       headerValidated = true;
     })
-    .on('data', (data) => {
-      if (errors.length > 0) return; // Skip processing data if headers are bad
-      results.push(data);
-    })
     .on('end', async () => {
-      if (errors.length > 0) {
-        return res.status(400).json({ errors });
-      }
-
-      if (results.length === 0) {
-        return res.status(400).json({ error: 'The uploaded CSV file is empty.' });
-      }
-
-      let processedCount = 0;
-
-      if (action === 'create') {
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
-        const hasEditContacts = user.permissions && user.permissions.includes('EDIT_CONTACTS');
-
-        for (let i = 0; i < results.length; i++) {
-          const row = results[i];
-          const rowErrors: string[] = [];
-
-          // 1. Validate mandatory fields (non-empty)
-          const missingFields = MANDATORY_FIELDS.filter(field => !row[field] || String(row[field]).trim() === '');
-          if (missingFields.length > 0) {
-            rowErrors.push(`Missing mandatory fields: ${missingFields.join(', ')}`);
-          }
-
-          // 2. Email checks
-          const emailFields = ['cafeMailId', 'cafeManagerMailId', 'areaManagerEmail', 'cityHeadEmail'];
-          for (const field of emailFields) {
-            if (row[field]) {
-              const emailVal = String(row[field]).toLowerCase().trim();
-              if (!emailVal.endsWith('@bluetokaicoffee.com') && !emailVal.endsWith('@gottea.in')) {
-                rowErrors.push(`${field} must be a valid @bluetokaicoffee.com or @gottea.in email.`);
-              }
-            }
-          }
-
-          // 3. Launch month format check
-          if (row.cafeLaunchMonth && !/^[a-zA-Z]+\s+\d{4}$/.test(String(row.cafeLaunchMonth).trim())) {
-            rowErrors.push(`cafeLaunchMonth must be in "Month Year" format (e.g. "June 2026").`);
-          }
-
-          // 4. Cafe model check
-          if (row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
-            rowErrors.push(`cafeModel must be one of: ${CAFE_MODELS.join(', ')}`);
-          }
-
-          // 5. Menu option check
-          if (row.menu && !MENU_OPTIONS.includes(row.menu)) {
-            rowErrors.push(`menu must be one of: ${MENU_OPTIONS.join(', ')}`);
-          }
-
-          // 6. State check
-          if (row.state && !INDIAN_STATES.includes(row.state)) {
-            rowErrors.push(`state must be a valid Indian state.`);
-          }
-
-          // 7. Permissions checks for contact details
-          if (!isSuperAdmin && !hasEditContacts) {
-            const sendsContactDetails = CONTACT_FIELDS.some(key => {
-              const val = row[key];
-              return val !== undefined && val !== null && String(val).trim() !== '';
-            });
-            if (sendsContactDetails) {
-              rowErrors.push(`You do not have permission to provide contact details.`);
-            }
-          }
-
-          // Check if cafeCode already exists
-          const cafeCode = row.cafeCode;
-          if (cafeCode) {
-            const existing = await prisma.store.findUnique({ where: { cafeCode } });
-            if (existing) {
-              rowErrors.push(`Store with cafeCode ${cafeCode} already exists.`);
-            }
-          }
-
-          if (rowErrors.length > 0) {
-            rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
-            continue;
-          }
-
-          // Insert the record
-          try {
-            const data: any = { ...row };
-            data.brand = brand;
-
-            if (data.lat) data.lat = parseFloat(data.lat);
-            if (data.lng) data.lng = parseFloat(data.lng);
-            if (data.latitude) data.latitude = parseFloat(data.latitude);
-            if (data.latt) data.latt = parseFloat(data.latt);
-            if (data.long) data.long = parseFloat(data.long);
-            if (data.launchDate) data.launchDate = new Date(data.launchDate);
-            
-            data.enteredByEmail = user.email;
-            data.status = 'PENDING_APPROVAL';
-
-            delete data.areaManagerId;
-            delete data.cityHeadId;
-            delete data.cafeManagerId;
-
-            for (const key in data) {
-               if (data[key] === '') data[key] = null;
-            }
-
-            await prisma.store.create({
-              data: {
-                 ...data,
-                 cafeCode: data.cafeCode,
-                 cafeName: data.cafeName
-              }
-            });
-            processedCount++;
-          } catch (err: any) {
-            errors.push({ message: `Row ${i + 2}: Database save failed: ${err.message || err}` });
-          }
+      try {
+        if (errors.length > 0) {
+          return res.status(400).json({ errors });
         }
 
-      } else if (action === 'modify') {
-        const isSuperAdmin = user.role === 'SUPER_ADMIN';
-        const hasEditContacts = user.permissions && user.permissions.includes('EDIT_CONTACTS');
+        if (results.length === 0) {
+          return res.status(400).json({ error: 'The uploaded CSV file is empty.' });
+        }
 
-        for (let i = 0; i < results.length; i++) {
-          const row = results[i];
-          const rowErrors: string[] = [];
-          const cafeCode = row.cafeCode;
+        let processedCount = 0;
 
-          if (!cafeCode || String(cafeCode).trim() === '') {
-            rowErrors.push(`Cafe Code is missing.`);
-            rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
-            continue;
-          }
+        if (action === 'create') {
+          const isSuperAdmin = user.role === 'SUPER_ADMIN';
+          const hasEditContacts = user.permissions && user.permissions.includes('EDIT_CONTACTS');
 
-          const existing = await prisma.store.findUnique({ where: { cafeCode } });
-          if (!existing) {
-             rowErrors.push(`Store with cafeCode ${cafeCode} not found in database.`);
-             rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
-             continue;
-          }
+          for (let i = 0; i < results.length; i++) {
+            const row = results[i];
+            const rowErrors: string[] = [];
 
-          // Validate fields that are present in the row/CSV headers
-          const presentHeaders = Object.keys(row);
-          
-          // 1. Mandatory checks (for columns present in CSV headers but empty)
-          const missingFields = MANDATORY_FIELDS.filter(field => 
-            presentHeaders.includes(field) && (!row[field] || String(row[field]).trim() === '')
-          );
-          if (missingFields.length > 0) {
-            rowErrors.push(`Missing mandatory fields: ${missingFields.join(', ')}`);
-          }
+            // 1. Validate mandatory fields (non-empty)
+            const missingFields = MANDATORY_FIELDS.filter(field => !row[field] || String(row[field]).trim() === '');
+            if (missingFields.length > 0) {
+              rowErrors.push(`Missing mandatory fields: ${missingFields.join(', ')}`);
+            }
 
-          // 2. Email checks
-          const emailFields = ['cafeMailId', 'cafeManagerMailId', 'areaManagerEmail', 'cityHeadEmail'];
-          for (const field of emailFields) {
-            if (presentHeaders.includes(field) && row[field]) {
-              const emailVal = String(row[field]).toLowerCase().trim();
-              if (!emailVal.endsWith('@bluetokaicoffee.com') && !emailVal.endsWith('@gottea.in')) {
-                rowErrors.push(`${field} must be a valid @bluetokaicoffee.com or @gottea.in email.`);
+            // 2. Email checks
+            const emailFields = ['cafeMailId', 'cafeManagerMailId', 'areaManagerEmail', 'cityHeadEmail'];
+            for (const field of emailFields) {
+              if (row[field]) {
+                const emailVal = String(row[field]).toLowerCase().trim();
+                if (!emailVal.endsWith('@bluetokaicoffee.com') && !emailVal.endsWith('@gottea.in')) {
+                  rowErrors.push(`${field} must be a valid @bluetokaicoffee.com or @gottea.in email.`);
+                }
               }
             }
-          }
 
-          // 3. Launch month format check
-          if (presentHeaders.includes('cafeLaunchMonth') && row.cafeLaunchMonth && !/^[a-zA-Z]+\s+\d{4}$/.test(String(row.cafeLaunchMonth).trim())) {
-            rowErrors.push(`cafeLaunchMonth must be in "Month Year" format (e.g. "June 2026").`);
-          }
+            // 3. Launch month format check
+            if (row.cafeLaunchMonth && !/^[a-zA-Z]+\s+\d{4}$/.test(String(row.cafeLaunchMonth).trim())) {
+              rowErrors.push(`cafeLaunchMonth must be in "Month Year" format (e.g. "June 2026").`);
+            }
 
-          // 4. Cafe model check
-          if (presentHeaders.includes('cafeModel') && row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
-            rowErrors.push(`cafeModel must be one of: ${CAFE_MODELS.join(', ')}`);
-          }
+            // 4. Cafe model check
+            if (row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
+              rowErrors.push(`cafeModel must be one of: ${CAFE_MODELS.join(', ')}`);
+            }
 
-          // 5. Menu option check
-          if (presentHeaders.includes('menu') && row.menu && !MENU_OPTIONS.includes(row.menu)) {
-            rowErrors.push(`menu must be one of: ${MENU_OPTIONS.join(', ')}`);
-          }
+            // 5. Menu option check
+            if (row.menu && !MENU_OPTIONS.includes(row.menu)) {
+              rowErrors.push(`menu must be one of: ${MENU_OPTIONS.join(', ')}`);
+            }
 
-          // 6. State check
-          if (presentHeaders.includes('state') && row.state && !INDIAN_STATES.includes(row.state)) {
-            rowErrors.push(`state must be a valid Indian state.`);
-          }
+            // 6. State check
+            if (row.state && !INDIAN_STATES.includes(row.state)) {
+              rowErrors.push(`state must be a valid Indian state.`);
+            }
 
-          // 7. Compute contact fields modifications
-          const modifiesContactDetails = CONTACT_FIELDS.some(key => {
-            if (row[key] === undefined) return false;
-            const dbVal = (existing as any)[key];
-            const reqVal = row[key];
-            const normDb = (dbVal === null || dbVal === undefined) ? '' : String(dbVal).trim();
-            const normReq = (reqVal === null || reqVal === undefined) ? '' : String(reqVal).trim();
-            return normDb !== normReq;
-          });
-
-          // 8. Compute non-contact fields modifications
-          const NOT_EDITABLE_FIELDS = [
-            'cafeName', 'cafeCode', 'cafeModel', 'zone', 
-            'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
-            'fssaiLicense', 'gstCertificateLink', 'isLocked', 'brand'
-          ];
-          const modifiesNonContactFields = Object.keys(row).some(key => {
-            if (CONTACT_FIELDS.includes(key) || NOT_EDITABLE_FIELDS.includes(key)) return false;
-            if (row[key] === undefined) return false;
-            const dbVal = (existing as any)[key];
-            const reqVal = row[key];
-            const normDb = (dbVal === null || dbVal === undefined) ? '' : String(dbVal).trim();
-            const normReq = (reqVal === null || reqVal === undefined) ? '' : String(reqVal).trim();
-            return normDb !== normReq;
-          });
-
-          // 9. Permissions & lock checks
-          if (existing.isLocked) {
-            if (!isSuperAdmin) {
-              if (modifiesNonContactFields) {
-                rowErrors.push(`Store with cafeCode ${cafeCode} is locked. Only contact details can be modified.`);
-              }
-              if (modifiesContactDetails && !hasEditContacts) {
-                rowErrors.push(`Store with cafeCode ${cafeCode} is locked and you do not have permission to modify contact details.`);
+            // 7. Permissions checks for contact details
+            if (!isSuperAdmin && !hasEditContacts) {
+              const sendsContactDetails = CONTACT_FIELDS.some(key => {
+                const val = row[key];
+                return val !== undefined && val !== null && String(val).trim() !== '';
+              });
+              if (sendsContactDetails) {
+                rowErrors.push(`You do not have permission to provide contact details.`);
               }
             }
-          } else {
-            if (!isSuperAdmin) {
-              if (modifiesContactDetails && !hasEditContacts) {
-                rowErrors.push(`You do not have permission to modify contact details for store with cafeCode ${cafeCode}.`);
+
+            // Check if cafeCode already exists
+            const cafeCode = row.cafeCode;
+            if (cafeCode) {
+              const existing = await prisma.store.findUnique({ where: { cafeCode } });
+              if (existing) {
+                rowErrors.push(`Store with cafeCode ${cafeCode} already exists.`);
               }
             }
+
+            if (rowErrors.length > 0) {
+              rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
+              continue;
+            }
+
+            // Insert the record
+            try {
+              const data: any = { ...row };
+              data.brand = brand;
+
+              if (data.lat) data.lat = parseFloat(data.lat);
+              if (data.lng) data.lng = parseFloat(data.lng);
+              if (data.latitude) data.latitude = parseFloat(data.latitude);
+              if (data.latt) data.latt = parseFloat(data.latt);
+              if (data.long) data.long = parseFloat(data.long);
+              if (data.launchDate) data.launchDate = new Date(data.launchDate);
+              
+              data.enteredByEmail = user.email;
+              data.status = 'PENDING_APPROVAL';
+
+              delete data.areaManagerId;
+              delete data.cityHeadId;
+              delete data.cafeManagerId;
+
+              for (const key in data) {
+                 if (data[key] === '') data[key] = null;
+              }
+
+              await prisma.store.create({
+                data: {
+                   ...data,
+                   cafeCode: data.cafeCode,
+                   cafeName: data.cafeName
+                }
+              });
+              processedCount++;
+            } catch (err: any) {
+              errors.push({ message: `Row ${i + 2}: Database insert failed: ${err.message || err}` });
+            }
           }
+        } else if (action === 'modify') {
+          const isSuperAdmin = user.role === 'SUPER_ADMIN';
+          const hasEditContacts = user.permissions && user.permissions.includes('EDIT_CONTACTS');
 
-          if (rowErrors.length > 0) {
-            rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
-            continue;
-          }
+          for (let i = 0; i < results.length; i++) {
+            const row = results[i];
+            const rowErrors: string[] = [];
+            const cafeCode = row.cafeCode;
 
-          // Perform the update
-          try {
-            const data: any = { ...row };
-            if (data.lat) data.lat = parseFloat(data.lat);
-            if (data.lng) data.lng = parseFloat(data.lng);
-            if (data.latitude) data.latitude = parseFloat(data.latitude);
-            if (data.latt) data.latt = parseFloat(data.latt);
-            if (data.long) data.long = parseFloat(data.long);
-            if (data.launchDate) data.launchDate = new Date(data.launchDate);
+            if (!cafeCode || String(cafeCode).trim() === '') {
+              rowErrors.push(`Cafe Code is missing.`);
+              rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
+              continue;
+            }
 
-            delete data.id;
-            delete data.createdAt;
-            delete data.updatedAt;
+            const existing = await prisma.store.findUnique({ where: { cafeCode } });
+            if (!existing) {
+               rowErrors.push(`Store with cafeCode ${cafeCode} not found in database.`);
+               rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
+               continue;
+            }
 
-            // Remove non-editable fields from update payload
-            const UPDATE_NOT_EDITABLE_FIELDS = [
+            // Validate fields that are present in the row/CSV headers
+            const presentHeaders = Object.keys(row);
+            
+            // 1. Mandatory checks (for columns present in CSV headers but empty)
+            const missingFields = MANDATORY_FIELDS.filter(field => 
+              presentHeaders.includes(field) && (!row[field] || String(row[field]).trim() === '')
+            );
+            if (missingFields.length > 0) {
+              rowErrors.push(`Missing mandatory fields: ${missingFields.join(', ')}`);
+            }
+
+            // 2. Email checks
+            const emailFields = ['cafeMailId', 'cafeManagerMailId', 'areaManagerEmail', 'cityHeadEmail'];
+            for (const field of emailFields) {
+              if (presentHeaders.includes(field) && row[field]) {
+                const emailVal = String(row[field]).toLowerCase().trim();
+                if (!emailVal.endsWith('@bluetokaicoffee.com') && !emailVal.endsWith('@gottea.in')) {
+                  rowErrors.push(`${field} must be a valid @bluetokaicoffee.com or @gottea.in email.`);
+                }
+              }
+            }
+
+            // 3. Launch month format check
+            if (presentHeaders.includes('cafeLaunchMonth') && row.cafeLaunchMonth && !/^[a-zA-Z]+\s+\d{4}$/.test(String(row.cafeLaunchMonth).trim())) {
+              rowErrors.push(`cafeLaunchMonth must be in "Month Year" format (e.g. "June 2026").`);
+            }
+
+            // 4. Cafe model check
+            if (presentHeaders.includes('cafeModel') && row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
+              rowErrors.push(`cafeModel must be one of: ${CAFE_MODELS.join(', ')}`);
+            }
+
+            // 5. Menu option check
+            if (presentHeaders.includes('menu') && row.menu && !MENU_OPTIONS.includes(row.menu)) {
+              rowErrors.push(`menu must be one of: ${MENU_OPTIONS.join(', ')}`);
+            }
+
+            // 6. State check
+            if (presentHeaders.includes('state') && row.state && !INDIAN_STATES.includes(row.state)) {
+              rowErrors.push(`state must be a valid Indian state.`);
+            }
+
+            // 7. Compute contact fields modifications
+            const modifiesContactDetails = CONTACT_FIELDS.some(key => {
+              if (row[key] === undefined) return false;
+              const dbVal = (existing as any)[key];
+              const reqVal = row[key];
+              const normDb = (dbVal === null || dbVal === undefined) ? '' : String(dbVal).trim();
+              const normReq = (reqVal === null || reqVal === undefined) ? '' : String(reqVal).trim();
+              return normDb !== normReq;
+            });
+
+            // 8. Compute non-contact fields modifications
+            const NOT_EDITABLE_FIELDS = [
               'cafeName', 'cafeCode', 'cafeModel', 'zone', 
               'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
-              'fssaiLicense', 'gstCertificateLink'
+              'fssaiLicense', 'gstCertificateLink', 'isLocked', 'brand'
             ];
-            UPDATE_NOT_EDITABLE_FIELDS.forEach(field => {
-                delete data[field];
+            const modifiesNonContactFields = Object.keys(row).some(key => {
+              if (CONTACT_FIELDS.includes(key) || NOT_EDITABLE_FIELDS.includes(key)) return false;
+              if (row[key] === undefined) return false;
+              const dbVal = (existing as any)[key];
+              const reqVal = row[key];
+              const normDb = (dbVal === null || dbVal === undefined) ? '' : String(dbVal).trim();
+              const normReq = (reqVal === null || reqVal === undefined) ? '' : String(reqVal).trim();
+              return normDb !== normReq;
             });
 
-            for (const key in data) {
-               if (data[key] === '') data[key] = null;
+            // 9. Permissions & lock checks
+            if (existing.isLocked) {
+              if (!isSuperAdmin) {
+                if (modifiesNonContactFields) {
+                  rowErrors.push(`Store with cafeCode ${cafeCode} is locked. Only contact details can be modified.`);
+                }
+                if (modifiesContactDetails && !hasEditContacts) {
+                  rowErrors.push(`Store with cafeCode ${cafeCode} is locked and you do not have permission to modify contact details.`);
+                }
+              }
+            } else {
+              if (!isSuperAdmin) {
+                if (modifiesContactDetails && !hasEditContacts) {
+                  rowErrors.push(`You do not have permission to modify contact details for store with cafeCode ${cafeCode}.`);
+                }
+              }
             }
 
-            data.brand = brand;
-            await prisma.store.update({
-              where: { id: existing.id },
-              data: data
-            });
-            processedCount++;
-          } catch (err: any) {
-            errors.push({ message: `Row ${i + 2}: Database update failed: ${err.message || err}` });
+            if (rowErrors.length > 0) {
+              rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
+              continue;
+            }
+
+            // Perform the update
+            try {
+              const data: any = { ...row };
+              if (data.lat) data.lat = parseFloat(data.lat);
+              if (data.lng) data.lng = parseFloat(data.lng);
+              if (data.latitude) data.latitude = parseFloat(data.latitude);
+              if (data.latt) data.latt = parseFloat(data.latt);
+              if (data.long) data.long = parseFloat(data.long);
+              if (data.launchDate) data.launchDate = new Date(data.launchDate);
+
+              delete data.id;
+              delete data.createdAt;
+              delete data.updatedAt;
+
+              // Remove non-editable fields from update payload
+              const UPDATE_NOT_EDITABLE_FIELDS = [
+                'cafeName', 'cafeCode', 'cafeModel', 'zone', 
+                'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
+                'fssaiLicense', 'gstCertificateLink'
+              ];
+              UPDATE_NOT_EDITABLE_FIELDS.forEach(field => {
+                  delete data[field];
+              });
+
+              for (const key in data) {
+                 if (data[key] === '') data[key] = null;
+              }
+
+              data.brand = brand;
+              await prisma.store.update({
+                where: { id: existing.id },
+                data: data
+              });
+              processedCount++;
+            } catch (err: any) {
+              errors.push({ message: `Row ${i + 2}: Database update failed: ${err.message || err}` });
+            }
           }
         }
-      }
 
-      if (errors.length > 0) {
-         return res.status(400).json({ errors, message: `Processed ${processedCount} stores with some errors.` });
-      }
+        if (errors.length > 0) {
+           return res.status(400).json({ errors, message: `Processed ${processedCount} stores with some errors.` });
+        }
 
-      res.json({ message: `Successfully ${action === 'create' ? 'created' : 'updated'} ${processedCount} stores in bulk.` });
+        res.json({ message: `Successfully ${action === 'create' ? 'created' : 'updated'} ${processedCount} stores in bulk.` });
+      } catch (err: any) {
+        console.error('Bulk upload handler crashed:', err);
+        return res.status(500).json({ error: 'Bulk upload processing failed', message: err.message || String(err) });
+      }
     });
 });
 

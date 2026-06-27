@@ -77,7 +77,11 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-export const api = functions.https.onRequest({ invoker: 'public' }, app);
+export const api: functions.https.HttpsFunction = functions.https.onRequest({
+  invoker: 'public',
+  memory: '1GiB',
+  timeoutSeconds: 300
+}, app as any);
 
 // Firebase Cloud Functions (Gen 2) runs on Cloud Run and manages its own HTTP server.
 // Calling app.listen() there causes EADDRINUSE because the port is already in use.
