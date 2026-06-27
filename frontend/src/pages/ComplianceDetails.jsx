@@ -464,107 +464,245 @@ export default function ComplianceDetails() {
       {successMsg && <Alert severity="success" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600 }}>{successMsg}</Alert>}
 
       <Grid container spacing={3}>
-        {/* Left Column: Form Cards */}
+        {/* Left Column: Form Cards / Unified Upload */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Stack spacing={3}>
-            {/* Card 1: FSSAI License */}
-            <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-                <CardHeader title="FSSAI Licensing" titleTypographyProps={{ fontWeight: 800, variant: 'h6' }} />
-                <Divider />
-                <CardContent sx={{ p: 3 }}>
+          <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+            <CardHeader title="Compliance Documents" titleTypographyProps={{ fontWeight: 800, variant: 'h6' }} />
+            <Divider />
+            <CardContent sx={{ p: 4 }}>
+              <Stack spacing={4}>
+                
+                {/* 1. FSSAI License */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                    FSSAI License
+                  </Typography>
                   <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, md: 3 }}>
-                      <TextField 
-                        fullWidth 
-                        label="FSSAI License Number" 
-                        value={fssaiNo} 
-                        onChange={(e) => setFssaiNo(e.target.value)} 
-                        placeholder="Enter 14-digit FSSAI Number"
-                        size="small"
+                    <Grid size={{ xs: 12, sm: 5 }}>
+                      <input
+                        type="file"
+                        id="fssai-file-input"
+                        hidden
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => handleFileChange(e, 'fssai')}
                         disabled={!canEdit}
                       />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 2 }}>
-                      <TextField 
-                        fullWidth 
-                        type="date" 
-                        label="FSSAI Start Date" 
-                        value={fssaiStartDate} 
-                        onChange={(e) => setFssaiStartDate(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        size="small"
-                        disabled={!canEdit}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 2 }}>
-                      <TextField 
-                        fullWidth 
-                        type="date" 
-                        label="FSSAI Expiry Date" 
-                        value={fssaiExpiry} 
-                        onChange={(e) => setFssaiExpiry(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        size="small"
-                        disabled={!canEdit}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 5 }}>
-                      <TextField 
-                        fullWidth 
-                        label="FSSAI Certificate Link" 
-                        value={fssaiLicense} 
-                        onChange={(e) => {
-                          setFssaiLicense(e.target.value);
-                          if (previewTitle === 'FSSAI Certificate') {
-                            setPreviewUrl(e.target.value);
-                          }
-                        }} 
-                        placeholder="Enter FSSAI Certificate URL/Link"
-                        size="small"
-                        disabled={!canEdit}
-                        onMouseEnter={() => {
-                          if (fssaiLicense) {
-                            setPreviewUrl(fssaiLicense);
-                            setPreviewTitle('FSSAI Certificate');
-                          }
-                        }}
-                        onFocus={() => {
-                          if (fssaiLicense) {
-                            setPreviewUrl(fssaiLicense);
-                            setPreviewTitle('FSSAI Certificate');
-                          }
-                        }}
-                        InputProps={{
-                          endAdornment: fssaiLicense ? (
-                            <InputAdornment position="end">
-                              <Button 
-                                size="small" 
-                                onClick={() => window.open(fssaiLicense, '_blank')}
-                                onMouseEnter={(e) => {
-                                  e.stopPropagation();
+                      {fssaiLicense ? (
+                        <Box
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'success.main',
+                            borderRadius: '10px',
+                            p: 2,
+                            bgcolor: 'rgba(16, 185, 129, 0.04)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            height: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                            <CheckCircleIcon color="success" />
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                FSSAI Certificate
+                              </Typography>
+                              <Link
+                                component="button"
+                                variant="caption"
+                                onClick={() => {
                                   setPreviewUrl(fssaiLicense);
                                   setPreviewTitle('FSSAI Certificate');
                                 }}
-                                sx={{ fontWeight: 700 }}
+                                sx={{ fontWeight: 600, display: 'block', textAlign: 'left', p: 0, minWidth: 0 }}
                               >
-                                View
-                              </Button>
-                            </InputAdornment>
-                          ) : null
-                        }}
-                      />
+                                Preview
+                              </Link>
+                            </Box>
+                          </Box>
+                          {canEdit && (
+                            <IconButton 
+                              color="error" 
+                              onClick={() => {
+                                setFssaiLicense('');
+                                if (previewUrl === fssaiLicense) {
+                                  setPreviewUrl('');
+                                  setPreviewTitle('');
+                                }
+                              }}
+                              size="small"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          )}
+                        </Box>
+                      ) : (
+                        <Box
+                          component="label"
+                          htmlFor="fssai-file-input"
+                          sx={{
+                            border: '1px dashed',
+                            borderColor: 'divider',
+                            borderRadius: '10px',
+                            p: 2.5,
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            cursor: !canEdit ? 'default' : 'pointer',
+                            bgcolor: 'rgba(255,255,255,0.01)',
+                            '&:hover': { bgcolor: !canEdit ? 'none' : 'rgba(255,255,255,0.02)' }
+                          }}
+                        >
+                          <CloudUploadIcon sx={{ fontSize: 28, color: 'text.secondary', mb: 0.5 }} />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            Upload FSSAI License
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            PDF, JPG, JPEG, PNG
+                          </Typography>
+                        </Box>
+                      )}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 7 }}>
+                      <Stack spacing={2}>
+                        <TextField 
+                          fullWidth 
+                          label="FSSAI License Number" 
+                          value={fssaiNo} 
+                          onChange={(e) => setFssaiNo(e.target.value)} 
+                          placeholder="Enter 14-digit FSSAI Number"
+                          size="small"
+                          disabled={!canEdit}
+                        />
+                        <Grid container spacing={1.5}>
+                          <Grid size={6}>
+                            <TextField 
+                              fullWidth 
+                              type="date" 
+                              label="Start Date" 
+                              value={fssaiStartDate} 
+                              onChange={(e) => setFssaiStartDate(e.target.value)}
+                              InputLabelProps={{ shrink: true }}
+                              size="small"
+                              disabled={!canEdit}
+                            />
+                          </Grid>
+                          <Grid size={6}>
+                            <TextField 
+                              fullWidth 
+                              type="date" 
+                              label="Expiry Date" 
+                              value={fssaiExpiry} 
+                              onChange={(e) => setFssaiExpiry(e.target.value)}
+                              InputLabelProps={{ shrink: true }}
+                              size="small"
+                              disabled={!canEdit}
+                            />
+                          </Grid>
+                        </Grid>
+                      </Stack>
                     </Grid>
                   </Grid>
-                </CardContent>
-              </Card>
+                </Box>
 
-              {/* Card 2: GST Certification */}
-              <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-                <CardHeader title="GST Registration" titleTypographyProps={{ fontWeight: 800, variant: 'h6' }} />
                 <Divider />
-                <CardContent sx={{ p: 3 }}>
+
+                {/* 2. GST Certificate */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                    GST Certificate
+                  </Typography>
                   <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, md: 4 }}>
+                    <Grid size={{ xs: 12, sm: 5 }}>
+                      <input
+                        type="file"
+                        id="gst-file-input"
+                        hidden
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => handleFileChange(e, 'gst')}
+                        disabled={!canEdit}
+                      />
+                      {gstCertificateLink ? (
+                        <Box
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'success.main',
+                            borderRadius: '10px',
+                            p: 2,
+                            bgcolor: 'rgba(16, 185, 129, 0.04)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            height: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                            <CheckCircleIcon color="success" />
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                GST Certificate
+                              </Typography>
+                              <Link
+                                component="button"
+                                variant="caption"
+                                onClick={() => {
+                                  setPreviewUrl(gstCertificateLink);
+                                  setPreviewTitle('GST Certificate');
+                                }}
+                                sx={{ fontWeight: 600, display: 'block', textAlign: 'left', p: 0, minWidth: 0 }}
+                              >
+                                Preview
+                              </Link>
+                            </Box>
+                          </Box>
+                          {canEdit && (
+                            <IconButton 
+                              color="error" 
+                              onClick={() => {
+                                setGstCertificateLink('');
+                                if (previewUrl === gstCertificateLink) {
+                                  setPreviewUrl('');
+                                  setPreviewTitle('');
+                                }
+                              }}
+                              size="small"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          )}
+                        </Box>
+                      ) : (
+                        <Box
+                          component="label"
+                          htmlFor="gst-file-input"
+                          sx={{
+                            border: '1px dashed',
+                            borderColor: 'divider',
+                            borderRadius: '10px',
+                            p: 2.5,
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            cursor: !canEdit ? 'default' : 'pointer',
+                            bgcolor: 'rgba(255,255,255,0.01)',
+                            '&:hover': { bgcolor: !canEdit ? 'none' : 'rgba(255,255,255,0.02)' }
+                          }}
+                        >
+                          <CloudUploadIcon sx={{ fontSize: 28, color: 'text.secondary', mb: 0.5 }} />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            Upload GST Certificate
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            PDF, JPG, JPEG, PNG
+                          </Typography>
+                        </Box>
+                      )}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 7 }}>
                       <TextField 
                         fullWidth 
                         label="GST Number" 
@@ -575,225 +713,143 @@ export default function ComplianceDetails() {
                         disabled={!canEdit}
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, md: 8 }}>
-                      <TextField 
-                        fullWidth 
-                        label="GST Certificate Link" 
-                        value={gstCertificateLink} 
-                        onChange={(e) => {
-                          setGstCertificateLink(e.target.value);
-                          if (previewTitle === 'GST Certificate') {
-                            setPreviewUrl(e.target.value);
-                          }
-                        }} 
-                        placeholder="Enter GST Certificate URL/Link"
-                        size="small"
-                        disabled={!canEdit}
-                        onMouseEnter={() => {
-                          if (gstCertificateLink) {
-                            setPreviewUrl(gstCertificateLink);
-                            setPreviewTitle('GST Certificate');
-                          }
-                        }}
-                        onFocus={() => {
-                          if (gstCertificateLink) {
-                            setPreviewUrl(gstCertificateLink);
-                            setPreviewTitle('GST Certificate');
-                          }
-                        }}
-                        InputProps={{
-                          endAdornment: gstCertificateLink ? (
-                            <InputAdornment position="end">
-                              <Button 
-                                size="small" 
-                                onClick={() => window.open(gstCertificateLink, '_blank')}
-                                onMouseEnter={(e) => {
-                                  e.stopPropagation();
-                                  setPreviewUrl(gstCertificateLink);
-                                  setPreviewTitle('GST Certificate');
-                                }}
-                                sx={{ fontWeight: 700 }}
-                              >
-                                View
-                              </Button>
-                            </InputAdornment>
-                          ) : null
-                        }}
-                      />
-                    </Grid>
                   </Grid>
-                </CardContent>
-              </Card>
+                </Box>
 
-              {/* Card 3: Lease & Rent Agreement */}
-              <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-                <CardHeader title="Lease & Rent Agreement" titleTypographyProps={{ fontWeight: 800, variant: 'h6' }} />
                 <Divider />
-                <CardContent sx={{ p: 3 }}>
+
+                {/* 3. Lease / Rent Agreement */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                    Lease / Rent Agreement
+                  </Typography>
                   <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, md: 3 }}>
-                      <TextField 
-                        fullWidth 
-                        type="date" 
-                        label="Rent Start Date" 
-                        value={rentStartDate} 
-                        onChange={(e) => setRentStartDate(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        size="small"
+                    <Grid size={{ xs: 12, sm: 5 }}>
+                      <input
+                        type="file"
+                        id="rent-file-input"
+                        hidden
+                        accept=".pdf,.jpg,.jpeg,.png"
+                        onChange={(e) => handleFileChange(e, 'rent')}
                         disabled={!canEdit}
                       />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 3 }}>
-                      <TextField 
-                        fullWidth 
-                        type="date" 
-                        label="Rent Expiry Date" 
-                        value={rentExpiry} 
-                        onChange={(e) => setRentExpiry(e.target.value)}
-                        InputLabelProps={{ shrink: true }}
-                        size="small"
-                        disabled={!canEdit}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 6 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Rent Agreement Certificate Link" 
-                        value={rentAgreementLink} 
-                        onChange={(e) => {
-                          setRentAgreementLink(e.target.value);
-                          if (previewTitle === 'Rent Agreement') {
-                            setPreviewUrl(e.target.value);
-                          }
-                        }} 
-                        placeholder="Enter Rent Agreement URL/Link"
-                        size="small"
-                        disabled={!canEdit}
-                        onMouseEnter={() => {
-                          if (rentAgreementLink) {
-                            setPreviewUrl(rentAgreementLink);
-                            setPreviewTitle('Rent Agreement');
-                          }
-                        }}
-                        onFocus={() => {
-                          if (rentAgreementLink) {
-                            setPreviewUrl(rentAgreementLink);
-                            setPreviewTitle('Rent Agreement');
-                          }
-                        }}
-                        InputProps={{
-                          endAdornment: rentAgreementLink ? (
-                            <InputAdornment position="end">
-                              <Button 
-                                size="small" 
-                                onClick={() => window.open(rentAgreementLink, '_blank')}
-                                onMouseEnter={(e) => {
-                                  e.stopPropagation();
+                      {rentAgreementLink ? (
+                        <Box
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'success.main',
+                            borderRadius: '10px',
+                            p: 2,
+                            bgcolor: 'rgba(16, 185, 129, 0.04)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            height: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                            <CheckCircleIcon color="success" />
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                Lease/Rent Agreement
+                              </Typography>
+                              <Link
+                                component="button"
+                                variant="caption"
+                                onClick={() => {
                                   setPreviewUrl(rentAgreementLink);
                                   setPreviewTitle('Rent Agreement');
                                 }}
-                                sx={{ fontWeight: 700 }}
+                                sx={{ fontWeight: 600, display: 'block', textAlign: 'left', p: 0, minWidth: 0 }}
                               >
-                                View
-                              </Button>
-                            </InputAdornment>
-                          ) : null
-                        }}
-                      />
+                                Preview
+                              </Link>
+                            </Box>
+                          </Box>
+                          {canEdit && (
+                            <IconButton 
+                              color="error" 
+                              onClick={() => {
+                                setRentAgreementLink('');
+                                if (previewUrl === rentAgreementLink) {
+                                  setPreviewUrl('');
+                                  setPreviewTitle('');
+                                }
+                              }}
+                              size="small"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          )}
+                        </Box>
+                      ) : (
+                        <Box
+                          component="label"
+                          htmlFor="rent-file-input"
+                          sx={{
+                            border: '1px dashed',
+                            borderColor: 'divider',
+                            borderRadius: '10px',
+                            p: 2.5,
+                            textAlign: 'center',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            cursor: !canEdit ? 'default' : 'pointer',
+                            bgcolor: 'rgba(255,255,255,0.01)',
+                            '&:hover': { bgcolor: !canEdit ? 'none' : 'rgba(255,255,255,0.02)' }
+                          }}
+                        >
+                          <CloudUploadIcon sx={{ fontSize: 28, color: 'text.secondary', mb: 0.5 }} />
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            Upload Lease/Rent Agreement
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            PDF, JPG, JPEG, PNG
+                          </Typography>
+                        </Box>
+                      )}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 7 }}>
+                      <Grid container spacing={1.5}>
+                        <Grid size={6}>
+                          <TextField 
+                            fullWidth 
+                            type="date" 
+                            label="Start Date" 
+                            value={rentStartDate} 
+                            onChange={(e) => setRentStartDate(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            size="small"
+                            disabled={!canEdit}
+                          />
+                        </Grid>
+                        <Grid size={6}>
+                          <TextField 
+                            fullWidth 
+                            type="date" 
+                            label="Expiry Date" 
+                            value={rentExpiry} 
+                            onChange={(e) => setRentExpiry(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            size="small"
+                            disabled={!canEdit}
+                          />
+                        </Grid>
+                      </Grid>
                     </Grid>
                   </Grid>
-                </CardContent>
-              </Card>
-            </Stack>
-          </Grid>
+                </Box>
+
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
 
         {/* Right Column: Document Viewer Card */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Box sx={{ position: 'sticky', top: '24px', display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {/* File-to-Link Converter Card */}
-            <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader 
-                title="File-to-Link Converter" 
-                subheader="Upload PDF, JPG, JPEG, PNG to generate a URL"
-                titleTypographyProps={{ fontWeight: 800, variant: 'subtitle1' }} 
-                subheaderTypographyProps={{ variant: 'caption', color: 'text.secondary' }}
-              />
-              <Divider />
-              <CardContent sx={{ p: 2 }}>
-                <Stack spacing={2}>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    fullWidth
-                    disabled={uploadingConverter}
-                    startIcon={uploadingConverter ? <CircularProgress size={20} /> : <CloudUploadIcon />}
-                    sx={{ py: 1.5, borderStyle: 'dashed', borderRadius: '10px', textTransform: 'none', fontWeight: 600 }}
-                  >
-                    {uploadingConverter ? 'Generating Link...' : 'Upload File to Convert'}
-                    <input 
-                      type="file" 
-                      hidden 
-                      accept=".pdf,.jpg,.jpeg,.png" 
-                      onChange={handleConverterUpload} 
-                      disabled={uploadingConverter}
-                    />
-                  </Button>
-
-                  {converterUrl && (
-                    <Box sx={{ mt: 1, p: 1.5, borderRadius: '8px', bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
-                        Generated Shareable Link:
-                      </Typography>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={window.location.origin + converterUrl}
-                        InputProps={{
-                          readOnly: true,
-                          sx: { fontSize: '0.8rem', fontFamily: 'monospace', bgcolor: 'background.paper' }
-                        }}
-                        sx={{ mb: 1.5 }}
-                      />
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          color="error"
-                          startIcon={<DeleteIcon />}
-                          onClick={handleClearConverter}
-                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '6px' }}
-                        >
-                          Clear
-                        </Button>
-                        <Stack direction="row" spacing={1}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => {
-                              setPreviewUrl(converterUrl);
-                              setPreviewTitle('Converted File Preview');
-                            }}
-                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '6px' }}
-                          >
-                            Preview File
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color={copied ? "success" : "primary"}
-                            onClick={handleCopyLink}
-                            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '6px', minWidth: 100 }}
-                          >
-                            {copied ? 'Copied!' : 'Copy Link'}
-                          </Button>
-                        </Stack>
-                      </Stack>
-                    </Box>
-                  )}
-                </Stack>
-              </CardContent>
-            </Card>
-
             {/* Document Viewer Card */}
             <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
               <CardHeader 
