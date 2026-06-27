@@ -5,7 +5,7 @@ import {
   Box, Typography, TextField, Button, Grid, Card, CardContent, 
   MenuItem, Alert, CircularProgress, Divider, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Select, InputAdornment, Snackbar, Autocomplete
+  Select, InputAdornment, Snackbar, Autocomplete, Tabs, Tab
 } from '@mui/material';
 import axios from '../utils/api';
 import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
@@ -201,6 +201,60 @@ const NewStore = () => {
   // Track if form has unsaved changes
   const hasDirtyFields = Object.keys(formState.dirtyFields).length > 0 && hasEnteredData;
   const isDirty = hasDirtyFields && !isSavedRef.current;
+
+  // Active Tab state for layout categorization
+  const [activeTab, setActiveTab] = useState('Cafe Basic Details');
+
+  const TABS = [
+    'Cafe Basic Details',
+    'Contact Details',
+    'GST & FSSAI Details',
+    'Others',
+    'Operations Details',
+    'Swiggy / Zomato Integration'
+  ];
+
+  const TAB_FIELDS = {
+    'Cafe Basic Details': [
+      'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress',
+      'zone', 'cafeLocationGoogleLink', 'latitude', 'latt', 'long',
+      'cafeOpenTiming', 'cafeClosingTime', 'actualClosingTime'
+    ],
+    'Contact Details': [
+      'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'cafeManagerContactNo',
+      'areaManagerEmail', 'areaManagerPhone', 'cityHeadEmail', 'cityHeadPhone'
+    ],
+    'GST & FSSAI Details': [
+      'gstNo', 'gstCertificateLink', 'fssaiLicense', 'fssaiNo', 'fssaiExpiry'
+    ],
+    'Operations Details': [
+      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate', 'cafeModel'
+    ],
+    'Others': [
+      'newPricingCategory', 'newPricingSubCategory', 'cluster', 'menu', 'cafeOpeningHr',
+      'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'wheelchairAccessibility',
+      'petFriendly', 'expectedSalesVal', 'nearbyCafes', 'highlights'
+    ],
+    'Swiggy / Zomato Integration': [
+      'blueTokaiSwiggyRID', 'blueTokaiZomatoRID', 'suchaliSwiggyRID', 'suchaliZomatoRID',
+      'gotTeaSwiggyRID', 'gotTeaZomatoRID'
+    ]
+  };
+
+  const getTabHasError = (tabName) => {
+    const fields = TAB_FIELDS[tabName] || [];
+    return fields.some(field => !!errors[field]);
+  };
+
+  // Automatically switch activeTab to the first tab that has validation errors
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      const firstTabWithError = TABS.find(tab => getTabHasError(tab));
+      if (firstTabWithError && firstTabWithError !== activeTab) {
+        setActiveTab(firstTabWithError);
+      }
+    }
+  }, [errors]);
 
   // Watch latitude to auto-fill latt and long
   const latitudeValue = watch('latitude');
@@ -595,6 +649,60 @@ const NewStore = () => {
           )}
         </Box>
 
+        {/* Horizontal Tabs */}
+        {selectedBrand && (
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4, mt: 1 }}>
+            <Tabs
+              value={activeTab}
+              onChange={(e, val) => setActiveTab(val)}
+              variant="scrollable"
+              scrollButtons="auto"
+              sx={{
+                '& .MuiTab-root': {
+                  fontWeight: 800,
+                  textTransform: 'none',
+                  fontSize: '0.92rem',
+                  color: 'text.secondary',
+                  px: 3,
+                  py: 1.5,
+                  transition: 'all 0.2s',
+                  borderBottom: '2px solid transparent',
+                  '&.Mui-selected': {
+                    color: 'primary.main',
+                    bgcolor: 'rgba(63,174,191,0.06)',
+                  },
+                  '&:hover': {
+                    color: 'primary.light',
+                    bgcolor: 'rgba(63,174,191,0.03)',
+                  }
+                },
+                '& .MuiTabs-indicator': {
+                  height: '3px',
+                  borderRadius: '3px 3px 0 0',
+                }
+              }}
+            >
+              {TABS.map(tab => {
+                const hasError = getTabHasError(tab);
+                return (
+                  <Tab 
+                    key={tab} 
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {tab}
+                        {hasError && (
+                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'error.main' }} />
+                        )}
+                      </Box>
+                    } 
+                    value={tab} 
+                  />
+                );
+              })}
+            </Tabs>
+          </Box>
+        )}
+
         {errorMsg && (
           <Alert 
             severity="error" 
@@ -611,609 +719,631 @@ const NewStore = () => {
         {selectedBrand ? (
           <Grid container spacing={4}>
           {/* ─── CARD 1: Café Basic Details (All Required) ─── */}
-          <Grid size={12}>
-            <Card sx={{ bgcolor: 'background.paper' }}>
-              <CardContent sx={{ p: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                    Café Basic Details
-                  </Typography>
-                  <RequiredBadge />
-                </Box>
-                <Grid container spacing={2.5}>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField fullWidth label="Café Name **" {...register('cafeName')} error={!!errors.cafeName} helperText={errors.cafeName?.message} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField
-                      fullWidth
-                      label="Café Code **"
-                      {...register('cafeCode', { 
-                        validate: async (value) => {
-                          if (!value) return true;
-                          try {
-                            const res = await axios.get('/api/stores');
-                            const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
-                            const exists = stores.some(s => s.cafeCode && s.cafeCode.toLowerCase() === value.toLowerCase());
-                            return !exists || "This Cafe Code already exists in the system. Please enter a unique Cafe Code.";
-                          } catch (err) {
-                            console.error(err);
-                            return true;
+          {activeTab === 'Cafe Basic Details' && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper' }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      Café Basic Details
+                    </Typography>
+                    <RequiredBadge />
+                  </Box>
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField fullWidth label="Café Name **" {...register('cafeName')} error={!!errors.cafeName} helperText={errors.cafeName?.message} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField
+                        fullWidth
+                        label="Café Code **"
+                        {...register('cafeCode', { 
+                          validate: async (value) => {
+                            if (!value) return true;
+                            try {
+                              const res = await axios.get('/api/stores');
+                              const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+                              const exists = stores.some(s => s.cafeCode && s.cafeCode.toLowerCase() === value.toLowerCase());
+                              return !exists || "This Cafe Code already exists in the system. Please enter a unique Cafe Code.";
+                            } catch (err) {
+                              console.error(err);
+                              return true;
+                            }
                           }
-                        }
-                      })}
-                      error={!!errors.cafeCode}
-                      helperText={errors.cafeCode?.message}
-                    />
+                        })}
+                        error={!!errors.cafeCode}
+                        helperText={errors.cafeCode?.message}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField fullWidth label="Pin Code **" {...register('pinCode')} error={!!errors.pinCode} helperText={errors.pinCode?.message} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        label="City **" 
+                        {...register('city')} 
+                        error={!!errors.city} 
+                        helperText={errors.city?.message}
+                        value={watch('city') || ''}
+                        InputProps={{ readOnly: true }}
+                        InputLabelProps={{ shrink: !!watch('city') }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        label="State **" 
+                        {...register('state')} 
+                        error={!!errors.state} 
+                        helperText={errors.state?.message}
+                        value={watch('state') || ''}
+                        InputProps={{ readOnly: true }}
+                        InputLabelProps={{ shrink: !!watch('state') }}
+                      />
+                    </Grid>
+                    
+                    <Grid size={12}>
+                      <TextField fullWidth label="Café Address **" {...register('cafeAddress')} error={!!errors.cafeAddress} helperText={errors.cafeAddress?.message} />
+                    </Grid>
+                    
+                    {/* Row 3: Zone | Café Location | Lat,Long | Latitude | Longitude */}
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField fullWidth select label="Zone **" {...register('zone')} error={!!errors.zone} value={watch('zone') || ''}>
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        {ZONES.map(z => <MenuItem key={z} value={z}>{z}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField fullWidth label="Café Location Google Link **" placeholder="https://maps.google.com/..." {...register('cafeLocationGoogleLink')} error={!!errors.cafeLocationGoogleLink} helperText={errors.cafeLocationGoogleLink?.message} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField
+                        fullWidth
+                        label="Lat, Long **"
+                        placeholder="e.g. 28.6139, 77.2090"
+                        {...register('latitude')}
+                        error={!!errors.latitude}
+                        helperText={errors.latitude?.message || "Latitude, Longitude"}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField
+                        fullWidth
+                        label="Latitude **"
+                        InputLabelProps={{ shrink: true }}
+                        InputProps={{ readOnly: true }}
+                        {...register('latt')}
+                        error={!!errors.latt}
+                        helperText={errors.latt?.message || "Auto-filled"}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField
+                        fullWidth
+                        label="Longitude **"
+                        InputLabelProps={{ shrink: true }}
+                        InputProps={{ readOnly: true }}
+                        {...register('long')}
+                        error={!!errors.long}
+                        helperText={errors.long?.message || "Auto-filled"}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                      />
+                    </Grid>
+   
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        type="time" 
+                        label="Café Opening Time **" 
+                        InputLabelProps={{ shrink: true }}
+                        {...register('cafeOpenTiming')} 
+                        error={!!errors.cafeOpenTiming} 
+                        helperText={errors.cafeOpenTiming?.message} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        type="time" 
+                        label="Café Closing Time **" 
+                        InputLabelProps={{ shrink: true }}
+                        {...register('cafeClosingTime')} 
+                        error={!!errors.cafeClosingTime} 
+                        helperText={errors.cafeClosingTime?.message} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        type="time" 
+                        label="Actual Closing Time **" 
+                        InputLabelProps={{ shrink: true }}
+                        {...register('actualClosingTime')} 
+                        error={!!errors.actualClosingTime} 
+                        helperText={errors.actualClosingTime?.message} 
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField fullWidth label="Pin Code **" {...register('pinCode')} error={!!errors.pinCode} helperText={errors.pinCode?.message} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
-                      label="City **" 
-                      {...register('city')} 
-                      error={!!errors.city} 
-                      helperText={errors.city?.message}
-                      value={watch('city') || ''}
-                      InputProps={{ readOnly: true }}
-                      InputLabelProps={{ shrink: !!watch('city') }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
-                      label="State **" 
-                      {...register('state')} 
-                      error={!!errors.state} 
-                      helperText={errors.state?.message}
-                      value={watch('state') || ''}
-                      InputProps={{ readOnly: true }}
-                      InputLabelProps={{ shrink: !!watch('state') }}
-                    />
-                  </Grid>
-                  
-                  <Grid size={12}>
-                    <TextField fullWidth label="Café Address **" {...register('cafeAddress')} error={!!errors.cafeAddress} helperText={errors.cafeAddress?.message} />
-                  </Grid>
-                  
-                  {/* Row 3: Zone | Café Location | Lat,Long | Latitude | Longitude */}
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField fullWidth select label="Zone **" {...register('zone')} error={!!errors.zone} value={watch('zone') || ''}>
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      {ZONES.map(z => <MenuItem key={z} value={z}>{z}</MenuItem>)}
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField fullWidth label="Café Location Google Link **" placeholder="https://maps.google.com/..." {...register('cafeLocationGoogleLink')} error={!!errors.cafeLocationGoogleLink} helperText={errors.cafeLocationGoogleLink?.message} />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField
-                      fullWidth
-                      label="Lat, Long **"
-                      placeholder="e.g. 28.6139, 77.2090"
-                      {...register('latitude')}
-                      error={!!errors.latitude}
-                      helperText={errors.latitude?.message || "Latitude, Longitude"}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField
-                      fullWidth
-                      label="Latitude **"
-                      InputLabelProps={{ shrink: true }}
-                      InputProps={{ readOnly: true }}
-                      {...register('latt')}
-                      error={!!errors.latt}
-                      helperText={errors.latt?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField
-                      fullWidth
-                      label="Longitude **"
-                      InputLabelProps={{ shrink: true }}
-                      InputProps={{ readOnly: true }}
-                      {...register('long')}
-                      error={!!errors.long}
-                      helperText={errors.long?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
-                    />
-                  </Grid>
- 
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField 
-                      fullWidth 
-                      type="time" 
-                      label="Café Opening Time **" 
-                      InputLabelProps={{ shrink: true }}
-                      {...register('cafeOpenTiming')} 
-                      error={!!errors.cafeOpenTiming} 
-                      helperText={errors.cafeOpenTiming?.message} 
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField 
-                      fullWidth 
-                      type="time" 
-                      label="Café Closing Time **" 
-                      InputLabelProps={{ shrink: true }}
-                      {...register('cafeClosingTime')} 
-                      error={!!errors.cafeClosingTime} 
-                      helperText={errors.cafeClosingTime?.message} 
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 4 }}>
-                    <TextField 
-                      fullWidth 
-                      type="time" 
-                      label="Actual Closing Time **" 
-                      InputLabelProps={{ shrink: true }}
-                      {...register('actualClosingTime')} 
-                      error={!!errors.actualClosingTime} 
-                      helperText={errors.actualClosingTime?.message} 
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
 
           {/* ─── CARD 2: Contact Details ─── */}
-          <Grid size={12}>
-            <Card sx={{ bgcolor: 'background.paper', opacity: canEditContacts ? 1 : 0.8 }}>
-              <CardContent sx={{ p: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                    Contact Details
-                  </Typography>
-                  {!canEditContacts && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
-                  <OptionalBadge />
-                </Box>
+          {activeTab === 'Contact Details' && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper', opacity: canEditContacts ? 1 : 0.8 }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      Contact Details
+                    </Typography>
+                    {!canEditContacts && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                    <OptionalBadge />
+                  </Box>
 
-                {/* Row 1: Café Contact & Café Manager Details */}
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Café Phone Number" 
-                      {...register('cafePhoneNumber', {
-                        pattern: {
-                          value: /^\d{10}$/,
-                          message: 'invalid contact number'
-                        }
-                      })} 
-                      error={!!errors.cafePhoneNumber}
-                      helperText={errors.cafePhoneNumber?.message}
-                      disabled={!canEditContacts}
-                    />
+                  {/* Row 1: Café Contact & Café Manager Details */}
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Café Phone Number" 
+                        {...register('cafePhoneNumber', {
+                          pattern: {
+                            value: /^\d{10}$/,
+                            message: 'invalid contact number'
+                          }
+                        })} 
+                        error={!!errors.cafePhoneNumber}
+                        helperText={errors.cafePhoneNumber?.message}
+                        disabled={!canEditContacts}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Café Mail ID" 
+                        type="email" 
+                        {...register('cafeMailId', {
+                          validate: value => {
+                            if (!value) return true;
+                            const valLower = value.toLowerCase();
+                            return valLower.endsWith('@bluetokaicoffee.com') || valLower.endsWith('@gottea.in') || 'Only @bluetokaicoffee.com or @gottea.in emails are allowed';
+                          }
+                        })} 
+                        error={!!errors.cafeMailId}
+                        helperText={errors.cafeMailId?.message}
+                        disabled={!isSuperAdmin && !isAdmin}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField 
+                        fullWidth 
+                        label="CM Mail ID" 
+                        type="email" 
+                        {...register('cmMailId', {
+                          validate: value => {
+                            if (!value) return true;
+                            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || 'Enter a valid email address';
+                          }
+                        })} 
+                        error={!!errors.cmMailId}
+                        helperText={errors.cmMailId?.message}
+                        disabled={!isSuperAdmin && !isAdmin}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={cafeManagers}
+                        getOptionLabel={(option) => option.name || ''}
+                        value={cafeManagers.find(c => String(c.id) === String(watch('cafeManagerId'))) || null}
+                        onChange={handleCafeManagerSelect}
+                        disabled={!canEditContacts}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Select Café Manager" />
+                        )}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Café Manager Contact No." 
+                        {...register('cafeManagerContactNo')} 
+                        InputLabelProps={{ shrink: true }} 
+                        InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
+                        error={!!errors.cafeManagerContactNo}
+                        helperText={errors.cafeManagerContactNo?.message || "Auto-filled"}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Café Mail ID" 
-                      type="email" 
-                      {...register('cafeMailId', {
-                        validate: value => {
-                          if (!value) return true;
-                          const valLower = value.toLowerCase();
-                          return valLower.endsWith('@bluetokaicoffee.com') || valLower.endsWith('@gottea.in') || 'Only @bluetokaicoffee.com or @gottea.in emails are allowed';
-                        }
-                      })} 
-                      error={!!errors.cafeMailId}
-                      helperText={errors.cafeMailId?.message}
-                      disabled={!isSuperAdmin && !isAdmin}
-                    />
+   
+                  <Divider sx={{ my: 3 }} />
+   
+                  {/* Row 2: Area Manager & City Head Details */}
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={areaManagers}
+                        getOptionLabel={(option) => option.name || ''}
+                        value={areaManagers.find(c => String(c.id) === String(watch('areaManagerId'))) || null}
+                        onChange={handleAreaManagerSelect}
+                        disabled={!canEditContacts}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Select Area Manager" />
+                        )}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Area Manager Mail ID" 
+                        type="email" 
+                        {...register('areaManagerEmail')} 
+                        InputLabelProps={{ shrink: true }} 
+                        InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
+                        error={!!errors.areaManagerEmail}
+                        helperText={errors.areaManagerEmail?.message || "Auto-filled"}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Area Manager Contact No." 
+                        {...register('areaManagerPhone')} 
+                        InputLabelProps={{ shrink: true }} 
+                        InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
+                        error={!!errors.areaManagerPhone}
+                        helperText={errors.areaManagerPhone?.message || "Auto-filled"}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={cityHeads}
+                        getOptionLabel={(option) => option.name || ''}
+                        value={cityHeads.find(c => String(c.id) === String(watch('cityHeadId'))) || null}
+                        onChange={handleCityHeadSelect}
+                        disabled={!canEditContacts}
+                        renderInput={(params) => (
+                          <TextField 
+                            {...params} 
+                            label="Select City Head" 
+                            error={!!errors.cityHeadId}
+                            helperText={errors.cityHeadId?.message}
+                          />
+                        )}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        label="City Head Mail ID" 
+                        type="email" 
+                        {...register('cityHeadEmail')} 
+                        InputLabelProps={{ shrink: true }} 
+                        InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
+                        error={!!errors.cityHeadEmail} 
+                        helperText={errors.cityHeadEmail?.message || "Auto-filled"} 
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        label="City Head Contact No." 
+                        {...register('cityHeadPhone')} 
+                        InputLabelProps={{ shrink: true }} 
+                        InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
+                        error={!!errors.cityHeadPhone} 
+                        helperText={errors.cityHeadPhone?.message || "Auto-filled"} 
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField 
-                      fullWidth 
-                      label="CM Mail ID" 
-                      type="email" 
-                      {...register('cmMailId', {
-                        validate: value => {
-                          if (!value) return true;
-                          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) || 'Enter a valid email address';
-                        }
-                      })} 
-                      error={!!errors.cmMailId}
-                      helperText={errors.cmMailId?.message}
-                      disabled={!isSuperAdmin && !isAdmin}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <Autocomplete
-                      fullWidth
-                      options={cafeManagers}
-                      getOptionLabel={(option) => option.name || ''}
-                      value={cafeManagers.find(c => String(c.id) === String(watch('cafeManagerId'))) || null}
-                      onChange={handleCafeManagerSelect}
-                      disabled={!canEditContacts}
-                      renderInput={(params) => (
-                        <TextField {...params} label="Select Café Manager" />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Café Manager Contact No." 
-                      {...register('cafeManagerContactNo')} 
-                      InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
-                      error={!!errors.cafeManagerContactNo}
-                      helperText={errors.cafeManagerContactNo?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
-                    />
-                  </Grid>
-                </Grid>
- 
-                <Divider sx={{ my: 3 }} />
- 
-                {/* Row 2: Area Manager & City Head Details */}
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <Autocomplete
-                      fullWidth
-                      options={areaManagers}
-                      getOptionLabel={(option) => option.name || ''}
-                      value={areaManagers.find(c => String(c.id) === String(watch('areaManagerId'))) || null}
-                      onChange={handleAreaManagerSelect}
-                      disabled={!canEditContacts}
-                      renderInput={(params) => (
-                        <TextField {...params} label="Select Area Manager" />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Area Manager Mail ID" 
-                      type="email" 
-                      {...register('areaManagerEmail')} 
-                      InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
-                      error={!!errors.areaManagerEmail}
-                      helperText={errors.areaManagerEmail?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
-                      label="Area Manager Contact No." 
-                      {...register('areaManagerPhone')} 
-                      InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
-                      error={!!errors.areaManagerPhone}
-                      helperText={errors.areaManagerPhone?.message || "Auto-filled"}
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <Autocomplete
-                      fullWidth
-                      options={cityHeads}
-                      getOptionLabel={(option) => option.name || ''}
-                      value={cityHeads.find(c => String(c.id) === String(watch('cityHeadId'))) || null}
-                      onChange={handleCityHeadSelect}
-                      disabled={!canEditContacts}
-                      renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          label="Select City Head" 
-                          error={!!errors.cityHeadId}
-                          helperText={errors.cityHeadId?.message}
-                        />
-                      )}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
-                      label="City Head Mail ID" 
-                      type="email" 
-                      {...register('cityHeadEmail')} 
-                      InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
-                      error={!!errors.cityHeadEmail} 
-                      helperText={errors.cityHeadEmail?.message || "Auto-filled"} 
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 2 }}>
-                    <TextField 
-                      fullWidth 
-                      label="City Head Contact No." 
-                      {...register('cityHeadPhone')} 
-                      InputLabelProps={{ shrink: true }} 
-                      InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
-                      error={!!errors.cityHeadPhone} 
-                      helperText={errors.cityHeadPhone?.message || "Auto-filled"} 
-                      sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
-                    />
-                  </Grid>
-                </Grid>
 
 
-                {/* Hidden inputs for names and relation IDs */}
-                <input type="hidden" {...register('areaManagerId')} />
-                <input type="hidden" {...register('cityHeadId')} />
-                <input type="hidden" {...register('cafeManagerId')} />
-                <input type="hidden" {...register('cafeManagerName')} />
-                <input type="hidden" {...register('areaManagerName')} />
-                <input type="hidden" {...register('cityHeadName')} />
-                <input type="hidden" {...register('mailStatus')} />
-              </CardContent>
-            </Card>
-          </Grid>
+                  {/* Hidden inputs for names and relation IDs */}
+                  <input type="hidden" {...register('areaManagerId')} />
+                  <input type="hidden" {...register('cityHeadId')} />
+                  <input type="hidden" {...register('cafeManagerId')} />
+                  <input type="hidden" {...register('cafeManagerName')} />
+                  <input type="hidden" {...register('areaManagerName')} />
+                  <input type="hidden" {...register('cityHeadName')} />
+                  <input type="hidden" {...register('mailStatus')} />
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
 
           {/* ─── CARD: GST & FSSAI Details ─── */}
-          <Grid size={12}>
-            <Card sx={{ bgcolor: 'background.paper' }}>
-              <CardContent sx={{ p: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                    GST & FSSAI Details
-                  </Typography>
-                  <OptionalBadge />
-                </Box>
+          {activeTab === 'GST & FSSAI Details' && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper' }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      GST & FSSAI Details
+                    </Typography>
+                    <OptionalBadge />
+                  </Box>
 
-                <Grid container spacing={2.5}>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField 
-                      fullWidth 
-                      label="GST No" 
-                      {...register('gstNo')} 
-                      error={!!errors.gstNo} 
-                      helperText={errors.gstNo?.message} 
-                    />
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField 
+                        fullWidth 
+                        label="GST No" 
+                        {...register('gstNo')} 
+                        error={!!errors.gstNo} 
+                        helperText={errors.gstNo?.message} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField 
+                        fullWidth 
+                        label="GST Certificate Link" 
+                        placeholder="e.g. http://..." 
+                        {...register('gstCertificateLink')}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField 
+                        fullWidth 
+                        label="FSSAI License (Certificate Link)" 
+                        placeholder="e.g. http://..." 
+                        {...register('fssaiLicense')} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField 
+                        fullWidth 
+                        label="FSSAI No" 
+                        {...register('fssaiNo')} 
+                        error={!!errors.fssaiNo} 
+                        helperText={errors.fssaiNo?.message} 
+                      />
+                    </Grid>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField 
-                      fullWidth 
-                      label="GST Certificate Link" 
-                      placeholder="e.g. http://..." 
-                      {...register('gstCertificateLink')}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField 
-                      fullWidth 
-                      label="FSSAI License (Certificate Link)" 
-                      placeholder="e.g. http://..." 
-                      {...register('fssaiLicense')} 
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <TextField 
-                      fullWidth 
-                      label="FSSAI No" 
-                      {...register('fssaiNo')} 
-                      error={!!errors.fssaiNo} 
-                      helperText={errors.fssaiNo?.message} 
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
 
           {/* ─── CARD 4: Others (Mixed Required/Optional) ─── */}
           <Grid size={12}>
-            <Card sx={{ bgcolor: 'background.paper' }}>
-              <CardContent sx={{ p: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                    Others & Operations
-                  </Typography>
-                  <OptionalBadge />
-                </Box>
+          {/* ─── CARD 4: Operations Details ─── */}
+          {activeTab === 'Operations Details' && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper' }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      Operations Details
+                    </Typography>
+                    <OptionalBadge />
+                  </Box>
 
-                <Grid container spacing={2.5} columns={60}>
-                  {/* --- ROW 1 (5 fields, size 12 each) --- */}
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth type="date" label="Project Start Date" InputLabelProps={{ shrink: true }} {...register('projectStartDate')} />
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth type="date" label="Project Start Date" InputLabelProps={{ shrink: true }} {...register('projectStartDate')} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth type="date" label="Project Handover Date" InputLabelProps={{ shrink: true }} {...register('projectHandoverDate')} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth type="date" label="Tentative Dry Launch Date" InputLabelProps={{ shrink: true }} {...register('tentativeDryLaunchDate')} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      {isSuperAdmin || isAdmin ? (
+                        <>
+                          <TextField
+                            fullWidth
+                            select
+                            label="Cafe Launch Month & Year"
+                            value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (!val) {
+                                setValue('cafeLaunchMonth', '', { shouldDirty: true });
+                                setValue('cafeLaunchYear', '', { shouldDirty: true });
+                              } else {
+                                const parts = val.split(' ');
+                                setValue('cafeLaunchMonth', parts[0], { shouldDirty: true });
+                                setValue('cafeLaunchYear', parts[1], { shouldDirty: true });
+                              }
+                            }}
+                            SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
+                          >
+                            <MenuItem value="">— Clear Selection —</MenuItem>
+                            {LAUNCH_YEARS.map(y =>
+                              MONTH_NAMES.map(m => (
+                                <MenuItem key={`${m}-${y}`} value={`${m} ${y}`}>{m} {y}</MenuItem>
+                              ))
+                            )}
+                          </TextField>
+                          <input type="hidden" {...register('cafeLaunchMonth')} />
+                          <input type="hidden" {...register('cafeLaunchYear')} />
+                        </>
+                      ) : (
+                        <>
+                          <TextField
+                            fullWidth
+                            label="Cafe Launch Month & Year"
+                            value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
+                            InputLabelProps={{ shrink: true }}
+                            InputProps={{ readOnly: true }}
+                            helperText="Auto-filled from Launch Date"
+                            sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                          />
+                          <input type="hidden" {...register('cafeLaunchMonth')} />
+                          <input type="hidden" {...register('cafeLaunchYear')} />
+                        </>
+                      )}
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        type="date" 
+                        label="Launch Date" 
+                        InputLabelProps={{ shrink: true }} 
+                        {...register('launchDate')} 
+                        error={!!errors.launchDate} 
+                        helperText={errors.launchDate?.message} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        select 
+                        label="Café Model" 
+                        {...register('cafeModel')} 
+                        error={!!errors.cafeModel} 
+                        helperText={errors.cafeModel?.message} 
+                        value={watch('cafeModel') || ''}
+                      >
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        {CAFE_MODELS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                      </TextField>
+                    </Grid>
                   </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth type="date" label="Project Handover Date" InputLabelProps={{ shrink: true }} {...register('projectHandoverDate')} />
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth type="date" label="Tentative Dry Launch Date" InputLabelProps={{ shrink: true }} {...register('tentativeDryLaunchDate')} />
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    {isSuperAdmin || isAdmin ? (
-                      <>
-                        <TextField
-                          fullWidth
-                          select
-                          label="Cafe Launch Month & Year"
-                          value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (!val) {
-                              setValue('cafeLaunchMonth', '', { shouldDirty: true });
-                              setValue('cafeLaunchYear', '', { shouldDirty: true });
-                            } else {
-                              const parts = val.split(' ');
-                              setValue('cafeLaunchMonth', parts[0], { shouldDirty: true });
-                              setValue('cafeLaunchYear', parts[1], { shouldDirty: true });
-                            }
-                          }}
-                          SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
-                        >
-                          <MenuItem value="">— Clear Selection —</MenuItem>
-                          {LAUNCH_YEARS.map(y =>
-                            MONTH_NAMES.map(m => (
-                              <MenuItem key={`${m}-${y}`} value={`${m} ${y}`}>{m} {y}</MenuItem>
-                            ))
-                          )}
-                        </TextField>
-                        <input type="hidden" {...register('cafeLaunchMonth')} />
-                        <input type="hidden" {...register('cafeLaunchYear')} />
-                      </>
-                    ) : (
-                      <>
-                        <TextField
-                          fullWidth
-                          label="Cafe Launch Month & Year"
-                          value={watch('cafeLaunchMonth') && watch('cafeLaunchYear') ? `${watch('cafeLaunchMonth')} ${watch('cafeLaunchYear')}` : ''}
-                          InputLabelProps={{ shrink: true }}
-                          InputProps={{ readOnly: true }}
-                          helperText="Auto-filled from Launch Date"
-                          sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
-                        />
-                        <input type="hidden" {...register('cafeLaunchMonth')} />
-                        <input type="hidden" {...register('cafeLaunchYear')} />
-                      </>
-                    )}
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField 
-                      fullWidth 
-                      type="date" 
-                      label="Launch Date" 
-                      InputLabelProps={{ shrink: true }} 
-                      {...register('launchDate')} 
-                      error={!!errors.launchDate} 
-                      helperText={errors.launchDate?.message} 
-                    />
-                  </Grid>
- 
-                  {/* --- ROW 2 (5 fields, size 12 each) --- */}
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField 
-                      fullWidth 
-                      select 
-                      label="Café Model" 
-                      {...register('cafeModel')} 
-                      error={!!errors.cafeModel} 
-                      helperText={errors.cafeModel?.message} 
-                      value={watch('cafeModel') || ''}
-                    >
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      {CAFE_MODELS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth label="New Pricing Category" {...register('newPricingCategory')} />
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth label="New Pricing Sub Category" {...register('newPricingSubCategory')} />
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} />
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Menu" {...register('menu')} value={watch('menu') || ''}
-                      SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}>
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      {MENU_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                    </TextField>
-                  </Grid>
- 
-                  {/* --- ROW 3 (5 fields, size 12 each) --- */}
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth label="Cafe Opening Hr" placeholder="e.g. 15 hours" {...register('cafeOpeningHr')} />
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Platform Type" {...register('platformType')} error={!!errors.platformType} helperText={errors.platformType?.message} value={watch('platformType') || ''}>
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      {PLATFORM_TYPES.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Trading Area" {...register('tradingArea')} error={!!errors.tradingArea} helperText={errors.tradingArea?.message} value={watch('tradingArea') || ''}>
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      {TRADING_AREAS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Smoking Zone" {...register('smokingZone')} value={watch('smokingZone') || ''}>
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      <MenuItem value="Yes">Yes</MenuItem>
-                      <MenuItem value="No">No</MenuItem>
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 12 }}>
-                    <TextField fullWidth select label="Parking Option" {...register('parkingOption')} value={watch('parkingOption') || ''}>
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      <MenuItem value="Yes">Yes</MenuItem>
-                      <MenuItem value="No">No</MenuItem>
-                      <MenuItem value="Valet">Valet</MenuItem>
-                    </TextField>
-                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
 
-                  {/* --- ROW 4 (4 fields, size 15 each) --- */}
-                  <Grid size={{ xs: 60, sm: 15 }}>
-                    <TextField fullWidth select label="Wheelchair accessibility" {...register('wheelchairAccessibility')} value={watch('wheelchairAccessibility') || ''}>
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      <MenuItem value="Yes">Yes</MenuItem>
-                      <MenuItem value="No">No</MenuItem>
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 15 }}>
-                    <TextField fullWidth select label="Pet Friendly" {...register('petFriendly')} value={watch('petFriendly') || ''}>
-                      <MenuItem value="">— Clear Selection —</MenuItem>
-                      <MenuItem value="Yes">Yes</MenuItem>
-                      <MenuItem value="No">No</MenuItem>
-                    </TextField>
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 15 }}>
-                    <TextField
-                      fullWidth
-                      label="Expected Sale"
-                      type="number"
-                      error={!!errors.expectedSalesVal}
-                      helperText={errors.expectedSalesVal?.message}
-                      {...register('expectedSalesVal', {
-                        min: { value: 1, message: 'Value must be between 1 and 200' },
-                        max: { value: 200, message: 'Value must be between 1 and 200' }
-                      })}
-                      InputProps={{
-                        startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <Select
-                              value={watch('expectedSalesUnit') || 'Lakhs'}
-                              onChange={(e) => setValue('expectedSalesUnit', e.target.value)}
-                              variant="standard"
-                              disableUnderline
-                              sx={{ mr: 1, fontWeight: 600, cursor: 'pointer' }}
-                            >
-                              <MenuItem value="Thousands">Thousands</MenuItem>
-                              <MenuItem value="Lakhs">Lakhs</MenuItem>
-                              <MenuItem value="Crores">Crores</MenuItem>
-                            </Select>
-                          </InputAdornment>
-                        )
-                      }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 60, sm: 15 }}>
-                    <TextField fullWidth label="Nearby Cafe" placeholder="Enter nearby cafe details..." {...register('nearbyCafes')} />
-                  </Grid>
+          {/* ─── CARD 5: Others ─── */}
+          {activeTab === 'Others' && (
+            <Grid size={12}>
+              <Card sx={{ bgcolor: 'background.paper' }}>
+                <CardContent sx={{ p: 4 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                      Others
+                    </Typography>
+                    <OptionalBadge />
+                  </Box>
 
-                  {/* --- ROW 5 (Highlights, full width) --- */}
-                  <Grid size={{ xs: 60, sm: 60 }}>
-                    <TextField
-                      fullWidth
-                      multiline
-                      rows={3}
-                      label="Highlights"
-                      placeholder="Enter highlights of the cafe..."
-                      {...register('highlights')}
-                    />
+                  <Grid container spacing={2.5}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth label="New Pricing Category" {...register('newPricingCategory')} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth label="New Pricing Sub Category" {...register('newPricingSubCategory')} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth select label="Menu" {...register('menu')} value={watch('menu') || ''}
+                        SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}>
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        {MENU_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth label="Cafe Opening Hr" placeholder="e.g. 15 hours" {...register('cafeOpeningHr')} />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth select label="Platform Type" {...register('platformType')} error={!!errors.platformType} helperText={errors.platformType?.message} value={watch('platformType') || ''}>
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        {PLATFORM_TYPES.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth select label="Trading Area" {...register('tradingArea')} error={!!errors.tradingArea} helperText={errors.tradingArea?.message} value={watch('tradingArea') || ''}>
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        {TRADING_AREAS.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth select label="Smoking Zone" {...register('smokingZone')} value={watch('smokingZone') || ''}>
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        <MenuItem value="Yes">Yes</MenuItem>
+                        <MenuItem value="No">No</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth select label="Parking Option" {...register('parkingOption')} value={watch('parkingOption') || ''}>
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        <MenuItem value="Yes">Yes</MenuItem>
+                        <MenuItem value="No">No</MenuItem>
+                        <MenuItem value="Valet">Valet</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth select label="Wheelchair accessibility" {...register('wheelchairAccessibility')} value={watch('wheelchairAccessibility') || ''}>
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        <MenuItem value="Yes">Yes</MenuItem>
+                        <MenuItem value="No">No</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth select label="Pet Friendly" {...register('petFriendly')} value={watch('petFriendly') || ''}>
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        <MenuItem value="Yes">Yes</MenuItem>
+                        <MenuItem value="No">No</MenuItem>
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField
+                        fullWidth
+                        label="Expected Sale"
+                        type="number"
+                        error={!!errors.expectedSalesVal}
+                        helperText={errors.expectedSalesVal?.message}
+                        {...register('expectedSalesVal', {
+                          min: { value: 1, message: 'Value must be between 1 and 200' },
+                          max: { value: 200, message: 'Value must be between 1 and 200' }
+                        })}
+                        InputProps={{
+                          startAdornment: <InputAdornment position="start">₹</InputAdornment>,
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <Select
+                                value={watch('expectedSalesUnit') || 'Lakhs'}
+                                onChange={(e) => setValue('expectedSalesUnit', e.target.value)}
+                                variant="standard"
+                                disableUnderline
+                                sx={{ mr: 1, fontWeight: 600, cursor: 'pointer' }}
+                              >
+                                <MenuItem value="Thousands">Thousands</MenuItem>
+                                <MenuItem value="Lakhs">Lakhs</MenuItem>
+                                <MenuItem value="Crores">Crores</MenuItem>
+                              </Select>
+                            </InputAdornment>
+                          )
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth label="Nearby Cafe" placeholder="Enter nearby cafe details..." {...register('nearbyCafes')} />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, sm: 12 }}>
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        label="Highlights"
+                        placeholder="Enter highlights of the cafe..."
+                        {...register('highlights')}
+                      />
+                    </Grid>
                   </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
           </Grid>
 
           {/* ─── CARD 3: Swiggy / Zomato Integration (All Optional) ─── */}
-          {selectedBrand && (
+          {activeTab === 'Swiggy / Zomato Integration' && selectedBrand && (
             <Grid size={12}>
               <Card sx={{ bgcolor: 'background.paper' }}>
                 <CardContent sx={{ p: 4 }}>
