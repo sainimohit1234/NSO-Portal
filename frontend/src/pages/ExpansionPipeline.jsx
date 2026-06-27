@@ -358,14 +358,18 @@ export default function ExpansionPipeline() {
         const templateKey = Object.keys(templates).find(k => k.toLowerCase() === 'new store code creation') || '';
         const template = templateKey ? templates[templateKey] : null;
 
-        const defaultSubject = `New Store Code Creation Request - ${store.cafeName}`;
+        const brandNamePretty = store.brand === 'BLUE_TOKAI_SUCHALI' 
+          ? "Blue Tokai / Suchali's Artisan Bakehouse" 
+          : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
+
+        const defaultSubject = `New Store Code Creation Request | ${brandNamePretty} | ${store.cafeName || ''}`;
         const defaultBody = `Hi Team,
 
 This is regarding the new store code creation request for our upcoming cafe. Please find the details below and initiate the store code creation process.
 
 Store Details:
 - Cafe Name: ${store.cafeName || 'N/A'}
-- Brand: ${store.brand === 'BLUE_TOKAI_SUCHALI' ? 'Blue Tokai / Suchali\'s' : 'Got Tea'}
+- Brand: ${brandNamePretty}
 - City: ${store.city || 'N/A'}
 - State: ${store.state || 'N/A'}
 - Pin Code: ${store.pinCode || 'N/A'}
@@ -381,13 +385,14 @@ Operations Team`;
         let body = defaultBody;
 
         if (template) {
-          subject = `${template.subject || 'New Store Code Creation Request'} - ${store.cafeName}`;
+          subject = `New Store Code Creation Request | ${brandNamePretty} | ${store.cafeName || ''}`;
           let tBody = template.body || '';
-          tBody = tBody.replace(/{cafeName}|\[Store Name\]/gi, store.cafeName || '');
+          tBody = tBody.replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '');
+          tBody = tBody.replace(/{brandName}|\[Brand Name\]/gi, brandNamePretty);
           tBody = tBody.replace(/{city}|\[City\]/gi, store.city || '');
           tBody = tBody.replace(/{state}|\[State\]/gi, store.state || '');
           tBody = tBody.replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '');
-          tBody = tBody.replace(/{model}|\[Model\]/gi, store.cafeModel || '');
+          tBody = tBody.replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '');
           body = tBody || defaultBody;
         }
 
