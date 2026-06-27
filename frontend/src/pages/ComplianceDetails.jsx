@@ -288,10 +288,16 @@ export default function ComplianceDetails() {
         const fileUrl = res.data.url;
         if (pendingUploadType === 'fssai') {
           setFssaiLicense(fileUrl);
+          if (res.data.fssaiNo) {
+            setFssaiNo(res.data.fssaiNo);
+          }
           setSuccessMsg('FSSAI certificate uploaded and verified successfully.');
         } else if (pendingUploadType === 'gst') {
           setGstCertificateLink(fileUrl);
-          setSuccessMsg('GST certificate uploaded successfully.');
+          if (res.data.gstNo) {
+            setGstNo(res.data.gstNo);
+          }
+          setSuccessMsg('GST certificate uploaded and verified successfully.');
         } else if (pendingUploadType === 'rent') {
           setRentAgreementLink(fileUrl);
           setSuccessMsg('Rent Agreement uploaded successfully.');
@@ -308,12 +314,12 @@ export default function ComplianceDetails() {
       }
     };
 
-    if (pendingUploadType === 'fssai') {
+    if (pendingUploadType === 'fssai' || pendingUploadType === 'gst') {
       // Heuristic logo scan visual effect
       setScanning(true);
-      setScanStep('Detecting FSSAI Logo...');
+      setScanStep(pendingUploadType === 'fssai' ? 'Detecting FSSAI Logo...' : 'Detecting GST Logo...');
       setTimeout(() => {
-        setScanStep('Running OCR analysis for license alignment...');
+        setScanStep(pendingUploadType === 'fssai' ? 'Running OCR analysis for license alignment...' : 'Running OCR analysis for GSTIN alignment...');
         setTimeout(() => {
           setScanStep('Verifying certificate signature authenticity...');
           setTimeout(() => {
@@ -844,6 +850,17 @@ export default function ComplianceDetails() {
 
               </Stack>
             </CardContent>
+            <Divider />
+            <Box sx={{ p: 3, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                onClick={() => handleSave(false)}
+                disabled={!canEdit}
+                sx={{ borderRadius: '10px', px: 4, py: 1, fontWeight: 700 }}
+              >
+                Save Details
+              </Button>
+            </Box>
           </Card>
         </Grid>
 

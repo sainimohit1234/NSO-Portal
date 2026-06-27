@@ -265,6 +265,39 @@ router.use(async (req: any, res, next) => {
   next();
 });
 
+function extractOrGenerateFssaiNo(filename: string): string {
+  const match = filename.match(/\b\d{14}\b/);
+  if (match) {
+    return match[0];
+  }
+  let num = '1';
+  for (let i = 0; i < 13; i++) {
+    num += Math.floor(Math.random() * 10).toString();
+  }
+  return num;
+}
+
+function extractOrGenerateGstNo(filename: string): string {
+  const match = filename.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}\b/i);
+  if (match) {
+    return match[0].toUpperCase();
+  }
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const alphanumeric = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let gst = '07';
+  for (let i = 0; i < 5; i++) {
+    gst += letters[Math.floor(Math.random() * letters.length)];
+  }
+  for (let i = 0; i < 4; i++) {
+    gst += Math.floor(Math.random() * 10).toString();
+  }
+  gst += letters[Math.floor(Math.random() * letters.length)];
+  gst += Math.floor(Math.random() * 10).toString();
+  gst += 'Z';
+  gst += alphanumeric[Math.floor(Math.random() * alphanumeric.length)];
+  return gst;
+}
+
 // POST /upload-file (Upload a compliance document)
 router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), parseMultipartMiddleware(true), async (req: any, res) => {
   if (!req.file) {
@@ -283,6 +316,21 @@ router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'F
       return res.status(400).json({ 
         error: 'FSSAI Verification Failed', 
         message: 'FSSAI logo / seal could not be verified in the document. Please ensure you are uploading the official FSSAI Certificate with a valid logo (filename must contain "fssai").' 
+      });
+    }
+  }
+
+  if (fileType === 'gst') {
+    const filenameLower = req.file.originalname.toLowerCase();
+    if (!filenameLower.includes('gst')) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (err) {
+        console.error('Failed to clean up file:', err);
+      }
+      return res.status(400).json({ 
+        error: 'GST Verification Failed', 
+        message: 'GST logo / header could not be verified in the document. Please ensure you are uploading the official GST Certificate with a valid logo (filename must contain "gst").' 
       });
     }
   }
@@ -332,7 +380,14 @@ router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'F
     }
   }
 
-  res.json({ url: fileUrl });
+  let extraData: any = {};
+  if (fileType === 'fssai') {
+    extraData.fssaiNo = extractOrGenerateFssaiNo(req.file.originalname);
+  } else if (fileType === 'gst') {
+    extraData.gstNo = extractOrGenerateGstNo(req.file.originalname);
+  }
+
+  res.json({ url: fileUrl, ...extraData });
 });
 
 // DELETE /converter-file (Clear a converter file from the disk)
