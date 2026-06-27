@@ -105,6 +105,10 @@ export default function AggregatorMail() {
 
     try {
       const parsedTo = validateEmails(newTo);
+      if (parsedTo.length === 0) {
+        setErrorMsg('At least one email ID is mandatory in the To Recipient List.');
+        return;
+      }
       const parsedCc = validateEmails(newCc);
 
       const newRow = {
@@ -159,6 +163,10 @@ export default function AggregatorMail() {
 
     try {
       const parsedTo = validateEmails(editTo);
+      if (parsedTo.length === 0) {
+        setErrorMsg('At least one email ID is mandatory in the To Recipient List.');
+        return;
+      }
       const parsedCc = validateEmails(editCc);
 
       const updated = mappings.map(m => {
@@ -303,9 +311,10 @@ export default function AggregatorMail() {
                   </Grid>
                   <Grid item xs={12}>
                     <TextField
+                      required
                       fullWidth
                       size="small"
-                      label="To Recipient List"
+                      label="To Recipient List *"
                       placeholder="e.g. abc@company.com, xyz@company.com"
                       value={newTo}
                       onChange={(e) => setNewTo(e.target.value)}
@@ -572,10 +581,11 @@ export default function AggregatorMail() {
               onChange={(e) => setEditSubCategory(e.target.value)}
             />
             <TextField
+              required
               fullWidth
               multiline
               rows={3}
-              label="To Recipient List (comma-separated)"
+              label="To Recipient List * (comma-separated)"
               placeholder="e.g. abc@company.com, xyz@company.com"
               value={editTo}
               onChange={(e) => setEditTo(e.target.value)}
