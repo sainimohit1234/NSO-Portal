@@ -7,6 +7,7 @@ import {
   Stack, Divider
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlined';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -545,6 +546,69 @@ Operations Team`;
     }
   };
 
+  const performInlineUpload = async (store, slot, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setLoading(true);
+      const res = await axios.post(`/api/stores/upload-file?type=${slot}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const fileUrl = res.data.url;
+
+      const updatedFields = { [`${slot}Url`]: fileUrl, [`${slot}FileName`]: file.name };
+      if (slot === 'loi') {
+        updatedFields.status = 'Agreement Signed';
+      }
+
+      if (store.isTemp || String(store.id).startsWith('temp_')) {
+        setStores(prev => prev.map(s => s.id === store.id ? { ...s, ...updatedFields } : s));
+        setSnackbar({ open: true, message: `${slot.toUpperCase()} file uploaded. Click Save on the row to save details.`, severity: 'success' });
+      } else {
+        await axios.put(`/api/stores/${store.id}`, updatedFields);
+        setStores(prev => prev.map(s => s.id === store.id ? { ...s, ...updatedFields } : s));
+        setSnackbar({ open: true, message: `${slot.toUpperCase()} file uploaded and saved.`, severity: 'success' });
+        loadData();
+      }
+    } catch (err) {
+      console.error(err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.message || err.response?.data?.error || 'Failed to upload file.',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const performInlineDelete = async (store, slot) => {
+    const updatedFields = { [`${slot}Url`]: null, [`${slot}FileName`]: null };
+    if (slot === 'loi') {
+      updatedFields.status = 'In Pipeline';
+    }
+
+    if (store.isTemp || String(store.id).startsWith('temp_')) {
+      setStores(prev => prev.map(s => s.id === store.id ? { ...s, ...updatedFields } : s));
+      setSnackbar({ open: true, message: `${slot.toUpperCase()} file removed locally.`, severity: 'success' });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await axios.put(`/api/stores/${store.id}`, updatedFields);
+      setStores(prev => prev.map(s => s.id === store.id ? { ...s, ...updatedFields } : s));
+      setSnackbar({ open: true, message: `${slot.toUpperCase()} file deleted.`, severity: 'success' });
+      loadData();
+    } catch (err) {
+      console.error(err);
+      setSnackbar({ open: true, message: 'Failed to delete file.', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusLabel = (status) => {
     if (status === 'INCOMPLETE_INFORMATION') return 'Incomplete';
     if (status === 'PENDING_APPROVAL') return 'Pending Approval';
@@ -593,7 +657,7 @@ Operations Team`;
       {/* Pipeline Table */}
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', overflow: 'hidden' }}>
         <TableContainer sx={{ maxHeight: '78vh', overflowX: 'auto' }}>
-          <Table stickyHeader sx={{ minWidth: 1960, tableLayout: 'fixed', '& .MuiTableCell-root': { px: 1, py: 1.25 } }}>
+          <Table stickyHeader sx={{ minWidth: 2500, tableLayout: 'fixed', '& .MuiTableCell-root': { px: 1, py: 1.25 } }}>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, fontWeight: 800, width: 50 }}>S.No.</TableCell>
@@ -605,7 +669,9 @@ Operations Team`;
                 <TableCell sx={{ fontWeight: 800, width: 130 }}>State</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 350 }}>Address</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 150 }}>Café Model</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 130 }}>Upload File</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 180 }}>Upload LOI</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 180 }}>Budget File</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 220 }}>Lease / Rental Agreement</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 180 }}>Status</TableCell>
                 {canModify && <TableCell sx={{ fontWeight: 800, width: 80 }} align="center">Actions</TableCell>}
               </TableRow>
@@ -613,19 +679,19 @@ Operations Team`;
             <TableBody>
               {loading && stores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canModify ? 12 : 11} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
               ) : stores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canModify ? 12 : 11} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No expansion pipeline stores registered.
                   </TableCell>
                 </TableRow>
               ) : (
                 stores.map((store, index) => {
-                  const hasLoiSaved = !!store.loiUrl;
+                  const hasLoi = !!store.loiUrl;
                   const isLocked = store.isLocked === true || store.isLocked === 'true';
                   const rowEditable = canModify && !isLocked;
 
@@ -750,23 +816,168 @@ Operations Team`;
                         </Select>
                       </TableCell>
 
-                      {/* Upload File Trigger */}
+                      {/* Upload LOI Column */}
                       <TableCell>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<CloudUploadIcon />}
-                          onClick={() => setUploadStore(store)}
-                          sx={{ borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
-                        >
-                          Upload Files
-                        </Button>
+                        <input
+                          type="file"
+                          id={`file-upload-inline-loi-${store.id}`}
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const maxSize = 200 * 1024;
+                              if (file.size > maxSize) {
+                                setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 200KB.', severity: 'error' });
+                                return;
+                              }
+                              performInlineUpload(store, 'loi', file);
+                            }
+                          }}
+                        />
+                        {store.loiUrl ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CheckCircleIcon color="success" sx={{ fontSize: 18 }} />
+                            <Link
+                              component="button"
+                              variant="body2"
+                              onClick={() => {
+                                setPreviewUrl(store.loiUrl);
+                                setPreviewName(store.loiFileName || 'LOI Document');
+                              }}
+                              sx={{ fontWeight: 800, textDecoration: 'none', fontSize: '0.8rem', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >
+                              {store.loiFileName || 'LOI'}
+                            </Link>
+                            {rowEditable && (
+                              <IconButton size="small" color="error" onClick={() => performInlineDelete(store, 'loi')}>
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            )}
+                          </Box>
+                        ) : (
+                          rowEditable && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<CloudUploadIcon />}
+                              onClick={() => document.getElementById(`file-upload-inline-loi-${store.id}`).click()}
+                              sx={{ borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                            >
+                              Upload LOI
+                            </Button>
+                          )
+                        )}
+                      </TableCell>
+
+                      {/* Budget File Column */}
+                      <TableCell>
+                        <input
+                          type="file"
+                          id={`file-upload-inline-budget-${store.id}`}
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const maxSize = 200 * 1024;
+                              if (file.size > maxSize) {
+                                setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 200KB.', severity: 'error' });
+                                return;
+                              }
+                              performInlineUpload(store, 'budget', file);
+                            }
+                          }}
+                        />
+                        {store.budgetUrl ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CheckCircleIcon color="success" sx={{ fontSize: 18 }} />
+                            <Link
+                              component="button"
+                              variant="body2"
+                              onClick={() => {
+                                setPreviewUrl(store.budgetUrl);
+                                setPreviewName(store.budgetFileName || 'Budget File');
+                              }}
+                              sx={{ fontWeight: 800, textDecoration: 'none', fontSize: '0.8rem', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >
+                              {store.budgetFileName || 'Budget'}
+                            </Link>
+                            {rowEditable && (
+                              <IconButton size="small" color="error" onClick={() => performInlineDelete(store, 'budget')}>
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            )}
+                          </Box>
+                        ) : (
+                          rowEditable && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<CloudUploadIcon />}
+                              onClick={() => document.getElementById(`file-upload-inline-budget-${store.id}`).click()}
+                              sx={{ borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                            >
+                              Upload Budget
+                            </Button>
+                          )
+                        )}
+                      </TableCell>
+
+                      {/* Lease / Rental Agreement Column */}
+                      <TableCell>
+                        <input
+                          type="file"
+                          id={`file-upload-inline-agreement-${store.id}`}
+                          style={{ display: 'none' }}
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              const maxSize = 200 * 1024;
+                              if (file.size > maxSize) {
+                                setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 200KB.', severity: 'error' });
+                                return;
+                              }
+                              performInlineUpload(store, 'agreement', file);
+                            }
+                          }}
+                        />
+                        {store.agreementUrl ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CheckCircleIcon color="success" sx={{ fontSize: 18 }} />
+                            <Link
+                              component="button"
+                              variant="body2"
+                              onClick={() => {
+                                setPreviewUrl(store.agreementUrl);
+                                setPreviewName(store.agreementFileName || 'Agreement File');
+                              }}
+                              sx={{ fontWeight: 800, textDecoration: 'none', fontSize: '0.8rem', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                            >
+                              {store.agreementFileName || 'Agreement'}
+                            </Link>
+                            {rowEditable && (
+                              <IconButton size="small" color="error" onClick={() => performInlineDelete(store, 'agreement')}>
+                                <DeleteIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            )}
+                          </Box>
+                        ) : (
+                          rowEditable && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<CloudUploadIcon />}
+                              onClick={() => document.getElementById(`file-upload-inline-agreement-${store.id}`).click()}
+                              sx={{ borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
+                            >
+                              Upload Agreement
+                            </Button>
+                          )
+                        )}
                       </TableCell>
 
                       {/* Status */}
                       <TableCell>
                         {(() => {
-                          const hasLoi = !!store.loiUrl;
                           const isLocked = store.isLocked === true || store.isLocked === 'true';
                           
                           let currentStatus = 'In Pipeline';
@@ -793,7 +1004,9 @@ Operations Team`;
                               fullWidth
                               sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                             >
-                              <MenuItem value="In Pipeline">In Pipeline</MenuItem>
+                              {!hasLoi && (
+                                <MenuItem value="In Pipeline">In Pipeline</MenuItem>
+                              )}
                               {(hasLoi || currentStatus === 'Agreement Signed') && (
                                 <MenuItem value="Agreement Signed">Agreement Signed</MenuItem>
                               )}
@@ -834,325 +1047,71 @@ Operations Team`;
         </TableContainer>
       </Card>
 
+      {/* File Preview Dialog */}
       <Dialog
-        open={Boolean(uploadStore)}
+        open={Boolean(previewUrl)}
         onClose={() => {
-          setUploadStore(null);
           setPreviewUrl(null);
           setPreviewName('');
         }}
-        maxWidth={previewUrl ? "md" : "sm"}
+        maxWidth="md"
         fullWidth
         PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
       >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          Upload Documents — {uploadStore?.cafeName || 'Selected Café'}
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>Preview: {previewName}</Typography>
+          <Button component="a" href={previewUrl} download={previewName} variant="outlined" size="small" sx={{ borderRadius: '8px' }}>
+            Download File
+          </Button>
         </DialogTitle>
         <DialogContent>
-          {(() => {
-            const isUploadStoreLocked = uploadStore?.isLocked === true || uploadStore?.isLocked === 'true';
-            return (
-              <Grid container spacing={3} sx={{ mt: 0.5 }}>
-                {/* Left Column: Upload slots */}
-                <Grid item xs={12} md={previewUrl ? 6 : 12}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    
-                    {/* Slot 1: LOI */}
-                    <Box sx={{ p: 2, borderRadius: '12px', border: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>
-                        1. Letter of Intent (LOI) <span style={{ color: '#ef4444' }}>*Required for Next Stage</span>
-                      </Typography>
-                      {uploadStore?.loiUrl ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'rgba(34, 197, 94, 0.08)', p: 1.25, borderRadius: '8px' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-                            <LinkIcon sx={{ color: 'success.main', fontSize: 18, flexShrink: 0 }} />
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'success.main', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
-                              {uploadStore.loiFileName || 'LOI Document'}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                            <Button 
-                              size="small" 
-                              variant="outlined" 
-                              color="success"
-                              onClick={() => {
-                                setPreviewUrl(uploadStore.loiUrl);
-                                setPreviewName(uploadStore.loiFileName || 'LOI Document');
-                              }}
-                              sx={{ py: 0.25, minHeight: 28, borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700 }}
-                            >
-                              View
-                            </Button>
-                            <Button 
-                              component="a"
-                              href={uploadStore.loiUrl} 
-                              download={uploadStore.loiFileName || 'loi'} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              size="small" 
-                              variant="contained" 
-                              color="success"
-                              sx={{ py: 0.25, minHeight: 28, borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700 }}
-                            >
-                              Download
-                            </Button>
-                            {!isUploadStoreLocked && (
-                              <IconButton size="small" color="error" onClick={() => handleDeleteFileSlot('loi')}>
-                                <DeleteIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            )}
-                          </Box>
-                        </Box>
-                      ) : isUploadStoreLocked ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', py: 1 }}>
-                          <Typography variant="body2" color="text.disabled" sx={{ fontWeight: 700, fontStyle: 'italic' }}>
-                            No LOI document uploaded
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Button variant="outlined" component="label" size="small" startIcon={<CloudUploadIcon />} sx={{ borderRadius: '8px' }}>
-                            Select File
-                            <input type="file" hidden onChange={(e) => handleFileChangeForSlot(e, 'loi')} />
-                          </Button>
-                          {selectedFiles.loi ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1, minWidth: 0 }}>
-                              <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, flexGrow: 1 }}>
-                                {selectedFiles.loi.name}
-                              </Typography>
-                              <Button variant="contained" color="success" size="small" onClick={() => handleSaveFileSlot('loi')} sx={{ borderRadius: '8px' }}>
-                                Save
-                              </Button>
-                            </Box>
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">No file selected</Typography>
-                          )}
-                        </Box>
-                      )}
-                    </Box>
-
-                    {/* Slot 2: Budget */}
-                    <Box sx={{ p: 2, borderRadius: '12px', border: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>
-                        2. Budget File
-                      </Typography>
-                      {uploadStore?.budgetUrl ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'rgba(111, 205, 220, 0.08)', p: 1.25, borderRadius: '8px' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-                            <LinkIcon sx={{ color: 'primary.main', fontSize: 18, flexShrink: 0 }} />
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
-                              {uploadStore.budgetFileName || 'Budget Document'}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                            <Button 
-                              size="small" 
-                              variant="outlined" 
-                              color="primary"
-                              onClick={() => {
-                                setPreviewUrl(uploadStore.budgetUrl);
-                                setPreviewName(uploadStore.budgetFileName || 'Budget Document');
-                              }}
-                              sx={{ py: 0.25, minHeight: 28, borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700 }}
-                            >
-                              View
-                            </Button>
-                            <Button 
-                              component="a"
-                              href={uploadStore.budgetUrl} 
-                              download={uploadStore.budgetFileName || 'budget'} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              size="small" 
-                              variant="contained" 
-                              color="primary"
-                              sx={{ py: 0.25, minHeight: 28, borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700 }}
-                            >
-                              Download
-                            </Button>
-                            {!isUploadStoreLocked && (
-                              <IconButton size="small" color="error" onClick={() => handleDeleteFileSlot('budget')}>
-                                <DeleteIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            )}
-                          </Box>
-                        </Box>
-                      ) : isUploadStoreLocked ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', py: 1 }}>
-                          <Typography variant="body2" color="text.disabled" sx={{ fontWeight: 700, fontStyle: 'italic' }}>
-                            No Budget file uploaded
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Button variant="outlined" component="label" size="small" startIcon={<CloudUploadIcon />} sx={{ borderRadius: '8px' }}>
-                            Select File
-                            <input type="file" hidden onChange={(e) => handleFileChangeForSlot(e, 'budget')} />
-                          </Button>
-                          {selectedFiles.budget ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1, minWidth: 0 }}>
-                              <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, flexGrow: 1 }}>
-                                {selectedFiles.budget.name}
-                              </Typography>
-                              <Button variant="contained" color="success" size="small" onClick={() => handleSaveFileSlot('budget')} sx={{ borderRadius: '8px' }}>
-                                Save
-                              </Button>
-                            </Box>
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">No file selected</Typography>
-                          )}
-                        </Box>
-                      )}
-                    </Box>
-
-                    {/* Slot 3: Agreement */}
-                    <Box sx={{ p: 2, borderRadius: '12px', border: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5 }}>
-                        3. Lease / Rental Agreement File
-                      </Typography>
-                      {uploadStore?.agreementUrl ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: 'rgba(111, 205, 220, 0.08)', p: 1.25, borderRadius: '8px' }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
-                            <LinkIcon sx={{ color: 'primary.main', fontSize: 18, flexShrink: 0 }} />
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 140 }}>
-                              {uploadStore.agreementFileName || 'Agreement Document'}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                            <Button 
-                              size="small" 
-                              variant="outlined" 
-                              color="primary"
-                              onClick={() => {
-                                setPreviewUrl(uploadStore.agreementUrl);
-                                setPreviewName(uploadStore.agreementFileName || 'Agreement Document');
-                              }}
-                              sx={{ py: 0.25, minHeight: 28, borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700 }}
-                            >
-                              View
-                            </Button>
-                            <Button 
-                              component="a"
-                              href={uploadStore.agreementUrl} 
-                              download={uploadStore.agreementFileName || 'agreement'} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              size="small" 
-                              variant="contained" 
-                              color="primary"
-                              sx={{ py: 0.25, minHeight: 28, borderRadius: '6px', fontSize: '0.72rem', fontWeight: 700 }}
-                            >
-                              Download
-                            </Button>
-                            {!isUploadStoreLocked && (
-                              <IconButton size="small" color="error" onClick={() => handleDeleteFileSlot('agreement')}>
-                                <DeleteIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            )}
-                          </Box>
-                        </Box>
-                      ) : isUploadStoreLocked ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', py: 1 }}>
-                          <Typography variant="body2" color="text.disabled" sx={{ fontWeight: 700, fontStyle: 'italic' }}>
-                            No Lease/Rental Agreement file uploaded
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Button variant="outlined" component="label" size="small" startIcon={<CloudUploadIcon />} sx={{ borderRadius: '8px' }}>
-                            Select File
-                            <input type="file" hidden onChange={(e) => handleFileChangeForSlot(e, 'agreement')} />
-                          </Button>
-                          {selectedFiles.agreement ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1, minWidth: 0 }}>
-                              <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600, flexGrow: 1 }}>
-                                {selectedFiles.agreement.name}
-                              </Typography>
-                              <Button variant="contained" color="success" size="small" onClick={() => handleSaveFileSlot('agreement')} sx={{ borderRadius: '8px' }}>
-                                Save
-                              </Button>
-                            </Box>
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">No file selected</Typography>
-                          )}
-                        </Box>
-                      )}
-                    </Box>
-                  </Box>
-                </Grid>
-
-                {/* Right Column: File Viewer */}
-                {previewUrl && (
-                  <Grid item xs={12} md={6}>
-                    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', p: 2, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#f8fafc' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', pr: 2 }}>
-                          File Viewer: {previewName}
-                        </Typography>
-                        <Button 
-                          size="small" 
-                          variant="text" 
-                          color="error"
-                          onClick={() => { setPreviewUrl(null); setPreviewName(''); }} 
-                          sx={{ minWidth: 'auto', fontWeight: 800, fontSize: '0.75rem' }}
-                        >
-                          Close Preview
-                        </Button>
-                      </Box>
-                      <Box sx={{ flexGrow: 1, minHeight: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                        {getFileType(previewUrl, previewName) === 'pdf' ? (
-                          <iframe 
-                            src={previewUrl} 
-                            width="100%" 
-                            height="400px" 
-                            style={{ border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#fff' }} 
-                            title="Document Preview" 
-                          />
-                        ) : getFileType(previewUrl, previewName) === 'image' ? (
-                          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 1, border: '1px solid #e2e8f0', borderRadius: '8px', bgcolor: '#fff', height: 400 }}>
-                            <img 
-                              src={previewUrl} 
-                              alt="Preview" 
-                              style={{ maxWidth: '100%', maxHeight: '380px', objectFit: 'contain' }} 
-                            />
-                          </Box>
-                        ) : (
-                          <Box sx={{ p: 4, textAlign: 'center', border: '1px solid #e2e8f0', borderRadius: '8px', bgcolor: '#fff', height: 400, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 700, mb: 1.5 }}>
-                              No inline preview available for this file format (e.g. CSV/Excel).
-                            </Typography>
-                            <Button 
-                              component="a" 
-                              href={previewUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              variant="contained" 
-                              size="small"
-                              sx={{ borderRadius: '8px', fontWeight: 700 }}
-                            >
-                              Open in New Tab
-                            </Button>
-                          </Box>
-                        )}
-                      </Box>
-                    </Box>
-                  </Grid>
-                )}
-              </Grid>
-            );
-          })()}
+          <Box sx={{ minHeight: 450, display: 'flex', flexDirection: 'column' }}>
+            {getFileType(previewUrl, previewName) === 'pdf' ? (
+              <iframe 
+                src={previewUrl} 
+                width="100%" 
+                height="500px" 
+                style={{ border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#fff' }} 
+                title="Document Preview" 
+              />
+            ) : getFileType(previewUrl, previewName) === 'image' ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 1, border: '1px solid #e2e8f0', borderRadius: '8px', bgcolor: '#fff', height: 500 }}>
+                <img 
+                  src={previewUrl} 
+                  alt="Preview" 
+                  style={{ maxWidth: '100%', maxHeight: '480px', objectFit: 'contain' }} 
+                />
+              </Box>
+            ) : (
+              <Box sx={{ p: 4, textAlign: 'center', border: '1px solid #e2e8f0', borderRadius: '8px', bgcolor: '#fff', height: 500, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, mb: 1.5 }}>
+                  No inline preview available for this file format (e.g. CSV/Excel).
+                </Typography>
+                <Button 
+                  component="a" 
+                  href={previewUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  variant="contained" 
+                  size="small"
+                  sx={{ borderRadius: '8px', fontWeight: 700 }}
+                >
+                  Open in New Tab
+                </Button>
+              </Box>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button 
             onClick={() => {
-              setUploadStore(null);
               setPreviewUrl(null);
               setPreviewName('');
             }} 
             variant="contained" 
             sx={{ borderRadius: '10px', px: 4, fontWeight: 700 }}
           >
-            Done
+            Close
           </Button>
         </DialogActions>
       </Dialog>
