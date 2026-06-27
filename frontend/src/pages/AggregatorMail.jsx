@@ -19,7 +19,6 @@ export default function AggregatorMail() {
 
   // Configured recipient categories loaded from backend
   const [categories, setCategories] = useState([]);
-  const [newEmailInputs, setNewEmailInputs] = useState({});
 
   // Auto Mail configuration state
   const [newAutoEmailInput, setNewAutoEmailInput] = useState('');
@@ -56,68 +55,6 @@ export default function AggregatorMail() {
   useEffect(() => {
     fetchRecipients();
   }, []);
-
-  const handleInputChange = (categoryId, value) => {
-    setNewEmailInputs(prev => ({
-      ...prev,
-      [categoryId]: value
-    }));
-  };
-
-  const handleAddEmail = async (categoryId) => {
-    const email = (newEmailInputs[categoryId] || '').trim().toLowerCase();
-    if (!email) return;
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setErrorMsg('Please enter a valid email address.');
-      return;
-    }
-
-    const updatedCategories = categories.map(cat => {
-      if (cat.id === categoryId) {
-        if (cat.emails.includes(email)) return cat;
-        return {
-          ...cat,
-          emails: [...cat.emails, email]
-        };
-      }
-      return cat;
-    });
-
-    try {
-      const res = await axios.put('/api/system/email-recipients', updatedCategories);
-      setCategories(res.data.config);
-      setNewEmailInputs(prev => ({ ...prev, [categoryId]: '' }));
-      setSuccessMsg('Email configurations updated successfully.');
-      setErrorMsg('');
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to update email configuration.');
-    }
-  };
-
-  const handleRemoveEmail = async (categoryId, emailIndex) => {
-    const updatedCategories = categories.map(cat => {
-      if (cat.id === categoryId) {
-        return {
-          ...cat,
-          emails: cat.emails.filter((_, idx) => idx !== emailIndex)
-        };
-      }
-      return cat;
-    });
-
-    try {
-      const res = await axios.put('/api/system/email-recipients', updatedCategories);
-      setCategories(res.data.config);
-      setSuccessMsg('Email configurations updated successfully.');
-      setErrorMsg('');
-    } catch (err) {
-      console.error(err);
-      setErrorMsg('Failed to update email configuration.');
-    }
-  };
 
   const handleAddAutoEmail = async (categoryId) => {
     const inputVal = (categoryId === 'auto_mails' ? newAutoEmailInput : newAutoCcEmailInput).trim();
@@ -375,7 +312,7 @@ export default function AggregatorMail() {
     return (
       <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', width: '100%', border: '1px solid', borderColor: 'divider' }}>
         <CardHeader 
-          title="Mail IDs for Auto Mails" 
+          title="Email Recipient Configuration" 
           titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
           subheader="Manage email recipients for system-generated and automated emails"
         />
@@ -414,81 +351,7 @@ export default function AggregatorMail() {
         </Alert>
       )}
 
-      <Stack spacing={3}>
-        {/* Email Configuration Section */}
-        <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-          <CardHeader 
-            title="Email Recipient Configuration" 
-            titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
-            subheader="Manage TO and CC mappings dynamically for aggregator dispatches"
-          />
-          <Divider />
-          <CardContent sx={{ p: 3 }}>
-            <Grid container spacing={3}>
-              {categories.filter(c => c.id !== 'auto_mails' && c.id !== 'auto_mails_cc').map((category) => (
-                <Grid size={{ xs: 12, md: 4 }} key={category.id}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip 
-                      label={category.type.toUpperCase()} 
-                      size="small" 
-                      color={category.type === 'to' ? (category.id === 'swiggy' ? 'primary' : 'secondary') : 'default'} 
-                      variant={category.type === 'cc' ? 'outlined' : 'filled'}
-                      sx={{ fontWeight: 800, height: 18, fontSize: '0.6rem', borderRadius: '4px' }} 
-                    />
-                    {category.name}
-                  </Typography>
-                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.01)', mb: 2, minHeight: 180, maxHeight: 180, overflowY: 'auto' }}>
-                    <List dense sx={{ py: 0 }}>
-                      {category.emails.length === 0 ? (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', py: 4 }}>
-                          No emails configured.
-                        </Typography>
-                      ) : (
-                        category.emails.map((email, idx) => (
-                          <ListItem key={idx} disablePadding sx={{ py: 0.25 }} secondaryAction={
-                            <IconButton edge="end" size="small" onClick={() => handleRemoveEmail(category.id, idx)} color="error" disabled={!canManageEmailDirectory}>
-                              <DeleteIcon sx={{ fontSize: 16 }} />
-                            </IconButton>
-                          }>
-                            <ListItemText primary={email} primaryTypographyProps={{ fontSize: '0.75rem', fontWeight: 500, style: { wordBreak: 'break-all', paddingRight: '24px' } }} />
-                          </ListItem>
-                        ))
-                      )}
-                    </List>
-                  </Paper>
-                  <Stack direction="row" spacing={1}>
-                    <TextField 
-                      size="small" 
-                      placeholder="Add email ID"
-                      value={newEmailInputs[category.id] || ''}
-                      onChange={(e) => handleInputChange(category.id, e.target.value)}
-                      fullWidth
-                      disabled={!canManageEmailDirectory}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleAddEmail(category.id);
-                        }
-                      }}
-                    />
-                    <Button 
-                      variant={category.type === 'cc' ? 'outlined' : 'contained'} 
-                      color={category.id === 'zomato' ? 'secondary' : 'primary'}
-                      onClick={() => handleAddEmail(category.id)} 
-                      disabled={!canManageEmailDirectory}
-                      sx={{ minWidth: 40, px: 0, borderRadius: '8px', boxShadow: 'none' }}
-                    >
-                      <AddIcon sx={{ fontSize: 20 }} />
-                    </Button>
-                  </Stack>
-                </Grid>
-              ))}
-            </Grid>
-          </CardContent>
-        </Card>
-
-        {/* Mail IDs for Auto Mails Card */}
-        {renderAutoMailsCard()}
-      </Stack>
+      {renderAutoMailsCard()}
 
       {/* Confirmation Dialog for Auto Mail ID Deletion */}
       <Dialog
