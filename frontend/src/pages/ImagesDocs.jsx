@@ -10,7 +10,6 @@ import LinkIcon from '@mui/icons-material/Link';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EditIcon from '@mui/icons-material/Edit';
 import DownloadIcon from '@mui/icons-material/Download';
 import axios, { normalizeListResponse } from '../utils/api';
@@ -19,9 +18,8 @@ export default function ImagesDocs() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [saving, setSaving] = useState({});
 
-  // Add new link inline form
+  // Add new doc inline form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLinkName, setNewLinkName] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
@@ -36,11 +34,6 @@ export default function ImagesDocs() {
     setPreviewImageError(false);
   }, [previewUrl]);
 
-  // Converter state
-  const [uploadingConverter, setUploadingConverter] = useState(false);
-  const [converterUrl, setConverterUrl] = useState('');
-  const [copied, setCopied] = useState(false);
-
   // Inline editing state
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
@@ -54,7 +47,7 @@ export default function ImagesDocs() {
       setDocuments(normalizeListResponse(res.data));
       setErrorMsg('');
     } catch (err) {
-      setErrorMsg('Failed to load links.');
+      setErrorMsg('Failed to load documents.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -65,7 +58,7 @@ export default function ImagesDocs() {
     fetchDocuments();
   }, []);
 
-  const handleAddNewLink = async () => {
+  const handleAddNewDoc = async () => {
     const name = newLinkName.trim();
     const url = newLinkUrl.trim();
     if (!name || !url) return;
@@ -85,7 +78,7 @@ export default function ImagesDocs() {
       setPreviewUrl(url);
       setPreviewTitle(name);
     } catch (err) {
-      setErrorMsg(`Failed to save link for ${name}`);
+      setErrorMsg(`Failed to save document for ${name}`);
       console.error(err);
     } finally {
       setAddingSaving(false);
@@ -106,7 +99,7 @@ export default function ImagesDocs() {
         linkUrl: url
       });
 
-      // Update preview if the edited item is currently active in the Link Viewer
+      // Update preview if the edited item is currently active in the Doc Viewer
       const doc = documents.find(d => d.id === id);
       if (doc && (previewTitle === doc.category || previewUrl === doc.fileUrl)) {
         setPreviewTitle(name);
@@ -118,7 +111,7 @@ export default function ImagesDocs() {
       setEditUrl('');
       await fetchDocuments();
     } catch (err) {
-      setErrorMsg(`Failed to update link for ${name}`);
+      setErrorMsg(`Failed to update document for ${name}`);
       console.error(err);
     } finally {
       setEditSaving(false);
@@ -126,7 +119,7 @@ export default function ImagesDocs() {
   };
 
   const handleDelete = async (id, category) => {
-    if (!window.confirm('Are you sure you want to delete this link?')) return;
+    if (!window.confirm('Are you sure you want to delete this document?')) return;
     try {
       await axios.delete(`/api/global-docs/${id}`);
       if (previewTitle === category) {
@@ -135,65 +128,8 @@ export default function ImagesDocs() {
       }
       await fetchDocuments();
     } catch (err) {
-      setErrorMsg('Failed to delete link.');
+      setErrorMsg('Failed to delete document.');
       console.error(err);
-    }
-  };
-
-  // Converter handlers
-  const handleConverterUpload = async (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setUploadingConverter(true);
-      setErrorMsg('');
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      try {
-        const url = `/api/stores/upload-file?type=converter${converterUrl ? `&previousUrl=${encodeURIComponent(converterUrl)}` : ''}`;
-        const res = await axios.post(url, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        const fileUrl = res.data.url;
-        setConverterUrl(fileUrl);
-        setPreviewUrl(fileUrl);
-        setPreviewTitle('Converted File Preview');
-      } catch (err) {
-        console.error(err);
-        setErrorMsg('Failed to convert file to link. Make sure it is a PDF, JPG, JPEG, or PNG.');
-      } finally {
-        setUploadingConverter(false);
-        e.target.value = '';
-      }
-    }
-  };
-
-  const handleCopyLink = () => {
-    if (converterUrl) {
-      const fullLink = window.location.origin + converterUrl;
-      navigator.clipboard.writeText(fullLink)
-        .then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        })
-        .catch(err => console.error('Failed to copy text:', err));
-    }
-  };
-
-  const handleClearConverter = async () => {
-    if (converterUrl) {
-      try {
-        await axios.delete(`/api/stores/converter-file?url=${encodeURIComponent(converterUrl)}`);
-      } catch (err) {
-        console.error('Failed to delete converter file:', err);
-        setErrorMsg('Failed to remove the converted file from the server.');
-      }
-      setConverterUrl('');
-      if (previewTitle === 'Converted File Preview' || previewUrl === converterUrl) {
-        setPreviewUrl('');
-        setPreviewTitle('');
-      }
     }
   };
 
@@ -239,7 +175,7 @@ export default function ImagesDocs() {
       <Box sx={{ width: '100%', height: '100%', bgcolor: 'background.default', borderRadius: '8px', overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
         <iframe
           src={normalizedUrl}
-          title="Link Viewer"
+          title="Doc Viewer"
           width="100%"
           height="100%"
           style={{ border: 'none' }}
@@ -274,7 +210,7 @@ export default function ImagesDocs() {
           {/* Platform Links Card — Fixed Height */}
           <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
             <CardHeader
-              title="Platform Links"
+              title="Platform Documents"
               titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
               action={
                 <Button
@@ -284,15 +220,15 @@ export default function ImagesDocs() {
                   onClick={() => setShowAddForm(true)}
                   sx={{ borderRadius: '8px', fontWeight: 600, textTransform: 'none' }}
                 >
-                  Add New Link
+                  Add New Doc
                 </Button>
               }
             />
             <Divider />
             <CardContent sx={{ p: 0 }}>
-              {/* Fixed-height scrollable area */}
-              <Box sx={{ height: 420, overflowY: 'auto', p: 2 }}>
-                {/* Add New Link Form (inline, at the top) */}
+              {/* Fixed-height scrollable area matching Doc Viewer height */}
+              <Box sx={{ height: 550, overflowY: 'auto', p: 2 }}>
+                {/* Add New Doc Form (inline, at the top) */}
                 {showAddForm && (
                   <Box
                     sx={{
@@ -305,7 +241,7 @@ export default function ImagesDocs() {
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                        Add New Link
+                        Add New Doc
                       </Typography>
                       <IconButton size="small" onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewLinkUrl(''); }}>
                         <CloseIcon fontSize="small" />
@@ -315,7 +251,7 @@ export default function ImagesDocs() {
                       <TextField
                         fullWidth
                         size="small"
-                        label="Link Name *"
+                        label="Doc Name *"
                         placeholder="e.g. Swiggy BTC"
                         value={newLinkName}
                         onChange={(e) => setNewLinkName(e.target.value)}
@@ -324,11 +260,11 @@ export default function ImagesDocs() {
                       <TextField
                         fullWidth
                         size="small"
-                        label="Link URL *"
+                        label="Doc URL *"
                         placeholder="https://..."
                         value={newLinkUrl}
                         onChange={(e) => setNewLinkUrl(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewLink(); } }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewDoc(); } }}
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
@@ -350,7 +286,7 @@ export default function ImagesDocs() {
                           variant="contained"
                           startIcon={addingSaving ? null : <SaveIcon />}
                           disabled={addingSaving || !newLinkName.trim() || !newLinkUrl.trim()}
-                          onClick={handleAddNewLink}
+                          onClick={handleAddNewDoc}
                           sx={{ borderRadius: '8px', fontWeight: 600 }}
                         >
                           {addingSaving ? 'Saving...' : 'Save'}
@@ -360,12 +296,12 @@ export default function ImagesDocs() {
                   </Box>
                 )}
 
-                {/* Links list */}
+                {/* Docs list */}
                 {documents.length === 0 && !showAddForm ? (
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', py: 6 }}>
                     <LinkIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                      No links added yet. Click "Add New Link" to get started.
+                      No documents added yet. Click "Add New Doc" to get started.
                     </Typography>
                   </Box>
                 ) : (
@@ -391,7 +327,7 @@ export default function ImagesDocs() {
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                                Edit Link
+                                Edit Doc
                               </Typography>
                               <IconButton size="small" onClick={() => { setEditingId(null); setEditName(''); setEditUrl(''); }}>
                                 <CloseIcon fontSize="small" />
@@ -400,7 +336,7 @@ export default function ImagesDocs() {
                             <TextField
                               fullWidth
                               size="small"
-                              label="Link Name *"
+                              label="Doc Name *"
                               value={editName}
                               onChange={(e) => setEditName(e.target.value)}
                               sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
@@ -408,7 +344,7 @@ export default function ImagesDocs() {
                             <TextField
                               fullWidth
                               size="small"
-                              label="Link URL *"
+                              label="Doc URL *"
                               value={editUrl}
                               onChange={(e) => setEditUrl(e.target.value)}
                               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveEdit(doc.id); } }}
@@ -532,98 +468,14 @@ export default function ImagesDocs() {
               </Box>
             </CardContent>
           </Card>
-
-          {/* File-to-Link Converter */}
-          <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', mt: 3 }}>
-            <CardHeader
-              title="File to Link Converter"
-              subheader="Upload PDF, JPG, JPEG, PNG to generate a URL"
-              titleTypographyProps={{ fontWeight: 800, variant: 'subtitle1' }}
-              subheaderTypographyProps={{ variant: 'caption', color: 'text.secondary' }}
-            />
-            <Divider />
-            <CardContent sx={{ p: 2 }}>
-              <Stack spacing={2}>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  fullWidth
-                  disabled={uploadingConverter}
-                  startIcon={uploadingConverter ? <CircularProgress size={20} /> : <CloudUploadIcon />}
-                  sx={{ py: 1.5, borderStyle: 'dashed', borderRadius: '10px', textTransform: 'none', fontWeight: 600 }}
-                >
-                  {uploadingConverter ? 'Generating Link...' : 'Upload File to Convert'}
-                  <input
-                    type="file"
-                    hidden
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleConverterUpload}
-                    disabled={uploadingConverter}
-                  />
-                </Button>
-
-                {converterUrl && (
-                  <Box sx={{ mt: 1, p: 1.5, borderRadius: '8px', bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.5 }}>
-                      Generated Shareable Link:
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={window.location.origin + converterUrl}
-                      InputProps={{
-                        readOnly: true,
-                        sx: { fontSize: '0.8rem', fontFamily: 'monospace', bgcolor: 'background.paper' }
-                      }}
-                      sx={{ mb: 1.5 }}
-                    />
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={handleClearConverter}
-                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '6px' }}
-                      >
-                        Clear
-                      </Button>
-                      <Stack direction="row" spacing={1}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => {
-                            setPreviewUrl(converterUrl);
-                            setPreviewTitle('Converted File Preview');
-                          }}
-                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '6px' }}
-                        >
-                          Preview File
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color={copied ? 'success' : 'primary'}
-                          onClick={handleCopyLink}
-                          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: '6px', minWidth: 100 }}
-                        >
-                          {copied ? 'Copied!' : 'Copy Link'}
-                        </Button>
-                      </Stack>
-                    </Stack>
-                  </Box>
-                )}
-              </Stack>
-            </CardContent>
-          </Card>
         </Grid>
 
-        {/* Right Column: Link Viewer (sticky) */}
+        {/* Right Column: Doc Viewer (sticky) */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Box sx={{ position: 'sticky', top: 80 }}>
             <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
               <CardHeader
-                title={previewTitle ? `Link Viewer: ${previewTitle}` : 'Link Viewer'}
+                title={previewTitle ? `Doc Viewer: ${previewTitle}` : 'Doc Viewer'}
                 titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
                 action={
                   previewUrl && (
@@ -646,10 +498,10 @@ export default function ImagesDocs() {
                   <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', px: 2 }}>
                     <DescriptionIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.secondary', mb: 1 }}>
-                      No Link Selected
+                      No Document Selected
                     </Typography>
                     <Typography variant="body2" color="text.disabled">
-                      Hover over or click on a saved link to preview its content here.
+                      Hover over or click on a saved document to preview its content here.
                     </Typography>
                   </Box>
                 )}
