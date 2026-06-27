@@ -599,7 +599,15 @@ export default function ExpansionPipeline() {
                       <TableCell>
                         {(() => {
                           const hasLoi = !!store.loiUrl;
-                          const currentStatus = store.status === 'Ready for Construction' ? 'Ready for Construction' : 'In Pipeline';
+                          const isLocked = store.isLocked === true || store.isLocked === 'true';
+                          
+                          let currentStatus = 'In Pipeline';
+                          if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
+                            currentStatus = 'Live';
+                          } else if (store.status === 'Ready for Construction') {
+                            currentStatus = 'Ready for Construction';
+                          }
+
                           return (
                             <Select
                               value={currentStatus}
@@ -610,8 +618,11 @@ export default function ExpansionPipeline() {
                               sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                             >
                               <MenuItem value="In Pipeline">In Pipeline</MenuItem>
-                              {hasLoi && (
+                              {(hasLoi || currentStatus === 'Ready for Construction') && (
                                 <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
+                              )}
+                              {(isLocked || currentStatus === 'Live') && (
+                                <MenuItem value="Live">Live</MenuItem>
                               )}
                             </Select>
                           );
