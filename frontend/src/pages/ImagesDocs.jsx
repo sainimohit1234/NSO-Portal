@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Box, Typography, Button, IconButton, CircularProgress, Alert, TextField,
-  InputAdornment, Grid, Card, CardContent, CardHeader, Divider, Stack
+  Grid, Card, CardContent, CardHeader, Divider, Stack
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import LinkIcon from '@mui/icons-material/Link';
-import DescriptionIcon from '@mui/icons-material/Description';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
-import DownloadIcon from '@mui/icons-material/Download';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import axios, { normalizeListResponse } from '../utils/api';
 
@@ -27,15 +25,6 @@ export default function ImagesDocs() {
   const [newOriginalFileName, setNewOriginalFileName] = useState('');
   const [uploadingNewFile, setUploadingNewFile] = useState(false);
   const [addingSaving, setAddingSaving] = useState(false);
-
-  // Preview state
-  const [previewUrl, setPreviewUrl] = useState('');
-  const [previewTitle, setPreviewTitle] = useState('');
-  const [previewImageError, setPreviewImageError] = useState(false);
-
-  useEffect(() => {
-    setPreviewImageError(false);
-  }, [previewUrl]);
 
   // Inline editing state
   const [editingId, setEditingId] = useState(null);
@@ -131,8 +120,6 @@ export default function ImagesDocs() {
       setNewOriginalFileName('');
       setShowAddForm(false);
       await fetchDocuments();
-      setPreviewUrl(url);
-      setPreviewTitle(name);
     } catch (err) {
       setErrorMsg(`Failed to save document for ${name}`);
       console.error(err);
@@ -162,13 +149,6 @@ export default function ImagesDocs() {
         linkUrl: url
       });
 
-      // Update preview if the edited item is currently active in the Doc Viewer
-      const doc = documents.find(d => d.id === id);
-      if (doc && (previewTitle === doc.category || previewUrl === doc.fileUrl)) {
-        setPreviewTitle(name);
-        setPreviewUrl(url);
-      }
-
       setEditingId(null);
       setEditName('');
       setEditFileUrl('');
@@ -182,70 +162,15 @@ export default function ImagesDocs() {
     }
   };
 
-  const handleDelete = async (id, category) => {
+  const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this document?')) return;
     try {
       await axios.delete(`/api/global-docs/${id}`);
-      if (previewTitle === category) {
-        setPreviewUrl('');
-        setPreviewTitle('');
-      }
       await fetchDocuments();
     } catch (err) {
       setErrorMsg('Failed to delete document.');
       console.error(err);
     }
-  };
-
-  const renderPreview = (url) => {
-    if (!url) return null;
-
-    // Normalize: strip current origin so /uploads/... paths work via proxy
-    let normalizedUrl = url;
-    try {
-      const parsed = new URL(url, window.location.origin);
-      if (parsed.origin === window.location.origin) {
-        normalizedUrl = parsed.pathname + parsed.search + parsed.hash;
-      }
-    } catch (e) {
-      // If URL parsing fails, use as-is
-    }
-
-    const lowerUrl = normalizedUrl.toLowerCase();
-    const isImage = lowerUrl.match(/\.(jpeg|jpg|gif|png|webp)(\?|$)/);
-
-    if (isImage && !previewImageError) {
-      return (
-        <Box sx={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f5f5f5', borderRadius: '8px', overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
-          <a
-            href={normalizedUrl}
-            download
-            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', textDecoration: 'none' }}
-          >
-            <img
-              src={normalizedUrl}
-              alt="Preview"
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', cursor: 'pointer' }}
-              onError={() => {
-                setPreviewImageError(true);
-              }}
-            />
-          </a>
-        </Box>
-      );
-    }
-
-    return (
-      <Box sx={{ width: '100%', height: '100%', bgcolor: 'background.default', borderRadius: '8px', overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
-        <iframe
-          src={normalizedUrl}
-          title="Doc Viewer"
-          width="100%"
-          height="100%"
-          style={{ border: 'none' }}
-        />
-      </Box>
-    );
   };
 
   if (loading && documents.length === 0) {
@@ -268,9 +193,9 @@ export default function ImagesDocs() {
         </Alert>
       )}
 
-      <Grid container spacing={3}>
-        {/* Left Column */}
-        <Grid size={{ xs: 12, md: 6 }}>
+      <Grid container spacing={3} justifyContent="center">
+        {/* Main Column */}
+        <Grid size={{ xs: 12, md: 10, lg: 8 }}>
           {/* Platform Documents Card */}
           <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
             <CardHeader
@@ -290,20 +215,20 @@ export default function ImagesDocs() {
             />
             <Divider />
             <CardContent sx={{ p: 0 }}>
-              {/* Fixed-height scrollable area matching Doc Viewer height */}
-              <Box sx={{ height: 550, overflowY: 'auto', p: 2 }}>
+              {/* Scrollable list area */}
+              <Box sx={{ minHeight: 400, maxSize: 600, overflowY: 'auto', p: 3 }}>
                 {/* Add New Doc Form (inline, at the top) */}
                 {showAddForm && (
                   <Box
                     sx={{
-                      p: 2, mb: 2,
+                      p: 2.5, mb: 3,
                       border: '2px dashed',
                       borderColor: 'primary.main',
-                      borderRadius: '10px',
+                      borderRadius: '12px',
                       bgcolor: 'rgba(0,122,140,0.03)',
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                         Add New Doc
                       </Typography>
@@ -331,7 +256,7 @@ export default function ImagesDocs() {
                           component="label"
                           disabled={uploadingNewFile}
                           startIcon={uploadingNewFile ? <CircularProgress size={16} /> : <CloudUploadIcon />}
-                          sx={{ textTransform: 'none', borderStyle: 'dashed', py: 1, borderRadius: '8px' }}
+                          sx={{ textTransform: 'none', borderStyle: 'dashed', py: 1.5, borderRadius: '8px' }}
                         >
                           {newFileUrl ? 'Replace File' : 'Upload File'}
                           <input
@@ -346,13 +271,13 @@ export default function ImagesDocs() {
                           />
                         </Button>
                         {newFileUrl && (
-                          <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, wordBreak: 'break-all' }}>
+                          <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, wordBreak: 'break-all' }}>
                             ✓ File uploaded: {newOriginalFileName || newFileUrl.substring(newFileUrl.lastIndexOf('/') + 1)}
                           </Typography>
                         )}
                       </Box>
 
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 1 }}>
                         <Button
                           size="small"
                           onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewFileUrl(''); setNewOriginalFileName(''); }}
@@ -376,14 +301,14 @@ export default function ImagesDocs() {
 
                 {/* Docs list */}
                 {documents.length === 0 && !showAddForm ? (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', py: 6 }}>
-                    <LinkIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 8 }}>
+                    <DescriptionIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
                     <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                       No documents added yet. Click "Add New Doc" to get started.
                     </Typography>
                   </Box>
                 ) : (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {documents.map(doc => (
                       <Box
                         key={doc.id}
@@ -391,18 +316,18 @@ export default function ImagesDocs() {
                           display: 'flex',
                           flexDirection: editingId === doc.id ? 'column' : 'row',
                           alignItems: editingId === doc.id ? 'stretch' : 'center',
-                          gap: 1.5,
-                          p: 1.5,
+                          gap: 2,
+                          p: 2,
                           bgcolor: 'rgba(0,122,140,0.03)',
                           border: '1px solid',
                           borderColor: editingId === doc.id ? 'primary.main' : 'rgba(0,122,140,0.12)',
-                          borderRadius: '10px',
+                          borderRadius: '12px',
                           transition: 'all 0.2s',
                           '&:hover': { borderColor: 'primary.main', bgcolor: 'rgba(0,122,140,0.06)' }
                         }}
                       >
                         {editingId === doc.id ? (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                                 Edit Doc
@@ -429,7 +354,7 @@ export default function ImagesDocs() {
                                 component="label"
                                 disabled={uploadingEditFile}
                                 startIcon={uploadingEditFile ? <CircularProgress size={16} /> : <CloudUploadIcon />}
-                                sx={{ textTransform: 'none', borderStyle: 'dashed', py: 1, borderRadius: '8px' }}
+                                sx={{ textTransform: 'none', borderStyle: 'dashed', py: 1.5, borderRadius: '8px' }}
                               >
                                 Replace File
                                 <input
@@ -444,13 +369,13 @@ export default function ImagesDocs() {
                                 />
                               </Button>
                               {editFileUrl && (
-                                <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, wordBreak: 'break-all' }}>
+                                <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5, wordBreak: 'break-all' }}>
                                   ✓ File uploaded: {editOriginalFileName || editFileUrl.substring(editFileUrl.lastIndexOf('/') + 1)}
                                 </Typography>
                               )}
                             </Box>
 
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1.5 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1.5, mt: 1.5 }}>
                               <Button
                                 size="small"
                                 onClick={() => { setEditingId(null); setEditName(''); setEditFileUrl(''); setEditOriginalFileName(''); }}
@@ -475,8 +400,8 @@ export default function ImagesDocs() {
                             <Typography
                               sx={{
                                 fontWeight: 700,
-                                fontSize: '0.85rem',
-                                minWidth: 120,
+                                fontSize: '0.9rem',
+                                minWidth: 150,
                                 flexShrink: 0,
                                 color: 'text.primary'
                               }}
@@ -484,23 +409,19 @@ export default function ImagesDocs() {
                               {doc.category}
                             </Typography>
 
-                            {/* Link URL — clickable to preview */}
+                            {/* Link URL — clickable to open in new tab */}
                             <Box
+                              component="a"
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               sx={{
                                 flexGrow: 1,
                                 overflow: 'hidden',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: 0.5,
-                                cursor: 'pointer',
-                              }}
-                              onClick={() => {
-                                setPreviewUrl(doc.fileUrl);
-                                setPreviewTitle(doc.category);
-                              }}
-                              onMouseEnter={() => {
-                                setPreviewUrl(doc.fileUrl);
-                                setPreviewTitle(doc.category);
+                                gap: 1,
+                                textDecoration: 'none',
                               }}
                             >
                               <LinkIcon sx={{ color: 'primary.main', fontSize: 18, flexShrink: 0 }} />
@@ -511,9 +432,10 @@ export default function ImagesDocs() {
                                   textOverflow: 'ellipsis',
                                   whiteSpace: 'nowrap',
                                   color: 'primary.main',
-                                  fontSize: '0.8rem',
+                                  fontSize: '0.85rem',
                                   textDecoration: 'underline',
                                   textDecorationColor: 'rgba(0,122,140,0.3)',
+                                  '&:hover': { color: 'primary.dark' }
                                 }}
                               >
                                 {doc.fileName && doc.fileName !== doc.category 
@@ -523,35 +445,34 @@ export default function ImagesDocs() {
                             </Box>
 
                             {/* Actions */}
-                            <IconButton
-                              size="small"
-                              color="primary"
-                              onClick={() => {
-                                handleStartEdit(doc);
-                              }}
-                              sx={{ flexShrink: 0 }}
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              component="a"
-                              href={doc.fileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              color="primary"
-                              sx={{ flexShrink: 0 }}
-                            >
-                              <OpenInNewIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDelete(doc.id, doc.category)}
-                              sx={{ flexShrink: 0 }}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
+                            <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() => {
+                                  handleStartEdit(doc);
+                                }}
+                              >
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                component="a"
+                                href={doc.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                color="primary"
+                              >
+                                <OpenInNewIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDelete(doc.id)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Stack>
                           </>
                         )}
                       </Box>
@@ -561,46 +482,6 @@ export default function ImagesDocs() {
               </Box>
             </CardContent>
           </Card>
-        </Grid>
-
-        {/* Right Column: Doc Viewer (sticky) */}
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Box sx={{ position: 'sticky', top: 80 }}>
-            <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-              <CardHeader
-                title={previewTitle ? `Doc Viewer: ${previewTitle}` : 'Doc Viewer'}
-                titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
-                action={
-                  previewUrl && (
-                    <IconButton
-                      component="a"
-                      href={previewUrl}
-                      download
-                      color="primary"
-                    >
-                      <DownloadIcon />
-                    </IconButton>
-                  )
-                }
-              />
-              <Divider />
-              <CardContent sx={{ p: 3, height: '550px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                {previewUrl ? (
-                  renderPreview(previewUrl)
-                ) : (
-                  <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', px: 2 }}>
-                    <DescriptionIcon sx={{ fontSize: 80, color: 'text.disabled', mb: 2 }} />
-                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.secondary', mb: 1 }}>
-                      No Document Selected
-                    </Typography>
-                    <Typography variant="body2" color="text.disabled">
-                      Hover over or click on a saved document to preview its content here.
-                    </Typography>
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-          </Box>
         </Grid>
       </Grid>
     </Box>
