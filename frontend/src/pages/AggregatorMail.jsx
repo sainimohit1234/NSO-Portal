@@ -3,18 +3,18 @@ import {
   Box, Typography, Card, CardContent, Grid, TextField, Button, Stack, 
   Paper, Chip, CardHeader, Divider, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, IconButton, Alert, Dialog, 
-  DialogTitle, DialogContent, DialogActions, MenuItem
+  DialogTitle, DialogContent, DialogActions, MenuItem, useTheme
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
 import CloseIcon from '@mui/icons-material/Close';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
 export default function AggregatorMail() {
   const { user } = useAuth();
+  const theme = useTheme();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const canManageEmailDirectory = isSuperAdmin || user?.permissions?.split(',').includes('EMAIL_DIRECTORY');
 
@@ -28,8 +28,8 @@ export default function AggregatorMail() {
   const [newTo, setNewTo] = useState('');
   const [newCc, setNewCc] = useState('');
 
-  // Inline editing state
-  const [editingId, setEditingId] = useState(null);
+  // Editing dialog state
+  const [editingRow, setEditingRow] = useState(null);
   const [editCategory, setEditCategory] = useState('');
   const [editSubCategory, setEditSubCategory] = useState('');
   const [editTo, setEditTo] = useState('');
@@ -125,7 +125,7 @@ export default function AggregatorMail() {
   };
 
   const handleStartEdit = (row) => {
-    setEditingId(row.id);
+    setEditingRow(row);
     setEditCategory(row.category);
     setEditSubCategory(row.subCategory);
     setEditTo(row.to.join(', '));
@@ -171,7 +171,7 @@ export default function AggregatorMail() {
       });
 
       await saveMappingsToBackend(updated);
-      setEditingId(null);
+      setEditingRow(null);
     } catch (err) {
       setErrorMsg(err.message);
     }
@@ -189,6 +189,21 @@ export default function AggregatorMail() {
     if (categoryFilter === 'All') return true;
     return m.category.toLowerCase() === categoryFilter.toLowerCase();
   });
+
+  // Sort mappings so categories are grouped together for row spanning
+  const sortedMappings = [...filteredMappings].sort((a, b) => {
+    const catComp = a.category.localeCompare(b.category);
+    if (catComp !== 0) return catComp;
+    return a.subCategory.localeCompare(b.subCategory);
+  });
+
+  // Pre-calculate spans for each category
+  const categorySpans = {};
+  sortedMappings.forEach(m => {
+    categorySpans[m.category] = (categorySpans[m.category] || 0) + 1;
+  });
+
+  const renderedCategories = {};
 
   return (
     <Box sx={{ py: 1 }}>
@@ -299,127 +314,113 @@ export default function AggregatorMail() {
             )}
 
             {/* Table View */}
-            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
-              <Table size="small">
+            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', overflow: 'hidden' }}>
+              <Table size="medium" sx={{ borderCollapse: 'collapse' }}>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: 'action.hover' }}>
-                    <TableCell sx={{ fontWeight: 800, py: 1.5 }}>Category</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 1.5 }}>Sub-Category</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 1.5 }}>To Recipient List</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 1.5 }}>CC Recipient List</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 1.5, align: 'center', width: 140 }}>Actions</TableCell>
+                  <TableRow sx={{ bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064' }}>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '15%', textAlign: 'center' }}>Category</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Sub-Category</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '30%' }}>To</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>CC</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '10%', textAlign: 'center' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredMappings.length === 0 ? (
+                  {sortedMappings.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} align="center" sx={{ py: 8, color: 'text.secondary', fontWeight: 600 }}>
                         No email mappings configured.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredMappings.map((row) => {
-                      const isEditing = editingId === row.id;
+                    sortedMappings.map((row) => {
+                      const isFirstOfCategory = !renderedCategories[row.category];
+                      if (isFirstOfCategory) {
+                        renderedCategories[row.category] = true;
+                      }
+
+                      const catLower = row.category.toLowerCase();
+                      
+                      // Theme-friendly background colors
+                      const catBg = catLower === 'zomato' 
+                        ? (theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD')
+                        : catLower === 'swiggy'
+                          ? (theme.palette.mode === 'dark' ? 'rgba(255, 235, 59, 0.15)' : '#FFF9C4')
+                          : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F5F5F5');
+
+                      const recBg = catLower === 'swiggy'
+                        ? (theme.palette.mode === 'dark' ? 'rgba(0, 188, 212, 0.1)' : '#E0F7FA')
+                        : (theme.palette.mode === 'dark' ? 'transparent' : '#FFFFFF');
+
+                      const cellBorder = `1px solid ${theme.palette.divider}`;
+
                       return (
-                        <TableRow key={row.id} hover>
-                          <TableCell sx={{ py: 1.5 }}>
-                            {isEditing ? (
-                              <TextField
-                                size="small"
-                                fullWidth
-                                value={editCategory}
-                                onChange={(e) => setEditCategory(e.target.value)}
-                              />
-                            ) : (
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        <TableRow key={row.id}>
+                          {isFirstOfCategory && (
+                            <TableCell 
+                              rowSpan={categorySpans[row.category]} 
+                              align="center"
+                              sx={{ 
+                                fontWeight: 800, 
+                                bgcolor: catBg, 
+                                color: 'text.primary',
+                                verticalAlign: 'middle',
+                                border: cellBorder,
+                                textAlign: 'center'
+                              }}
+                            >
+                              <Typography variant="body2" sx={{ fontWeight: 800 }}>
                                 {row.category}
                               </Typography>
-                            )}
+                            </TableCell>
+                          )}
+                          <TableCell 
+                            sx={{ 
+                              bgcolor: catBg, 
+                              border: cellBorder,
+                              fontWeight: 700,
+                              color: 'text.primary'
+                            }}
+                          >
+                            {row.subCategory}
                           </TableCell>
-                          <TableCell sx={{ py: 1.5 }}>
-                            {isEditing ? (
-                              <TextField
-                                size="small"
-                                fullWidth
-                                value={editSubCategory}
-                                onChange={(e) => setEditSubCategory(e.target.value)}
-                              />
-                            ) : (
-                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                {row.subCategory}
-                              </Typography>
-                            )}
+                          <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
+                            <Stack spacing={0.5}>
+                              {row.to.map((email, idx) => (
+                                <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.primary' }}>
+                                  {email}
+                                </Typography>
+                              ))}
+                            </Stack>
                           </TableCell>
-                          <TableCell sx={{ py: 1.5 }}>
-                            {isEditing ? (
-                              <TextField
-                                size="small"
-                                fullWidth
-                                value={editTo}
-                                onChange={(e) => setEditTo(e.target.value)}
-                              />
-                            ) : (
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                {row.to.map((email, idx) => (
-                                  <Chip key={idx} label={email} size="small" variant="outlined" sx={{ fontWeight: 500 }} />
-                                ))}
-                              </Box>
-                            )}
+                          <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
+                            <Stack spacing={0.5}>
+                              {row.cc.map((email, idx) => (
+                                <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.primary' }}>
+                                  {email}
+                                </Typography>
+                              ))}
+                            </Stack>
                           </TableCell>
-                          <TableCell sx={{ py: 1.5 }}>
-                            {isEditing ? (
-                              <TextField
-                                size="small"
-                                fullWidth
-                                value={editCc}
-                                onChange={(e) => setEditCc(e.target.value)}
-                              />
-                            ) : (
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                {row.cc.map((email, idx) => (
-                                  <Chip key={idx} label={email} size="small" variant="outlined" sx={{ fontWeight: 500 }} />
-                                ))}
-                              </Box>
-                            )}
-                          </TableCell>
-                          <TableCell sx={{ py: 1.5 }} align="center">
-                            {isEditing ? (
-                              <Stack direction="row" spacing={1} justifyContent="center">
-                                <IconButton 
-                                  size="small" 
-                                  color="success" 
-                                  onClick={() => handleSaveEdit(row.id)}
-                                >
-                                  <SaveIcon sx={{ fontSize: 20 }} />
-                                </IconButton>
-                                <IconButton 
-                                  size="small" 
-                                  color="error" 
-                                  onClick={() => setEditingId(null)}
-                                >
-                                  <CloseIcon sx={{ fontSize: 20 }} />
-                                </IconButton>
-                              </Stack>
-                            ) : (
-                              <Stack direction="row" spacing={1} justifyContent="center">
-                                <IconButton 
-                                  size="small" 
-                                  color="primary" 
-                                  disabled={!canManageEmailDirectory}
-                                  onClick={() => handleStartEdit(row)}
-                                >
-                                  <EditIcon sx={{ fontSize: 20 }} />
-                                </IconButton>
-                                <IconButton 
-                                  size="small" 
-                                  color="error" 
-                                  disabled={!canManageEmailDirectory}
-                                  onClick={() => setConfirmDeleteId(row.id)}
-                                >
-                                  <DeleteIcon sx={{ fontSize: 20 }} />
-                                </IconButton>
-                              </Stack>
-                            )}
+                          <TableCell sx={{ border: cellBorder }} align="center">
+                            <Stack direction="row" spacing={0.5} justifyContent="center">
+                              <IconButton 
+                                size="small" 
+                                color="primary" 
+                                disabled={!canManageEmailDirectory}
+                                onClick={() => handleStartEdit(row)}
+                              >
+                                <EditIcon sx={{ fontSize: 18 }} />
+                              </IconButton>
+                              <IconButton 
+                                size="small" 
+                                color="error" 
+                                disabled={!canManageEmailDirectory}
+                                onClick={() => setConfirmDeleteId(row.id)}
+                              >
+                                <DeleteIcon sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            </Stack>
                           </TableCell>
                         </TableRow>
                       );
@@ -431,6 +432,64 @@ export default function AggregatorMail() {
           </CardContent>
         </Card>
       </Stack>
+
+      {/* Edit Dialog */}
+      <Dialog
+        open={editingRow !== null}
+        onClose={() => setEditingRow(null)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', p: 1.5 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Edit Email Mapping</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1.5 }}>
+            <TextField
+              fullWidth
+              label="Category"
+              value={editCategory}
+              onChange={(e) => setEditCategory(e.target.value)}
+            />
+            <TextField
+              fullWidth
+              label="Sub-Category"
+              value={editSubCategory}
+              onChange={(e) => setEditSubCategory(e.target.value)}
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="To Recipient List (comma-separated)"
+              placeholder="e.g. abc@company.com, xyz@company.com"
+              value={editTo}
+              onChange={(e) => setEditTo(e.target.value)}
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="CC Recipient List (comma-separated)"
+              placeholder="e.g. manager@company.com"
+              value={editCc}
+              onChange={(e) => setEditCc(e.target.value)}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditingRow(null)} color="inherit" sx={{ fontWeight: 600 }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => handleSaveEdit(editingRow.id)} 
+            variant="contained" 
+            color="primary" 
+            sx={{ fontWeight: 700, borderRadius: '8px' }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Confirmation Dialog for Mapping Deletion */}
       <Dialog
