@@ -128,7 +128,16 @@ export default function Dashboard() {
     const liveStoreCount = targetStores.filter(s => s.status === 'LIVE' && s.isActive !== false && s.isActive !== 'false').length;
     const closedStoreCount = filteredStores.filter(s => getCurrentStatus(s) === 'Closed').length;
     const totalCafeCount = targetStores.filter(s => !isInventoryStore(s) && getCurrentStatus(s) !== 'Closed').length + closedStoreCount;
-    const pipelineCount = filteredStores.filter(s => s.status === 'In Pipeline' || s.status === 'INCOMPLETE_INFORMATION').length;
+    const pipelineCount = filteredStores.filter(s => {
+      const isLocked = s.isLocked === true || s.isLocked === 'true';
+      if (isLocked || s.status === 'LIVE' || s.status === 'Live' || getCurrentStatus(s) === 'Closed') {
+        return false;
+      }
+      if (s.status === 'Ready for Construction') {
+        return false;
+      }
+      return true;
+    }).length;
     const upcomingStoreCount = targetStores.filter(s => getCurrentStatus(s) === 'Upcoming Store').length;
     const pendingApprovalCount = targetStores.filter(s => s.status === 'PENDING_APPROVAL').length;
     const readyToGoLiveCount = targetStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live').length;
