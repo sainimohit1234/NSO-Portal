@@ -1588,12 +1588,61 @@ router.get('/bulk/download', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), 
     res.status(500).json({ error: `Failed to generate CSV: ${msg}` });
   }
 });
-
+function getFriendlyFieldName(field: string): string {
+  const mapping: Record<string, string> = {
+    cafeName: 'Cafe Name',
+    cafeCode: 'Cafe Code',
+    cafeModel: 'Cafe Model',
+    cafeAddress: 'Cafe Address',
+    city: 'City',
+    state: 'State',
+    pinCode: 'Pin Code',
+    zone: 'Zone',
+    cafeLocationGoogleLink: 'Cafe Google Map Link',
+    latitude: 'Latitude',
+    latt: 'Latitude',
+    long: 'Longitude',
+    cafeOpenTiming: 'Cafe Opening Time',
+    cafeClosingTime: 'Cafe Closing Time',
+    actualClosingTime: 'Actual Closing Time',
+    cityHeadEmail: 'City Head Email',
+    cityHeadPhone: 'City Head Phone Number',
+    platformType: 'Platform Type',
+    tradingArea: 'Trading Area',
+    launchStatus: 'Launch Status',
+    launchDate: 'Launch Date',
+    cafeMailId: 'Cafe Email',
+    cafeManagerMailId: 'Cafe Manager Email',
+    areaManagerEmail: 'Area Manager Email',
+    cafeLaunchMonth: 'Launch Month',
+    menu: 'Menu',
+    smokingZone: 'Smoking Zone',
+    parkingOption: 'Parking Option',
+    wheelchairAccessibility: 'Wheelchair Accessibility',
+    blueTokaiSwiggyRID: 'Blue Tokai Swiggy ID',
+    blueTokaiZomatoRID: 'Blue Tokai Zomato ID',
+    suchaliSwiggyRID: 'Suchali Swiggy ID',
+    suchaliZomatoRID: 'Suchali Zomato ID',
+    gotTeaSwiggyRID: 'Got Tea Swiggy ID',
+    gotTeaZomatoRID: 'Got Tea Zomato ID',
+    newPricingCategory: 'New Pricing Category',
+    newPricingSubCategory: 'New Pricing Sub-Category',
+    cluster: 'Cluster',
+    cafeOpeningHr: 'Cafe Opening Hours',
+    cafePhoneNumber: 'Cafe Phone Number',
+    cafeManagerName: 'Cafe Manager Name',
+    cafeManagerContactNo: 'Cafe Manager Contact Number',
+    areaManagerName: 'Area Manager Name',
+    areaManagerPhone: 'Area Manager Phone Number',
+    cityHeadName: 'City Head Name'
+  };
+  return mapping[field] || field;
+}
 
 // Bulk Upload Stores
 router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), parseMultipartMiddleware(false), async (req: any, res) => {
   if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
+    return res.status(400).json({ error: 'Please choose a CSV file to upload.' });
   }
 
   const { action, brand } = req.body;
@@ -1623,23 +1672,27 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
 
       // Validate that 'cafeCode' is present
       if (!cleanHeaders.includes('cafeCode')) {
-        errors.push({ message: "Cafe Code is mandatory in the uploaded CSV file." });
+        errors.push({ message: "The 'Cafe Code' column is required but was not found in your CSV file. Please make sure the column is included and try again." });
       } else {
         // Validate that all headers in the CSV are valid columns in STORE_CSV_HEADERS
         const invalidHeaders = cleanHeaders.filter(h => !STORE_CSV_HEADERS.some(sh => sh.id === h));
         if (invalidHeaders.length > 0) {
-          errors.push({ message: `Invalid column name(s) in CSV headers: ${invalidHeaders.join(', ')}` });
+          errors.push({ message: `The following columns in your CSV file are not recognized: ${invalidHeaders.map(getFriendlyFieldName).join(', ')}. Please remove or correct them.` });
         }
         
         // For creation, verify all MANDATORY_FIELDS columns are included
         if (action === 'create') {
           const missingMandatoryHeaders = MANDATORY_FIELDS.filter(field => !cleanHeaders.includes(field));
           if (missingMandatoryHeaders.length > 0) {
-            errors.push({ message: `Missing mandatory columns for store creation: ${missingMandatoryHeaders.join(', ')}` });
+            errors.push({ message: `To create new stores, please include the following required columns: ${missingMandatoryHeaders.map(getFriendlyFieldName).join(', ')}.` });
           }
         }
       }
       headerValidated = true;
+    })
+    .on('data', (data) => {
+      if (errors.length > 0) return;
+      results.push(data);
     })
     .on('end', async () => {
       try {
@@ -1664,7 +1717,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
             // 1. Validate mandatory fields (non-empty)
             const missingFields = MANDATORY_FIELDS.filter(field => !row[field] || String(row[field]).trim() === '');
             if (missingFields.length > 0) {
-              rowErrors.push(`Missing mandatory fields: ${missingFields.join(', ')}`);
+              rowErrors.push(`The following required fields are empty: ${missingFields.map(getFriendlyFieldName).join(', ')}.`);
             }
 
             // 2. Email checks
@@ -1673,29 +1726,29 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
               if (row[field]) {
                 const emailVal = String(row[field]).toLowerCase().trim();
                 if (!emailVal.endsWith('@bluetokaicoffee.com') && !emailVal.endsWith('@gottea.in')) {
-                  rowErrors.push(`${field} must be a valid @bluetokaicoffee.com or @gottea.in email.`);
+                  rowErrors.push(`${getFriendlyFieldName(field)} must be a valid company email address ending with @bluetokaicoffee.com or @gottea.in.`);
                 }
               }
             }
 
             // 3. Launch month format check
             if (row.cafeLaunchMonth && !/^[a-zA-Z]+\s+\d{4}$/.test(String(row.cafeLaunchMonth).trim())) {
-              rowErrors.push(`cafeLaunchMonth must be in "Month Year" format (e.g. "June 2026").`);
+              rowErrors.push("The launch month format is incorrect. Please write it like 'June 2026'.");
             }
 
             // 4. Cafe model check
             if (row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
-              rowErrors.push(`cafeModel must be one of: ${CAFE_MODELS.join(', ')}`);
+              rowErrors.push("The cafe model name is not recognized. Please choose a valid model.");
             }
 
             // 5. Menu option check
             if (row.menu && !MENU_OPTIONS.includes(row.menu)) {
-              rowErrors.push(`menu must be one of: ${MENU_OPTIONS.join(', ')}`);
+              rowErrors.push("The menu type is not recognized. Please choose a valid option.");
             }
 
             // 6. State check
             if (row.state && !INDIAN_STATES.includes(row.state)) {
-              rowErrors.push(`state must be a valid Indian state.`);
+              rowErrors.push("Please enter a valid Indian state name.");
             }
 
             // 7. Permissions checks for contact details
@@ -1705,7 +1758,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
                 return val !== undefined && val !== null && String(val).trim() !== '';
               });
               if (sendsContactDetails) {
-                rowErrors.push(`You do not have permission to provide contact details.`);
+                rowErrors.push("You do not have the required permissions to modify contact details.");
               }
             }
 
@@ -1714,7 +1767,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
             if (cafeCode) {
               const existing = await prisma.store.findUnique({ where: { cafeCode } });
               if (existing) {
-                rowErrors.push(`Store with cafeCode ${cafeCode} already exists.`);
+                rowErrors.push(`A store with Cafe Code '${cafeCode}' already exists in the system.`);
               }
             }
 
@@ -1755,7 +1808,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
               });
               processedCount++;
             } catch (err: any) {
-              errors.push({ message: `Row ${i + 2}: Database insert failed: ${err.message || err}` });
+              errors.push({ message: `Row ${i + 2}: We couldn't create the store in the database. Please try again.` });
             }
           }
         } else if (action === 'modify') {
@@ -1768,14 +1821,14 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
             const cafeCode = row.cafeCode;
 
             if (!cafeCode || String(cafeCode).trim() === '') {
-              rowErrors.push(`Cafe Code is missing.`);
+              rowErrors.push("Cafe Code is missing.");
               rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
               continue;
             }
 
             const existing = await prisma.store.findUnique({ where: { cafeCode } });
             if (!existing) {
-               rowErrors.push(`Store with cafeCode ${cafeCode} not found in database.`);
+               rowErrors.push(`We couldn't find a store with Cafe Code '${cafeCode}' in the system.`);
                rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
                continue;
             }
@@ -1788,7 +1841,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
               presentHeaders.includes(field) && (!row[field] || String(row[field]).trim() === '')
             );
             if (missingFields.length > 0) {
-              rowErrors.push(`Missing mandatory fields: ${missingFields.join(', ')}`);
+              rowErrors.push(`The following required fields are empty: ${missingFields.map(getFriendlyFieldName).join(', ')}.`);
             }
 
             // 2. Email checks
@@ -1797,29 +1850,29 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
               if (presentHeaders.includes(field) && row[field]) {
                 const emailVal = String(row[field]).toLowerCase().trim();
                 if (!emailVal.endsWith('@bluetokaicoffee.com') && !emailVal.endsWith('@gottea.in')) {
-                  rowErrors.push(`${field} must be a valid @bluetokaicoffee.com or @gottea.in email.`);
+                  rowErrors.push(`${getFriendlyFieldName(field)} must be a valid company email address ending with @bluetokaicoffee.com or @gottea.in.`);
                 }
               }
             }
 
             // 3. Launch month format check
             if (presentHeaders.includes('cafeLaunchMonth') && row.cafeLaunchMonth && !/^[a-zA-Z]+\s+\d{4}$/.test(String(row.cafeLaunchMonth).trim())) {
-              rowErrors.push(`cafeLaunchMonth must be in "Month Year" format (e.g. "June 2026").`);
+              rowErrors.push("The launch month format is incorrect. Please write it like 'June 2026'.");
             }
 
             // 4. Cafe model check
             if (presentHeaders.includes('cafeModel') && row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
-              rowErrors.push(`cafeModel must be one of: ${CAFE_MODELS.join(', ')}`);
+              rowErrors.push("The cafe model name is not recognized. Please choose a valid model.");
             }
 
             // 5. Menu option check
             if (presentHeaders.includes('menu') && row.menu && !MENU_OPTIONS.includes(row.menu)) {
-              rowErrors.push(`menu must be one of: ${MENU_OPTIONS.join(', ')}`);
+              rowErrors.push("The menu type is not recognized. Please choose a valid option.");
             }
 
             // 6. State check
             if (presentHeaders.includes('state') && row.state && !INDIAN_STATES.includes(row.state)) {
-              rowErrors.push(`state must be a valid Indian state.`);
+              rowErrors.push("Please enter a valid Indian state name.");
             }
 
             // 7. Compute contact fields modifications
@@ -1852,16 +1905,16 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
             if (existing.isLocked) {
               if (!isSuperAdmin) {
                 if (modifiesNonContactFields) {
-                  rowErrors.push(`Store with cafeCode ${cafeCode} is locked. Only contact details can be modified.`);
+                  rowErrors.push("This store is locked; you can only update its contact details.");
                 }
                 if (modifiesContactDetails && !hasEditContacts) {
-                  rowErrors.push(`Store with cafeCode ${cafeCode} is locked and you do not have permission to modify contact details.`);
+                  rowErrors.push("This store is locked and you do not have permission to change its contact details.");
                 }
               }
             } else {
               if (!isSuperAdmin) {
                 if (modifiesContactDetails && !hasEditContacts) {
-                  rowErrors.push(`You do not have permission to modify contact details for store with cafeCode ${cafeCode}.`);
+                  rowErrors.push("You do not have permission to change the contact details for this store.");
                 }
               }
             }
@@ -1906,7 +1959,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
               });
               processedCount++;
             } catch (err: any) {
-              errors.push({ message: `Row ${i + 2}: Database update failed: ${err.message || err}` });
+              errors.push({ message: `Row ${i + 2}: We couldn't save updates to the database. Please try again.` });
             }
           }
         }
@@ -1918,7 +1971,13 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
         res.json({ message: `Successfully ${action === 'create' ? 'created' : 'updated'} ${processedCount} stores in bulk.` });
       } catch (err: any) {
         console.error('Bulk upload handler crashed:', err);
-        return res.status(500).json({ error: 'Bulk upload processing failed', message: err.message || String(err) });
+        return res.status(500).json({ error: 'Bulk upload processing failed', message: 'We ran into an unexpected issue while saving the data. Please try again.' });
+      }
+    })
+    .on('error', (err: any) => {
+      console.error('CSV parser stream error:', err);
+      if (!res.headersSent) {
+        res.status(400).json({ error: 'Failed to process CSV file', message: 'We ran into an issue reading the CSV file. Please make sure the format is correct and try again.' });
       }
     });
 });
