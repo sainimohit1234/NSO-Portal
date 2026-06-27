@@ -420,7 +420,7 @@ const NewStore = () => {
   const NSO_FIELDS = [
     ...BASIC_FIELDS,
     'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId',
-    'gstNo', 'fssaiNo',
+    'gstNo',
     'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate',
     'cafeModel', 'cluster', 'platformType', 'tradingArea',
     'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'

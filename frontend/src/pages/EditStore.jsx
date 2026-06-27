@@ -895,7 +895,7 @@ export default function EditStore() {
     'cafeLocationGoogleLink', 'latitude', 'latt', 'long',
     'cafeOpenTiming', 'cafeClosingTime', 'actualClosingTime',
     'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId',
-    'gstNo', 'fssaiNo',
+    'gstNo',
     'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate',
     'cafeModel', 'cluster', 'platformType', 'tradingArea',
     'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
