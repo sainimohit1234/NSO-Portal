@@ -56,9 +56,13 @@ export default function Dashboard() {
       });
   }, []);
 
-  // Only count active stores in dashboard stats
+  // Only count active stores in dashboard stats, excluding test models
   const filteredStores = useMemo(() => {
-    return stores.filter(s => s.isActive !== false && s.isActive !== 'false');
+    return stores.filter(s => 
+      s.isActive !== false && 
+      s.isActive !== 'false' && 
+      String(s.cafeModel || '').toLowerCase() !== 'test'
+    );
   }, [stores]);
 
   // Helpers for Expired/Expiring soon logic

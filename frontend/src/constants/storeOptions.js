@@ -9,6 +9,7 @@ export const CAFE_MODELS = [
   'Got Tea',
   'University',
   'SIS/Others',
+  'test',
 ];
 
 // ─── Menu Options ───
