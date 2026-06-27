@@ -12,6 +12,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import DownloadIcon from '@mui/icons-material/Download';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import axios, { normalizeListResponse } from '../utils/api';
 
 export default function ImagesDocs() {
@@ -22,7 +23,8 @@ export default function ImagesDocs() {
   // Add new doc inline form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLinkName, setNewLinkName] = useState('');
-  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newFileUrl, setNewFileUrl] = useState('');
+  const [uploadingNewFile, setUploadingNewFile] = useState(false);
   const [addingSaving, setAddingSaving] = useState(false);
 
   // Preview state
@@ -37,7 +39,8 @@ export default function ImagesDocs() {
   // Inline editing state
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
-  const [editUrl, setEditUrl] = useState('');
+  const [editFileUrl, setEditFileUrl] = useState('');
+  const [uploadingEditFile, setUploadingEditFile] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
   const fetchDocuments = async () => {
@@ -58,9 +61,55 @@ export default function ImagesDocs() {
     fetchDocuments();
   }, []);
 
+  const handleFileUpload = async (file, isEdit = false) => {
+    const maxSizeBytes = 300 * 1024; // 300KB
+    if (file.size > maxSizeBytes) {
+      setErrorMsg('File size must not exceed 300KB.');
+      if (isEdit) {
+        setEditFileUrl('');
+      } else {
+        setNewFileUrl('');
+      }
+      return null;
+    }
+
+    setErrorMsg('');
+    if (isEdit) {
+      setUploadingEditFile(true);
+    } else {
+      setUploadingNewFile(true);
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await axios.post('/api/stores/upload-file?type=global-docs', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const uploadedUrl = res.data.url;
+      if (isEdit) {
+        setEditFileUrl(uploadedUrl);
+      } else {
+        setNewFileUrl(uploadedUrl);
+      }
+      return uploadedUrl;
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Failed to upload file. Make sure it is a PDF, DOCX, DOC, JPG, JPEG, or PNG.');
+      return null;
+    } finally {
+      if (isEdit) {
+        setUploadingEditFile(false);
+      } else {
+        setUploadingNewFile(false);
+      }
+    }
+  };
+
   const handleAddNewDoc = async () => {
     const name = newLinkName.trim();
-    const url = newLinkUrl.trim();
+    const url = newFileUrl.trim();
     if (!name || !url) return;
 
     setAddingSaving(true);
@@ -72,7 +121,7 @@ export default function ImagesDocs() {
         linkUrl: url
       });
       setNewLinkName('');
-      setNewLinkUrl('');
+      setNewFileUrl('');
       setShowAddForm(false);
       await fetchDocuments();
       setPreviewUrl(url);
@@ -85,9 +134,15 @@ export default function ImagesDocs() {
     }
   };
 
+  const handleStartEdit = (doc) => {
+    setEditingId(doc.id);
+    setEditName(doc.category);
+    setEditFileUrl(doc.fileUrl);
+  };
+
   const handleSaveEdit = async (id) => {
     const name = editName.trim();
-    const url = editUrl.trim();
+    const url = editFileUrl.trim();
     if (!name || !url) return;
 
     setEditSaving(true);
@@ -108,7 +163,7 @@ export default function ImagesDocs() {
 
       setEditingId(null);
       setEditName('');
-      setEditUrl('');
+      setEditFileUrl('');
       await fetchDocuments();
     } catch (err) {
       setErrorMsg(`Failed to update document for ${name}`);
@@ -207,7 +262,7 @@ export default function ImagesDocs() {
       <Grid container spacing={3}>
         {/* Left Column */}
         <Grid size={{ xs: 12, md: 6 }}>
-          {/* Platform Links Card — Fixed Height */}
+          {/* Platform Documents Card */}
           <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
             <CardHeader
               title="Platform Documents"
@@ -243,11 +298,11 @@ export default function ImagesDocs() {
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                         Add New Doc
                       </Typography>
-                      <IconButton size="small" onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewLinkUrl(''); }}>
+                      <IconButton size="small" onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewFileUrl(''); }}>
                         <CloseIcon fontSize="small" />
                       </IconButton>
                     </Box>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <TextField
                         fullWidth
                         size="small"
@@ -257,27 +312,41 @@ export default function ImagesDocs() {
                         onChange={(e) => setNewLinkName(e.target.value)}
                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
                       />
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Doc URL *"
-                        placeholder="https://..."
-                        value={newLinkUrl}
-                        onChange={(e) => setNewLinkUrl(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddNewDoc(); } }}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <LinkIcon sx={{ fontSize: 18, color: 'action.active' }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                      />
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                          Doc File (Max 300KB) *
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          component="label"
+                          disabled={uploadingNewFile}
+                          startIcon={uploadingNewFile ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+                          sx={{ textTransform: 'none', borderStyle: 'dashed', py: 1, borderRadius: '8px' }}
+                        >
+                          {newFileUrl ? 'Replace File' : 'Upload File'}
+                          <input
+                            type="file"
+                            hidden
+                            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                handleFileUpload(e.target.files[0], false);
+                              }
+                            }}
+                          />
+                        </Button>
+                        {newFileUrl && (
+                          <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, wordBreak: 'break-all' }}>
+                            ✓ File uploaded: {newFileUrl.substring(newFileUrl.lastIndexOf('/') + 1)}
+                          </Typography>
+                        )}
+                      </Box>
+
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         <Button
                           size="small"
-                          onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewLinkUrl(''); }}
+                          onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewFileUrl(''); }}
                         >
                           Cancel
                         </Button>
@@ -285,7 +354,7 @@ export default function ImagesDocs() {
                           size="small"
                           variant="contained"
                           startIcon={addingSaving ? null : <SaveIcon />}
-                          disabled={addingSaving || !newLinkName.trim() || !newLinkUrl.trim()}
+                          disabled={addingSaving || !newLinkName.trim() || !newFileUrl.trim()}
                           onClick={handleAddNewDoc}
                           sx={{ borderRadius: '8px', fontWeight: 600 }}
                         >
@@ -329,7 +398,7 @@ export default function ImagesDocs() {
                               <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                                 Edit Doc
                               </Typography>
-                              <IconButton size="small" onClick={() => { setEditingId(null); setEditName(''); setEditUrl(''); }}>
+                              <IconButton size="small" onClick={() => { setEditingId(null); setEditName(''); setEditFileUrl(''); }}>
                                 <CloseIcon fontSize="small" />
                               </IconButton>
                             </Box>
@@ -341,26 +410,41 @@ export default function ImagesDocs() {
                               onChange={(e) => setEditName(e.target.value)}
                               sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
                             />
-                            <TextField
-                              fullWidth
-                              size="small"
-                              label="Doc URL *"
-                              value={editUrl}
-                              onChange={(e) => setEditUrl(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleSaveEdit(doc.id); } }}
-                              InputProps={{
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    <LinkIcon sx={{ fontSize: 18, color: 'action.active' }} />
-                                  </InputAdornment>
-                                ),
-                              }}
-                              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                            />
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                Doc File (Max 300KB) *
+                              </Typography>
+                              <Button
+                                variant="outlined"
+                                component="label"
+                                disabled={uploadingEditFile}
+                                startIcon={uploadingEditFile ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+                                sx={{ textTransform: 'none', borderStyle: 'dashed', py: 1, borderRadius: '8px' }}
+                              >
+                                Replace File
+                                <input
+                                  type="file"
+                                  hidden
+                                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                                  onChange={(e) => {
+                                    if (e.target.files && e.target.files[0]) {
+                                      handleFileUpload(e.target.files[0], true);
+                                    }
+                                  }}
+                                />
+                              </Button>
+                              {editFileUrl && (
+                                <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, wordBreak: 'break-all' }}>
+                                  ✓ File uploaded: {editFileUrl.substring(editFileUrl.lastIndexOf('/') + 1)}
+                                </Typography>
+                              )}
+                            </Box>
+
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1.5 }}>
                               <Button
                                 size="small"
-                                onClick={() => { setEditingId(null); setEditName(''); setEditUrl(''); }}
+                                onClick={() => { setEditingId(null); setEditName(''); setEditFileUrl(''); }}
                               >
                                 Cancel
                               </Button>
@@ -368,7 +452,7 @@ export default function ImagesDocs() {
                                 size="small"
                                 variant="contained"
                                 startIcon={editSaving ? null : <SaveIcon />}
-                                disabled={editSaving || !editName.trim() || !editUrl.trim()}
+                                disabled={editSaving || !editName.trim() || !editFileUrl.trim()}
                                 onClick={() => handleSaveEdit(doc.id)}
                                 sx={{ borderRadius: '8px', fontWeight: 600 }}
                               >
@@ -423,7 +507,7 @@ export default function ImagesDocs() {
                                   textDecorationColor: 'rgba(0,122,140,0.3)',
                                 }}
                               >
-                                {doc.fileUrl}
+                                {doc.fileUrl.substring(doc.fileUrl.lastIndexOf('/') + 1)}
                               </Typography>
                             </Box>
 
@@ -432,9 +516,7 @@ export default function ImagesDocs() {
                               size="small"
                               color="primary"
                               onClick={() => {
-                                setEditingId(doc.id);
-                                setEditName(doc.category);
-                                setEditUrl(doc.fileUrl);
+                                handleStartEdit(doc);
                               }}
                               sx={{ flexShrink: 0 }}
                             >
