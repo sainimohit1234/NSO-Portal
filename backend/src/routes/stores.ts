@@ -1612,25 +1612,28 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
   stream
     .pipe(csvParser({
       mapHeaders: ({ header }) => {
+        if (!header || typeof header !== 'string') return '';
         const trimmed = header.trim().replace(/[\s_-]/g, '').toLowerCase();
         const matched = STORE_CSV_HEADERS.find(sh => sh.id.toLowerCase().replace(/[\s_-]/g, '') === trimmed);
         return matched ? matched.id : header.trim();
       }
     }))
     .on('headers', (headers: string[]) => {
+      const cleanHeaders = headers.filter(h => h && h.trim() !== '');
+
       // Validate that 'cafeCode' is present
-      if (!headers.includes('cafeCode')) {
+      if (!cleanHeaders.includes('cafeCode')) {
         errors.push({ message: "Cafe Code is mandatory in the uploaded CSV file." });
       } else {
         // Validate that all headers in the CSV are valid columns in STORE_CSV_HEADERS
-        const invalidHeaders = headers.filter(h => !STORE_CSV_HEADERS.some(sh => sh.id === h));
+        const invalidHeaders = cleanHeaders.filter(h => !STORE_CSV_HEADERS.some(sh => sh.id === h));
         if (invalidHeaders.length > 0) {
           errors.push({ message: `Invalid column name(s) in CSV headers: ${invalidHeaders.join(', ')}` });
         }
         
         // For creation, verify all MANDATORY_FIELDS columns are included
         if (action === 'create') {
-          const missingMandatoryHeaders = MANDATORY_FIELDS.filter(field => !headers.includes(field));
+          const missingMandatoryHeaders = MANDATORY_FIELDS.filter(field => !cleanHeaders.includes(field));
           if (missingMandatoryHeaders.length > 0) {
             errors.push({ message: `Missing mandatory columns for store creation: ${missingMandatoryHeaders.join(', ')}` });
           }
