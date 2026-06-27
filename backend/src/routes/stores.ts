@@ -267,31 +267,94 @@ router.use(async (req: any, res, next) => {
 
 const pdfParse = require('pdf-parse');
 
-async function extractOrGenerateFssaiNo(filename: string, fileBuffer: Buffer | null): Promise<string> {
+function parseDateToISO(dateStr: string): string | null {
+  if (!dateStr) return null;
+  const cleaned = dateStr.replace(/\//g, '-').trim();
+  const parts = cleaned.split('-');
+  if (parts.length === 3) {
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    return `${year}-${month}-${day}`;
+  }
+  return null;
+}
+
+interface FssaiExtractionResult {
+  fssaiNo: string;
+  fssaiStartDate?: string;
+  fssaiExpiry?: string;
+}
+
+async function extractOrGenerateFssaiData(filename: string, fileBuffer: Buffer | null): Promise<FssaiExtractionResult> {
+  let fssaiNo = '';
+  let fssaiStartDate = '';
+  let fssaiExpiry = '';
+
   if (fileBuffer && filename.toLowerCase().endsWith('.pdf')) {
     try {
       const data = await pdfParse(fileBuffer);
       const text = data.text || '';
-      // Find a 14-digit FSSAI number
-      const match = text.match(/\b\d{14}\b/);
-      if (match) {
-        console.log('Successfully parsed FSSAI number from PDF text:', match[0]);
-        return match[0];
+      console.log('FSSAI PDF parsed text length:', text.length);
+
+      // 1. License Number
+      const fssaiRegex = /(?:License\s+Number|LicenseNumber|अनुज्ञप्ति\s+संख्या)(?:[^\d]*?)(\d{14})/i;
+      const fssaiMatch = text.match(fssaiRegex);
+      if (fssaiMatch) {
+        fssaiNo = fssaiMatch[1];
+        console.log('Extracted FSSAI Number via regex:', fssaiNo);
+      } else {
+        const fallback = text.match(/\d{14}/);
+        if (fallback) {
+          fssaiNo = fallback[0];
+          console.log('Extracted FSSAI Number via fallback:', fssaiNo);
+        }
       }
+
+      // 2. Start Date (Issued On)
+      const startRegex = /(?:Issued\s+On|IssuedOn|दिनांक)(?:[^\d]*?)(\d{2}[-\/]\d{2}[-\/]\d{4})/i;
+      const startMatch = text.match(startRegex);
+      if (startMatch) {
+        const parsed = parseDateToISO(startMatch[1]);
+        if (parsed) {
+          fssaiStartDate = parsed;
+          console.log('Extracted FSSAI Start Date:', fssaiStartDate);
+        }
+      }
+
+      // 3. Expiry Date (Valid Upto)
+      const expiryRegex = /(?:Valid\s+Upto|ValidUpto|वैधता)(?:[^\d]*?)(\d{2}[-\/]\d{2}[-\/]\d{4})/i;
+      const expiryMatch = text.match(expiryRegex);
+      if (expiryMatch) {
+        const parsed = parseDateToISO(expiryMatch[1]);
+        if (parsed) {
+          fssaiExpiry = parsed;
+          console.log('Extracted FSSAI Expiry Date:', fssaiExpiry);
+        }
+      }
+
     } catch (err) {
-      console.error('Failed to parse FSSAI PDF text, falling back to name/mock:', err);
+      console.error('Failed to parse FSSAI PDF text:', err);
     }
   }
 
-  const match = filename.match(/\b\d{14}\b/);
-  if (match) {
-    return match[0];
+  if (!fssaiNo) {
+    const filenameMatch = filename.match(/\b\d{14}\b/);
+    if (filenameMatch) {
+      fssaiNo = filenameMatch[0];
+    } else {
+      let num = '1';
+      for (let i = 0; i < 13; i++) {
+        num += Math.floor(Math.random() * 10).toString();
+      }
+      fssaiNo = num;
+    }
   }
-  let num = '1';
-  for (let i = 0; i < 13; i++) {
-    num += Math.floor(Math.random() * 10).toString();
-  }
-  return num;
+
+  const result: FssaiExtractionResult = { fssaiNo };
+  if (fssaiStartDate) result.fssaiStartDate = fssaiStartDate;
+  if (fssaiExpiry) result.fssaiExpiry = fssaiExpiry;
+  return result;
 }
 
 async function extractOrGenerateGstNo(filename: string, fileBuffer: Buffer | null): Promise<string> {
@@ -299,11 +362,17 @@ async function extractOrGenerateGstNo(filename: string, fileBuffer: Buffer | nul
     try {
       const data = await pdfParse(fileBuffer);
       const text = data.text || '';
-      // Find a 15-character GSTIN pattern
-      const match = text.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}\b/i);
-      if (match) {
-        console.log('Successfully parsed GSTIN from PDF text:', match[0]);
-        return match[0].toUpperCase();
+      const gstRegex = /(?:GSTIN|GST\s+Number|Registration\s+Number)(?:[^\dA-Z]*?)(\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1})/i;
+      const gstMatch = text.match(gstRegex);
+      if (gstMatch) {
+        console.log('Successfully parsed GSTIN from PDF text via regex:', gstMatch[1]);
+        return gstMatch[1].toUpperCase();
+      } else {
+        const match = text.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}\b/i);
+        if (match) {
+          console.log('Successfully parsed GSTIN from PDF text:', match[0]);
+          return match[0].toUpperCase();
+        }
       }
     } catch (err) {
       console.error('Failed to parse GST PDF text, falling back to name/mock:', err);
@@ -415,7 +484,8 @@ router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'F
   let extraData: any = {};
   const fileBuffer = req.file.buffer || (req.file.path ? fs.readFileSync(req.file.path) : null);
   if (fileType === 'fssai') {
-    extraData.fssaiNo = await extractOrGenerateFssaiNo(req.file.originalname, fileBuffer);
+    const fssaiData = await extractOrGenerateFssaiData(req.file.originalname, fileBuffer);
+    extraData = { ...extraData, ...fssaiData };
   } else if (fileType === 'gst') {
     extraData.gstNo = await extractOrGenerateGstNo(req.file.originalname, fileBuffer);
   }

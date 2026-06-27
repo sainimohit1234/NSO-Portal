@@ -291,6 +291,12 @@ export default function ComplianceDetails() {
           if (res.data.fssaiNo) {
             setFssaiNo(res.data.fssaiNo);
           }
+          if (res.data.fssaiStartDate) {
+            setFssaiStartDate(res.data.fssaiStartDate);
+          }
+          if (res.data.fssaiExpiry) {
+            setFssaiExpiry(res.data.fssaiExpiry);
+          }
           setSuccessMsg('FSSAI certificate uploaded and verified successfully.');
         } else if (pendingUploadType === 'gst') {
           setGstCertificateLink(fileUrl);
