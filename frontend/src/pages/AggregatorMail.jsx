@@ -22,6 +22,10 @@ export default function AggregatorMail() {
   const [mappings, setMappings] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('All');
 
+  // Expandable tree state
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [expandedSubCategories, setExpandedSubCategories] = useState({});
+
   // New mapping form state
   const [newCategory, setNewCategory] = useState('');
   const [newSubCategory, setNewSubCategory] = useState('');
@@ -183,6 +187,20 @@ export default function AggregatorMail() {
     setConfirmDeleteId(null);
   };
 
+  const toggleCategory = (catName) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [catName]: !prev[catName]
+    }));
+  };
+
+  const toggleSubCategory = (subCatId) => {
+    setExpandedSubCategories(prev => ({
+      ...prev,
+      [subCatId]: !prev[subCatId]
+    }));
+  };
+
   const uniqueCategories = ['All', ...new Set(mappings.map(m => m.category))];
 
   const filteredMappings = mappings.filter(m => {
@@ -197,13 +215,17 @@ export default function AggregatorMail() {
     return a.subCategory.localeCompare(b.subCategory);
   });
 
-  // Pre-calculate spans for each category
-  const categorySpans = {};
-  sortedMappings.forEach(m => {
-    categorySpans[m.category] = (categorySpans[m.category] || 0) + 1;
-  });
+  // Group mappings by category
+  const categoriesList = [];
+  const categoryMap = {};
 
-  const renderedCategories = {};
+  sortedMappings.forEach(m => {
+    if (!categoryMap[m.category]) {
+      categoryMap[m.category] = [];
+      categoriesList.push(m.category);
+    }
+    categoryMap[m.category].push(m);
+  });
 
   return (
     <Box sx={{ py: 1 }}>
@@ -225,9 +247,9 @@ export default function AggregatorMail() {
         </Alert>
       )}
 
-      <Stack spacing={4}>
-        {/* Configuration Card */}
-        <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', width: '100%', border: '1px solid', borderColor: 'divider' }}>
+      {/* Main card restricted to 50% width on large screens */}
+      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
+        <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', width: { xs: '100%', lg: '50%' }, border: '1px solid', borderColor: 'divider' }}>
           <CardHeader 
             title="Email Recipient Configuration" 
             titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
@@ -240,7 +262,7 @@ export default function AggregatorMail() {
                   label="Filter Category"
                   value={categoryFilter}
                   onChange={(e) => setCategoryFilter(e.target.value)}
-                  sx={{ width: 200 }}
+                  sx={{ width: 160 }}
                 >
                   {uniqueCategories.map(cat => (
                     <MenuItem key={cat} value={cat}>{cat}</MenuItem>
@@ -254,12 +276,12 @@ export default function AggregatorMail() {
             
             {/* Add Mapping Form (Enabled only for users with permissions) */}
             {canManageEmailDirectory && (
-              <Paper variant="outlined" sx={{ p: 3, mb: 4, borderRadius: '12px', bgcolor: 'action.hover' }}>
+              <Paper variant="outlined" sx={{ p: 2.5, mb: 4, borderRadius: '12px', bgcolor: 'action.hover' }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2 }}>
                   Add New Email Mapping
                 </Typography>
-                <Grid container spacing={2.5}>
-                  <Grid item xs={12} sm={6} md={3}>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
                     <TextField
                       fullWidth
                       size="small"
@@ -269,7 +291,7 @@ export default function AggregatorMail() {
                       onChange={(e) => setNewCategory(e.target.value)}
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6} md={3}>
+                  <Grid item xs={6}>
                     <TextField
                       fullWidth
                       size="small"
@@ -279,7 +301,7 @@ export default function AggregatorMail() {
                       onChange={(e) => setNewSubCategory(e.target.value)}
                     />
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -289,7 +311,7 @@ export default function AggregatorMail() {
                       onChange={(e) => setNewTo(e.target.value)}
                     />
                   </Grid>
-                  <Grid item xs={12} md={3}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       size="small"
@@ -315,31 +337,29 @@ export default function AggregatorMail() {
 
             {/* Table View */}
             <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', overflow: 'hidden' }}>
-              <Table size="medium" sx={{ borderCollapse: 'collapse' }}>
+              <Table size="medium" sx={{ tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}>
                 <TableHead>
                   <TableRow sx={{ bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064' }}>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '15%', textAlign: 'center' }}>Category</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Sub-Category</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '30%' }}>To</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>CC</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Category</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>Sub-Category</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>To</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>CC</TableCell>
                     <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '10%', textAlign: 'center' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {sortedMappings.length === 0 ? (
+                  {categoriesList.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 8, color: 'text.secondary', fontWeight: 600 }}>
+                      <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
                         No email mappings configured.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    sortedMappings.map((row) => {
-                      const isFirstOfCategory = !renderedCategories[row.category];
-                      if (isFirstOfCategory) {
-                        renderedCategories[row.category] = true;
-                      }
+                    categoriesList.map((catName) => {
+                      const catRows = categoryMap[catName];
+                      const isCatExpanded = !!expandedCategories[catName];
 
-                      const catLower = row.category.toLowerCase();
+                      const catLower = catName.toLowerCase();
                       
                       // Theme-friendly background colors
                       const catBg = catLower === 'zomato' 
@@ -354,76 +374,153 @@ export default function AggregatorMail() {
 
                       const cellBorder = `1px solid ${theme.palette.divider}`;
 
-                      return (
-                        <TableRow key={row.id}>
-                          {isFirstOfCategory && (
+                      if (!isCatExpanded) {
+                        return (
+                          <TableRow key={`cat_summary_${catName}`}>
                             <TableCell 
-                              rowSpan={categorySpans[row.category]} 
-                              align="center"
+                              align="left"
+                              onClick={() => toggleCategory(catName)}
                               sx={{ 
                                 fontWeight: 800, 
                                 bgcolor: catBg, 
                                 color: 'text.primary',
-                                verticalAlign: 'middle',
+                                cursor: 'pointer',
                                 border: cellBorder,
-                                textAlign: 'center'
+                                py: 1.5,
+                                userSelect: 'none',
+                                '&:hover': { opacity: 0.8 }
                               }}
                             >
                               <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                                {row.category}
+                                ▶ {catName}
                               </Typography>
                             </TableCell>
-                          )}
-                          <TableCell 
-                            sx={{ 
-                              bgcolor: catBg, 
-                              border: cellBorder,
-                              fontWeight: 700,
-                              color: 'text.primary'
-                            }}
-                          >
-                            {row.subCategory}
-                          </TableCell>
-                          <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
-                            <Stack spacing={0.5}>
-                              {row.to.map((email, idx) => (
-                                <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.primary' }}>
-                                  {email}
-                                </Typography>
-                              ))}
-                            </Stack>
-                          </TableCell>
-                          <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
-                            <Stack spacing={0.5}>
-                              {row.cc.map((email, idx) => (
-                                <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.primary' }}>
-                                  {email}
-                                </Typography>
-                              ))}
-                            </Stack>
-                          </TableCell>
-                          <TableCell sx={{ border: cellBorder }} align="center">
-                            <Stack direction="row" spacing={0.5} justifyContent="center">
-                              <IconButton 
-                                size="small" 
-                                color="primary" 
-                                disabled={!canManageEmailDirectory}
-                                onClick={() => handleStartEdit(row)}
+                            <TableCell 
+                              onClick={() => toggleCategory(catName)}
+                              sx={{ 
+                                bgcolor: catBg, 
+                                border: cellBorder, 
+                                color: 'text.secondary', 
+                                fontStyle: 'italic', 
+                                fontSize: '0.8rem', 
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                '&:hover': { opacity: 0.8 } 
+                              }}
+                            >
+                              {catRows.length} sub-categories
+                            </TableCell>
+                            <TableCell sx={{ bgcolor: recBg, border: cellBorder }} />
+                            <TableCell sx={{ bgcolor: recBg, border: cellBorder }} />
+                            <TableCell sx={{ border: cellBorder }} />
+                          </TableRow>
+                        );
+                      }
+
+                      return catRows.map((row, idx) => {
+                        const isSubExpanded = !!expandedSubCategories[row.id];
+                        const isFirst = idx === 0;
+
+                        return (
+                          <TableRow key={row.id}>
+                            {isFirst && (
+                              <TableCell 
+                                rowSpan={catRows.length} 
+                                align="left"
+                                onClick={() => toggleCategory(catName)}
+                                sx={{ 
+                                  fontWeight: 800, 
+                                  bgcolor: catBg, 
+                                  color: 'text.primary',
+                                  verticalAlign: 'middle',
+                                  border: cellBorder,
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  '&:hover': { opacity: 0.8 }
+                                }}
                               >
-                                <EditIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                              <IconButton 
-                                size="small" 
-                                color="error" 
-                                disabled={!canManageEmailDirectory}
-                                onClick={() => setConfirmDeleteId(row.id)}
-                              >
-                                <DeleteIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Stack>
-                          </TableCell>
-                        </TableRow>
-                      );
+                                <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                                  ▼ {catName}
+                                </Typography>
+                              </TableCell>
+                            )}
+                            <TableCell 
+                              onClick={() => toggleSubCategory(row.id)}
+                              sx={{ 
+                                bgcolor: catBg, 
+                                border: cellBorder,
+                                fontWeight: 700,
+                                color: 'text.primary',
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                '&:hover': { opacity: 0.8 }
+                              }}
+                            >
+                              {isSubExpanded ? '▼ ' : '▶ '} {row.subCategory}
+                            </TableCell>
+                            <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
+                              {isSubExpanded ? (
+                                <Stack spacing={0.5}>
+                                  {row.to.map((email, idx) => (
+                                    <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.primary' }}>
+                                      {email}
+                                    </Typography>
+                                  ))}
+                                </Stack>
+                              ) : (
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary" 
+                                  sx={{ fontStyle: 'italic', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
+                                  onClick={() => toggleSubCategory(row.id)}
+                                >
+                                  Click to view
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
+                              {isSubExpanded ? (
+                                <Stack spacing={0.5}>
+                                  {row.cc.map((email, idx) => (
+                                    <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.primary' }}>
+                                      {email}
+                                    </Typography>
+                                  ))}
+                                </Stack>
+                              ) : (
+                                <Typography 
+                                  variant="body2" 
+                                  color="text.secondary" 
+                                  sx={{ fontStyle: 'italic', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
+                                  onClick={() => toggleSubCategory(row.id)}
+                                >
+                                  Click to view
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell sx={{ border: cellBorder }} align="center">
+                              <Stack direction="row" spacing={0.5} justifyContent="center">
+                                <IconButton 
+                                  size="small" 
+                                  color="primary" 
+                                  disabled={!canManageEmailDirectory}
+                                  onClick={() => handleStartEdit(row)}
+                                >
+                                  <EditIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  disabled={!canManageEmailDirectory}
+                                  onClick={() => setConfirmDeleteId(row.id)}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                              </Stack>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      });
                     })
                   )}
                 </TableBody>
@@ -431,7 +528,7 @@ export default function AggregatorMail() {
             </TableContainer>
           </CardContent>
         </Card>
-      </Stack>
+      </Box>
 
       {/* Edit Dialog */}
       <Dialog
