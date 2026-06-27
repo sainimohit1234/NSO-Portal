@@ -524,7 +524,8 @@ const CAFE_MODELS = [
   'Origins',
   'Got Tea',
   'University',
-  'SIS/Others'
+  'SIS/Others',
+  'test'
 ];
 
 const MENU_OPTIONS = [
