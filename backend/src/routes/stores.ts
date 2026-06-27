@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { PrismaClient } from '../lib/prisma-mock';
 import { authenticateToken, authorizeRoles } from './auth';
 import multer from 'multer';
+import { firebaseAdmin } from '../lib/firebase-admin';
 const busboy = require('busboy');
 
 const parseMultipart = (req: any, writeToDisk: boolean = false): Promise<{ fields: any; file: any }> => {
@@ -309,7 +310,28 @@ router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'F
     }
   }
 
-  const fileUrl = `/uploads/${req.file.filename}`;
+  let fileUrl = `/uploads/${req.file.filename}`;
+
+  const isCloudFunctions = !!process.env.K_SERVICE || !!process.env.FUNCTION_TARGET;
+  if (isCloudFunctions || process.env.NODE_ENV === 'production') {
+    try {
+      const bucket = firebaseAdmin.storage().bucket();
+      const storageFile = bucket.file(`uploads/${req.file.filename}`);
+      const fileBuffer = fs.readFileSync(req.file.path);
+      await storageFile.save(fileBuffer, {
+        metadata: { contentType: req.file.mimetype }
+      });
+      const [signedUrl] = await storageFile.getSignedUrl({
+        action: 'read',
+        expires: '03-09-2491'
+      });
+      fileUrl = signedUrl;
+      console.log('Successfully saved to Google Cloud Storage (signed URL):', fileUrl);
+    } catch (storageErr) {
+      console.error('Failed to upload to Google Cloud Storage, falling back to local file:', storageErr);
+    }
+  }
+
   res.json({ url: fileUrl });
 });
 
