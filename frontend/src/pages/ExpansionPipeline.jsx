@@ -483,6 +483,9 @@ Operations Team`;
       const fileUrl = res.data.url;
 
       const updatedFields = { [`${slot}Url`]: fileUrl, [`${slot}FileName`]: file.name };
+      if (slot === 'loi') {
+        updatedFields.status = 'Agreement Signed';
+      }
       
       if (uploadStore.isTemp || String(uploadStore.id).startsWith('temp_')) {
         // Unsaved Café row - only update local state
@@ -515,6 +518,9 @@ Operations Team`;
   const handleDeleteFileSlot = async (slot) => {
     if (!uploadStore) return;
     const updatedFields = { [`${slot}Url`]: null, [`${slot}FileName`]: null };
+    if (slot === 'loi') {
+      updatedFields.status = 'In Pipeline';
+    }
     
     if (uploadStore.isTemp || String(uploadStore.id).startsWith('temp_')) {
       // Unsaved Café row - only update local state
@@ -768,6 +774,8 @@ Operations Team`;
                             currentStatus = 'Live';
                           } else if (store.status === 'Ready for Construction') {
                             currentStatus = 'Ready for Construction';
+                          } else if (store.status === 'Agreement Signed') {
+                            currentStatus = 'Agreement Signed';
                           }
 
                           return (
@@ -786,7 +794,10 @@ Operations Team`;
                               sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                             >
                               <MenuItem value="In Pipeline">In Pipeline</MenuItem>
-                              {(hasLoi || currentStatus === 'Ready for Construction') && (
+                              {(hasLoi || currentStatus === 'Agreement Signed') && (
+                                <MenuItem value="Agreement Signed">Agreement Signed</MenuItem>
+                              )}
+                              {(hasLoi || currentStatus === 'Ready for Construction' || currentStatus === 'Agreement Signed') && (
                                 <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
                               )}
                               {(isLocked || currentStatus === 'Live') && (
