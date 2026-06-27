@@ -9,6 +9,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
+import SaveIcon from '@mui/icons-material/Save';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,6 +26,13 @@ export default function AggregatorMail() {
   // Expandable tree state
   const [expandedCategories, setExpandedCategories] = useState({});
   const [expandedSubCategories, setExpandedSubCategories] = useState({});
+
+  // Email template state
+  const [templates, setTemplates] = useState({});
+  const [selectedSubCategory, setSelectedSubCategory] = useState('');
+  const [templateSubject, setTemplateSubject] = useState('');
+  const [templateBody, setTemplateBody] = useState('');
+  const [isTemplateEditing, setIsTemplateEditing] = useState(false);
 
   // New mapping form state
   const [newCategory, setNewCategory] = useState('');
@@ -54,9 +62,35 @@ export default function AggregatorMail() {
       });
   };
 
+  const fetchTemplates = () => {
+    axios.get('/api/system/email-templates')
+      .then(res => {
+        setTemplates(res.data);
+      })
+      .catch(err => {
+        console.error('Failed to fetch email templates:', err);
+      });
+  };
+
   useEffect(() => {
     fetchMappings();
+    fetchTemplates();
   }, []);
+
+  // Update template inputs when selected sub-category or saved templates change
+  useEffect(() => {
+    if (!selectedSubCategory) {
+      setTemplateSubject('');
+      setTemplateBody('');
+      return;
+    }
+    const temp = templates[selectedSubCategory] || {
+      subject: `${selectedSubCategory} | New Store Onboarding`,
+      body: `Hi Team,\n\nThis is regarding our new cafe onboarding for ${selectedSubCategory}.\n\nPlease find the details below and initiate the onboarding process.\n\nBest regards,\nOperations Team`
+    };
+    setTemplateSubject(temp.subject);
+    setTemplateBody(temp.body);
+  }, [selectedSubCategory, templates]);
 
   const saveMappingsToBackend = async (updatedList) => {
     try {
@@ -67,6 +101,31 @@ export default function AggregatorMail() {
     } catch (err) {
       console.error('Failed to save configurations:', err);
       setErrorMsg(err.response?.data?.error || 'Failed to save configurations.');
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!selectedSubCategory) return;
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    const updatedTemplates = {
+      ...templates,
+      [selectedSubCategory]: {
+        subject: templateSubject,
+        body: templateBody
+      }
+    };
+
+    try {
+      const res = await axios.put('/api/system/email-templates', updatedTemplates);
+      setTemplates(res.data.config);
+      setIsTemplateEditing(false);
+      setSuccessMsg('Email template saved successfully.');
+      setErrorMsg('');
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Failed to save email template.');
     }
   };
 
@@ -235,6 +294,11 @@ export default function AggregatorMail() {
     categoryMap[m.category].push(m);
   });
 
+  // Find To and CC lists for the selected subcategory template
+  const matchingMapping = mappings.find(m => m.subCategory === selectedSubCategory) || { to: [], cc: [] };
+  const autoToEmails = matchingMapping.to.join(', ');
+  const autoCcEmails = matchingMapping.cc.join(', ');
+
   return (
     <Box sx={{ py: 1 }}>
       <Box sx={{ mb: 4 }}>
@@ -242,7 +306,7 @@ export default function AggregatorMail() {
           Email Directory
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Configure Category and Sub-Category recipient mappings for automated email dispatches.
+          Configure Category, Sub-Category recipient mappings, and customize automated email templates.
         </Typography>
       </Box>
 
@@ -251,311 +315,438 @@ export default function AggregatorMail() {
 
       {!canManageEmailDirectory && (
         <Alert severity="info" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600 }}>
-          You are in view-only mode. You need the "Email Directory" sub-access permission to add, edit, or delete recipient configurations.
+          You are in view-only mode. You need the "Email Directory" sub-access permission to add, edit, or delete recipient and template configurations.
         </Alert>
       )}
 
-      {/* Main card restricted to 50% width on large screens */}
-      <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-start' }}>
-        <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', width: { xs: '100%', lg: '50%' }, border: '1px solid', borderColor: 'divider' }}>
-          <CardHeader 
-            title="Email Recipient Configuration" 
-            titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
-            subheader="Manage recipient email addresses for Swiggy, Zomato, and other categories"
-            action={
-              <Box sx={{ display: 'flex', gap: 2, mt: 1, mr: 2 }}>
-                <TextField
-                  select
-                  size="small"
-                  label="Filter Category"
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  sx={{ width: 160 }}
-                >
-                  {uniqueCategories.map(cat => (
-                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                  ))}
-                </TextField>
-              </Box>
-            }
-          />
-          <Divider />
-          <CardContent sx={{ p: 3 }}>
-            
-            {/* Add Mapping Form (Enabled only for users with permissions) */}
-            {canManageEmailDirectory && (
-              <Paper variant="outlined" sx={{ p: 2.5, mb: 4, borderRadius: '12px', bgcolor: 'action.hover' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2 }}>
-                  Add New Email Mapping
-                </Typography>
-                <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Category"
-                      placeholder="e.g. Zomato"
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                    />
+      {/* Grid container to split screen side-by-side */}
+      <Grid container spacing={4}>
+        {/* Left Side: Recipient Mappings (width 50%) */}
+        <Grid item xs={12} lg={6}>
+          <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', height: '100%' }}>
+            <CardHeader 
+              title="Email Recipient Configuration" 
+              titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
+              subheader="Manage recipient email addresses for Swiggy, Zomato, and other categories"
+              action={
+                <Box sx={{ display: 'flex', gap: 2, mt: 1, mr: 2 }}>
+                  <TextField
+                    select
+                    size="small"
+                    label="Filter Category"
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    sx={{ width: 160 }}
+                  >
+                    {uniqueCategories.map(cat => (
+                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                    ))}
+                  </TextField>
+                </Box>
+              }
+            />
+            <Divider />
+            <CardContent sx={{ p: 3 }}>
+              
+              {/* Add Mapping Form (Enabled only for users with permissions) */}
+              {canManageEmailDirectory && (
+                <Paper variant="outlined" sx={{ p: 2.5, mb: 4, borderRadius: '12px', bgcolor: 'action.hover' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2 }}>
+                    Add New Email Mapping
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Category"
+                        placeholder="e.g. Zomato"
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Sub-Category"
+                        placeholder="e.g. BTC Zomato"
+                        value={newSubCategory}
+                        onChange={(e) => setNewSubCategory(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        required
+                        fullWidth
+                        size="small"
+                        label="To Recipient List *"
+                        placeholder="e.g. abc@company.com, xyz@company.com"
+                        value={newTo}
+                        onChange={(e) => setNewTo(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="CC Recipient List"
+                        placeholder="e.g. manager@company.com"
+                        value={newCc}
+                        onChange={(e) => setNewCc(e.target.value)}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                      <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleAddMapping}
+                        sx={{ borderRadius: '8px', px: 3, fontWeight: 700 }}
+                      >
+                        Add Mapping
+                      </Button>
+                    </Grid>
                   </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="Sub-Category"
-                      placeholder="e.g. BTC Zomato"
-                      value={newSubCategory}
-                      onChange={(e) => setNewSubCategory(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      required
-                      fullWidth
-                      size="small"
-                      label="To Recipient List *"
-                      placeholder="e.g. abc@company.com, xyz@company.com"
-                      value={newTo}
-                      onChange={(e) => setNewTo(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      label="CC Recipient List"
-                      placeholder="e.g. manager@company.com"
-                      value={newCc}
-                      onChange={(e) => setNewCc(e.target.value)}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={handleAddMapping}
-                      sx={{ borderRadius: '8px', px: 3, fontWeight: 700 }}
-                    >
-                      Add Mapping
-                    </Button>
-                  </Grid>
-                </Grid>
-              </Paper>
-            )}
+                </Paper>
+              )}
 
-            {/* Table View */}
-            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', overflow: 'hidden' }}>
-              <Table size="medium" sx={{ tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064' }}>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '15%' }}>Category</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Sub-Category</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '30%' }}>To</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>CC</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '10%', textAlign: 'center' }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {categoriesList.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
-                        No email mappings configured.
-                      </TableCell>
+              {/* Table View */}
+              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', overflow: 'hidden' }}>
+                <Table size="medium" sx={{ tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064' }}>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '15%' }}>Category</TableCell>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Sub-Category</TableCell>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '30%' }}>To</TableCell>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>CC</TableCell>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '10%', textAlign: 'center' }}>Actions</TableCell>
                     </TableRow>
-                  ) : (
-                    categoriesList.map((catName) => {
-                      const catRows = categoryMap[catName];
-                      const isCatExpanded = !!expandedCategories[catName];
+                  </TableHead>
+                  <TableBody>
+                    {categoriesList.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
+                          No email mappings configured.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      categoriesList.map((catName) => {
+                        const catRows = categoryMap[catName];
+                        const isCatExpanded = !!expandedCategories[catName];
 
-                      const catLower = catName.toLowerCase();
-                      
-                      // Theme-friendly background colors
-                      const catBg = catLower === 'zomato' 
-                        ? (theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD')
-                        : catLower === 'swiggy'
-                          ? (theme.palette.mode === 'dark' ? 'rgba(255, 235, 59, 0.15)' : '#FFF9C4')
-                          : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F5F5F5');
+                        const catLower = catName.toLowerCase();
+                        
+                        // Theme-friendly background colors
+                        const catBg = catLower === 'zomato' 
+                          ? (theme.palette.mode === 'dark' ? 'rgba(33, 150, 243, 0.15)' : '#E3F2FD')
+                          : catLower === 'swiggy'
+                            ? (theme.palette.mode === 'dark' ? 'rgba(255, 235, 59, 0.15)' : '#FFF9C4')
+                            : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F5F5F5');
 
-                      const recBg = catLower === 'swiggy'
-                        ? (theme.palette.mode === 'dark' ? 'rgba(0, 188, 212, 0.1)' : '#E0F7FA')
-                        : (theme.palette.mode === 'dark' ? 'transparent' : '#FFFFFF');
+                        const recBg = catLower === 'swiggy'
+                          ? (theme.palette.mode === 'dark' ? 'rgba(0, 188, 212, 0.1)' : '#E0F7FA')
+                          : (theme.palette.mode === 'dark' ? 'transparent' : '#FFFFFF');
 
-                      const cellBorder = `1px solid ${theme.palette.divider}`;
+                        const cellBorder = `1px solid ${theme.palette.divider}`;
 
-                      if (!isCatExpanded) {
-                        return (
-                          <TableRow key={`cat_summary_${catName}`}>
-                            <TableCell 
-                              align="left"
-                              onClick={() => toggleCategory(catName)}
-                              sx={{ 
-                                fontWeight: 800, 
-                                bgcolor: catBg, 
-                                color: 'text.primary',
-                                cursor: 'pointer',
-                                border: cellBorder,
-                                py: 1.5,
-                                userSelect: 'none',
-                                '&:hover': { opacity: 0.8 }
-                              }}
-                            >
-                              <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                                ▶ {catName}
-                              </Typography>
-                            </TableCell>
-                            <TableCell 
-                              onClick={() => toggleCategory(catName)}
-                              sx={{ 
-                                bgcolor: catBg, 
-                                border: cellBorder, 
-                                color: 'text.secondary', 
-                                fontStyle: 'italic', 
-                                fontSize: '0.8rem', 
-                                cursor: 'pointer',
-                                userSelect: 'none',
-                                '&:hover': { opacity: 0.8 } 
-                              }}
-                            >
-                              {catRows.length} sub-categories
-                            </TableCell>
-                            <TableCell sx={{ bgcolor: recBg, border: cellBorder }} />
-                            <TableCell sx={{ bgcolor: recBg, border: cellBorder }} />
-                            <TableCell sx={{ border: cellBorder }} />
-                          </TableRow>
-                        );
-                      }
-
-                      return catRows.map((row, idx) => {
-                        const isSubExpanded = !!expandedSubCategories[row.id];
-                        const isFirst = idx === 0;
-
-                        return (
-                          <TableRow key={row.id}>
-                            {isFirst && (
+                        if (!isCatExpanded) {
+                          return (
+                            <TableRow key={`cat_summary_${catName}`}>
                               <TableCell 
-                                rowSpan={catRows.length} 
                                 align="left"
                                 onClick={() => toggleCategory(catName)}
                                 sx={{ 
                                   fontWeight: 800, 
                                   bgcolor: catBg, 
                                   color: 'text.primary',
-                                  verticalAlign: 'middle',
-                                  border: cellBorder,
                                   cursor: 'pointer',
+                                  border: cellBorder,
+                                  py: 1.5,
                                   userSelect: 'none',
                                   '&:hover': { opacity: 0.8 }
                                 }}
                               >
                                 <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                                  ▼ {catName}
+                                  ▶ {catName}
                                 </Typography>
                               </TableCell>
-                            )}
-                            <TableCell 
-                              onClick={() => toggleSubCategory(row.id)}
-                              sx={{ 
-                                bgcolor: catBg, 
-                                border: cellBorder,
-                                fontWeight: 700,
-                                color: 'text.primary',
-                                cursor: 'pointer',
-                                userSelect: 'none',
-                                '&:hover': { opacity: 0.8 }
-                              }}
-                            >
-                              {isSubExpanded ? '▼ ' : '▶ '} {row.subCategory}
-                            </TableCell>
-                            <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
-                              {isSubExpanded ? (
-                                <Stack spacing={0.5}>
-                                  {row.to.map((email, idx) => (
-                                    <Typography 
-                                      key={idx} 
-                                      variant="body2" 
-                                      sx={{ 
-                                        fontSize: '0.725rem', 
-                                        color: 'text.primary',
-                                        wordBreak: 'break-all',
-                                        lineHeight: 1.2
-                                      }}
-                                    >
-                                      {email}
-                                    </Typography>
-                                  ))}
-                                </Stack>
-                              ) : (
-                                <Typography 
-                                  variant="body2" 
-                                  color="text.secondary" 
-                                  sx={{ fontStyle: 'italic', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
-                                  onClick={() => toggleSubCategory(row.id)}
+                              <TableCell 
+                                onClick={() => toggleCategory(catName)}
+                                sx={{ 
+                                  bgcolor: catBg, 
+                                  border: cellBorder, 
+                                  color: 'text.secondary', 
+                                  fontStyle: 'italic', 
+                                  fontSize: '0.8rem', 
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  '&:hover': { opacity: 0.8 } 
+                                }}
+                              >
+                                {catRows.length} sub-categories
+                              </TableCell>
+                              <TableCell sx={{ bgcolor: recBg, border: cellBorder }} />
+                              <TableCell sx={{ bgcolor: recBg, border: cellBorder }} />
+                              <TableCell sx={{ border: cellBorder }} />
+                            </TableRow>
+                          );
+                        }
+
+                        return catRows.map((row, idx) => {
+                          const isSubExpanded = !!expandedSubCategories[row.id];
+                          const isFirst = idx === 0;
+
+                          return (
+                            <TableRow key={row.id}>
+                              {isFirst && (
+                                <TableCell 
+                                  rowSpan={catRows.length} 
+                                  align="left"
+                                  onClick={() => toggleCategory(catName)}
+                                  sx={{ 
+                                    fontWeight: 800, 
+                                    bgcolor: catBg, 
+                                    color: 'text.primary',
+                                    verticalAlign: 'middle',
+                                    border: cellBorder,
+                                    cursor: 'pointer',
+                                    userSelect: 'none',
+                                    '&:hover': { opacity: 0.8 }
+                                  }}
                                 >
-                                  Click to view
-                                </Typography>
+                                  <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                                    ▼ {catName}
+                                  </Typography>
+                                </TableCell>
                               )}
-                            </TableCell>
-                            <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
-                              {isSubExpanded ? (
-                                <Stack spacing={0.5}>
-                                  {row.cc.map((email, idx) => (
-                                    <Typography 
-                                      key={idx} 
-                                      variant="body2" 
-                                      sx={{ 
-                                        fontSize: '0.725rem', 
-                                        color: 'text.primary',
-                                        wordBreak: 'break-all',
-                                        lineHeight: 1.2
-                                      }}
-                                    >
-                                      {email}
-                                    </Typography>
-                                  ))}
+                              <TableCell 
+                                onClick={() => toggleSubCategory(row.id)}
+                                sx={{ 
+                                  bgcolor: catBg, 
+                                  border: cellBorder,
+                                  fontWeight: 700,
+                                  color: 'text.primary',
+                                  cursor: 'pointer',
+                                  userSelect: 'none',
+                                  '&:hover': { opacity: 0.8 }
+                                }}
+                              >
+                                {isSubExpanded ? '▼ ' : '▶ '} {row.subCategory}
+                              </TableCell>
+                              <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
+                                {isSubExpanded ? (
+                                  <Stack spacing={0.5}>
+                                    {row.to.map((email, idx) => (
+                                      <Typography 
+                                        key={idx} 
+                                        variant="body2" 
+                                        sx={{ 
+                                          fontSize: '0.725rem', 
+                                          color: 'text.primary',
+                                          wordBreak: 'break-all',
+                                          lineHeight: 1.2
+                                        }}
+                                      >
+                                        {email}
+                                      </Typography>
+                                    ))}
+                                  </Stack>
+                                ) : (
+                                  <Typography 
+                                    variant="body2" 
+                                    color="text.secondary" 
+                                    sx={{ fontStyle: 'italic', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
+                                    onClick={() => toggleSubCategory(row.id)}
+                                  >
+                                    Click to view
+                                  </Typography>
+                                )}
+                              </TableCell>
+                              <TableCell sx={{ bgcolor: recBg, border: cellBorder, py: 1.5 }}>
+                                {isSubExpanded ? (
+                                  <Stack spacing={0.5}>
+                                    {row.cc.map((email, idx) => (
+                                      <Typography 
+                                        key={idx} 
+                                        variant="body2" 
+                                        sx={{ 
+                                          fontSize: '0.725rem', 
+                                          color: 'text.primary',
+                                          wordBreak: 'break-all',
+                                          lineHeight: 1.2
+                                        }}
+                                      >
+                                        {email}
+                                      </Typography>
+                                    ))}
+                                  </Stack>
+                                ) : (
+                                  <Typography 
+                                    variant="body2" 
+                                    color="text.secondary" 
+                                    sx={{ fontStyle: 'italic', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
+                                    onClick={() => toggleSubCategory(row.id)}
+                                  >
+                                    Click to view
+                                  </Typography>
+                                )}
+                              </TableCell>
+                              <TableCell sx={{ border: cellBorder }} align="center">
+                                <Stack direction="row" spacing={0.5} justifyContent="center">
+                                  <IconButton 
+                                    size="small" 
+                                    color="primary" 
+                                    disabled={!canManageEmailDirectory}
+                                    onClick={() => handleStartEdit(row)}
+                                  >
+                                    <EditIcon sx={{ fontSize: 18 }} />
+                                  </IconButton>
+                                  <IconButton 
+                                    size="small" 
+                                    color="error" 
+                                    disabled={!canManageEmailDirectory}
+                                    onClick={() => setConfirmDeleteId(row.id)}
+                                  >
+                                    <DeleteIcon sx={{ fontSize: 18 }} />
+                                  </IconButton>
                                 </Stack>
-                              ) : (
-                                <Typography 
-                                  variant="body2" 
-                                  color="text.secondary" 
-                                  sx={{ fontStyle: 'italic', fontSize: '0.8rem', cursor: 'pointer', userSelect: 'none' }}
-                                  onClick={() => toggleSubCategory(row.id)}
-                                >
-                                  Click to view
-                                </Typography>
-                              )}
-                            </TableCell>
-                            <TableCell sx={{ border: cellBorder }} align="center">
-                              <Stack direction="row" spacing={0.5} justifyContent="center">
-                                <IconButton 
-                                  size="small" 
-                                  color="primary" 
-                                  disabled={!canManageEmailDirectory}
-                                  onClick={() => handleStartEdit(row)}
-                                >
-                                  <EditIcon sx={{ fontSize: 18 }} />
-                                </IconButton>
-                                <IconButton 
-                                  size="small" 
-                                  color="error" 
-                                  disabled={!canManageEmailDirectory}
-                                  onClick={() => setConfirmDeleteId(row.id)}
-                                >
-                                  <DeleteIcon sx={{ fontSize: 18 }} />
-                                </IconButton>
-                              </Stack>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      });
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </CardContent>
-        </Card>
-      </Box>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        });
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Right Side: Email Template Configuration (width 50%) */}
+        <Grid item xs={12} lg={6}>
+          <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', height: '100%' }}>
+            <CardHeader
+              title="Email Template Configuration"
+              titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
+              subheader="Configure custom subject and body templates per sub-category"
+            />
+            <Divider />
+            <CardContent sx={{ p: 3 }}>
+              <Stack spacing={3}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Select Sub-Category"
+                  value={selectedSubCategory}
+                  onChange={(e) => {
+                    setSelectedSubCategory(e.target.value);
+                    setIsTemplateEditing(false);
+                  }}
+                  helperText="Select a sub-category to load its recipient list and email template"
+                >
+                  <MenuItem value="">
+                    <em>None</em>
+                  </MenuItem>
+                  {mappings.map(m => (
+                    <MenuItem key={m.id} value={m.subCategory}>
+                      {m.subCategory}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                {selectedSubCategory ? (
+                  <>
+                    <TextField
+                      fullWidth
+                      disabled
+                      size="small"
+                      label="To Recipient(s) (Auto-filled)"
+                      value={autoToEmails || 'No recipients configured'}
+                    />
+
+                    <TextField
+                      fullWidth
+                      disabled
+                      size="small"
+                      label="CC Recipient(s) (Auto-filled)"
+                      value={autoCcEmails || 'No CC recipients configured'}
+                    />
+
+                    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', p: 2, bgcolor: 'action.hover' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                          Template Customization
+                        </Typography>
+                        {canManageEmailDirectory && (
+                          <IconButton 
+                            size="small" 
+                            color={isTemplateEditing ? 'error' : 'primary'}
+                            onClick={() => {
+                              if (isTemplateEditing) {
+                                // Discard/Reset template
+                                const temp = templates[selectedSubCategory] || { subject: '', body: '' };
+                                setTemplateSubject(temp.subject);
+                                setTemplateBody(temp.body);
+                              }
+                              setIsTemplateEditing(!isTemplateEditing);
+                            }}
+                          >
+                            {isTemplateEditing ? <CloseIcon /> : <EditIcon />}
+                          </IconButton>
+                        )}
+                      </Box>
+
+                      <Stack spacing={2}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Subject"
+                          value={templateSubject}
+                          onChange={(e) => setTemplateSubject(e.target.value)}
+                          disabled={!isTemplateEditing}
+                        />
+
+                        <TextField
+                          fullWidth
+                          multiline
+                          rows={10}
+                          size="small"
+                          label="Email Body"
+                          value={templateBody}
+                          onChange={(e) => setTemplateBody(e.target.value)}
+                          disabled={!isTemplateEditing}
+                        />
+                      </Stack>
+
+                      {isTemplateEditing && (
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<SaveIcon />}
+                            onClick={handleSaveTemplate}
+                            sx={{ borderRadius: '8px', px: 3, fontWeight: 700 }}
+                          >
+                            Save Template
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
+                  </>
+                ) : (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8, border: '1px dashed', borderColor: 'divider', borderRadius: '12px' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                      Please select a Sub-Category from the dropdown to load and edit its template.
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
       {/* Edit Dialog */}
       <Dialog
