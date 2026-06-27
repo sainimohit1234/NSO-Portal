@@ -265,7 +265,24 @@ router.use(async (req: any, res, next) => {
   next();
 });
 
-function extractOrGenerateFssaiNo(filename: string): string {
+const pdfParse = require('pdf-parse');
+
+async function extractOrGenerateFssaiNo(filename: string, fileBuffer: Buffer | null): Promise<string> {
+  if (fileBuffer && filename.toLowerCase().endsWith('.pdf')) {
+    try {
+      const data = await pdfParse(fileBuffer);
+      const text = data.text || '';
+      // Find a 14-digit FSSAI number
+      const match = text.match(/\b\d{14}\b/);
+      if (match) {
+        console.log('Successfully parsed FSSAI number from PDF text:', match[0]);
+        return match[0];
+      }
+    } catch (err) {
+      console.error('Failed to parse FSSAI PDF text, falling back to name/mock:', err);
+    }
+  }
+
   const match = filename.match(/\b\d{14}\b/);
   if (match) {
     return match[0];
@@ -277,7 +294,22 @@ function extractOrGenerateFssaiNo(filename: string): string {
   return num;
 }
 
-function extractOrGenerateGstNo(filename: string): string {
+async function extractOrGenerateGstNo(filename: string, fileBuffer: Buffer | null): Promise<string> {
+  if (fileBuffer && filename.toLowerCase().endsWith('.pdf')) {
+    try {
+      const data = await pdfParse(fileBuffer);
+      const text = data.text || '';
+      // Find a 15-character GSTIN pattern
+      const match = text.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}\b/i);
+      if (match) {
+        console.log('Successfully parsed GSTIN from PDF text:', match[0]);
+        return match[0].toUpperCase();
+      }
+    } catch (err) {
+      console.error('Failed to parse GST PDF text, falling back to name/mock:', err);
+    }
+  }
+
   const match = filename.match(/\b\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}\b/i);
   if (match) {
     return match[0].toUpperCase();
@@ -381,10 +413,11 @@ router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'F
   }
 
   let extraData: any = {};
+  const fileBuffer = req.file.buffer || (req.file.path ? fs.readFileSync(req.file.path) : null);
   if (fileType === 'fssai') {
-    extraData.fssaiNo = extractOrGenerateFssaiNo(req.file.originalname);
+    extraData.fssaiNo = await extractOrGenerateFssaiNo(req.file.originalname, fileBuffer);
   } else if (fileType === 'gst') {
-    extraData.gstNo = extractOrGenerateGstNo(req.file.originalname);
+    extraData.gstNo = await extractOrGenerateGstNo(req.file.originalname, fileBuffer);
   }
 
   res.json({ url: fileUrl, ...extraData });
