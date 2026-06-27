@@ -44,6 +44,28 @@ export default function ImagesDocs() {
     }
   };
 
+  const [activeCategory, setActiveCategory] = useState('General');
+
+  // Compute unique categories dynamically
+  const categories = React.useMemo(() => {
+    const cats = docs.map(d => d.category || 'General');
+    const uniqueCats = Array.from(new Set(cats));
+    uniqueCats.sort((a, b) => a.localeCompare(b));
+    return uniqueCats;
+  }, [docs]);
+
+  // Set default activeCategory to the first found category if current activeCategory doesn't exist
+  useEffect(() => {
+    if (categories.length > 0 && !categories.includes(activeCategory)) {
+      setActiveCategory(categories[0]);
+    }
+  }, [categories]);
+
+  // Filter docs based on selected category
+  const filteredDocs = React.useMemo(() => {
+    return docs.filter(d => (d.category || 'General') === activeCategory);
+  }, [docs, activeCategory]);
+
   useEffect(() => {
     fetchDocs();
   }, []);
@@ -120,7 +142,9 @@ export default function ImagesDocs() {
       showNotification('File uploaded and registered successfully!');
       setOpenDialog(false);
       
-      // Select the newly uploaded doc
+      // Auto-select category and document
+      const docCategory = category.trim() || 'General';
+      setActiveCategory(docCategory);
       if (docRes.data) {
         setSelectedDoc(docRes.data);
       }
@@ -196,7 +220,7 @@ export default function ImagesDocs() {
                 </Button>
               </Box>
 
-              <Divider sx={{ mb: 2 }} />
+              <Divider sx={{ mb: 2.5 }} />
 
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
@@ -209,53 +233,104 @@ export default function ImagesDocs() {
                   </Typography>
                 </Box>
               ) : (
-                <List sx={{ width: '100%', bgcolor: 'background.paper', borderRadius: '8px', overflow: 'hidden' }}>
-                  {docs.map((doc, idx) => (
-                    <React.Fragment key={doc.id}>
-                      <ListItem 
-                        disablePadding
-                        secondaryAction={
-                          <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(doc.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
-                            <DeleteIcon />
-                          </IconButton>
-                        }
-                      >
-                        <ListItemButton 
-                          selected={selectedDoc?.id === doc.id}
-                          onClick={() => setSelectedDoc(doc)}
+                <Grid container spacing={0} sx={{ mt: 1, minHeight: 480 }}>
+                  {/* Category Column */}
+                  <Grid size={{ xs: 12, sm: 4 }} sx={{ borderRight: '1px solid', borderColor: 'divider', pr: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                      Category
+                    </Typography>
+                    <List sx={{ width: '100%', py: 0 }}>
+                      {categories.map((cat) => (
+                        <ListItemButton
+                          key={cat}
+                          selected={activeCategory === cat}
+                          onClick={() => setActiveCategory(cat)}
                           sx={{
-                            py: 2,
+                            py: 1.25,
+                            px: 2,
                             borderRadius: '8px',
                             mb: 0.5,
                             '&.Mui-selected': {
-                              bgcolor: 'rgba(111, 205, 220, 0.12)',
-                              '&:hover': { bgcolor: 'rgba(111, 205, 220, 0.18)' }
+                              bgcolor: 'rgba(111, 205, 220, 0.15)',
+                              color: 'primary.main',
+                              fontWeight: 700,
+                              '&:hover': { bgcolor: 'rgba(111, 205, 220, 0.22)' }
                             }
                           }}
                         >
-                          <ListItemIcon sx={{ minWidth: 46 }}>
-                            {getFileIcon(doc.fileUrl)}
-                          </ListItemIcon>
                           <ListItemText 
-                            primary={
-                              <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', pr: 4 }}>
-                                {doc.fileName}
-                              </Typography>
-                            }
-                            secondary={
-                              <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', gap: 1.5, mt: 0.5 }}>
-                                <span>Category: <strong>{doc.category || 'General'}</strong></span>
-                                <span>•</span>
-                                <span>{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-IN') : 'Unknown Date'}</span>
-                              </Typography>
-                            }
+                            primary={cat} 
+                            primaryTypographyProps={{ 
+                              variant: 'body2', 
+                              sx: { fontWeight: activeCategory === cat ? 700 : 500 } 
+                            }} 
                           />
                         </ListItemButton>
-                      </ListItem>
-                      {idx < docs.length - 1 && <Divider component="li" sx={{ opacity: 0.5 }} />}
-                    </React.Fragment>
-                  ))}
-                </List>
+                      ))}
+                    </List>
+                  </Grid>
+
+                  {/* Uploaded Files Column */}
+                  <Grid size={{ xs: 12, sm: 8 }} sx={{ pl: 3.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                      Uploaded Files
+                    </Typography>
+                    {filteredDocs.length === 0 ? (
+                      <Box sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.01)' }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                          No files in this category.
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <List sx={{ width: '100%', py: 0 }}>
+                        {filteredDocs.map((doc, idx) => (
+                          <React.Fragment key={doc.id}>
+                            <ListItem 
+                              disablePadding
+                              secondaryAction={
+                                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(doc.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              }
+                            >
+                              <ListItemButton 
+                                selected={selectedDoc?.id === doc.id}
+                                onClick={() => setSelectedDoc(doc)}
+                                sx={{
+                                  py: 1.5,
+                                  px: 1.5,
+                                  borderRadius: '8px',
+                                  mb: 0.5,
+                                  '&.Mui-selected': {
+                                    bgcolor: 'rgba(111, 205, 220, 0.1)',
+                                    '&:hover': { bgcolor: 'rgba(111, 205, 220, 0.15)' }
+                                  }
+                                }}
+                              >
+                                <ListItemIcon sx={{ minWidth: 40 }}>
+                                  {getFileIcon(doc.fileUrl)}
+                                </ListItemIcon>
+                                <ListItemText 
+                                  primary={
+                                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', pr: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {doc.fileName}
+                                    </Typography>
+                                  }
+                                  secondary={
+                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                      {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-IN') : 'Unknown Date'}
+                                    </Typography>
+                                  }
+                                />
+                              </ListItemButton>
+                            </ListItem>
+                            {idx < filteredDocs.length - 1 && <Divider component="li" sx={{ opacity: 0.5 }} />}
+                          </React.Fragment>
+                        ))}
+                      </List>
+                    )}
+                  </Grid>
+                </Grid>
               )}
             </CardContent>
           </Card>
