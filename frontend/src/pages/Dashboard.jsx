@@ -121,13 +121,14 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     const isTargetStore = (s) => {
       const code = (s.cafeCode || '').toUpperCase();
-      return code.startsWith('CA') || code.startsWith('GOT') || code.startsWith('CAGT');
+      return code.startsWith('CA') || code.startsWith('GOT') || code.startsWith('CAGT') || !s.cafeCode;
     };
     const targetStores = filteredStores.filter(isTargetStore);
 
     const liveStoreCount = targetStores.filter(s => s.status === 'LIVE' && s.isActive !== false && s.isActive !== 'false').length;
     const closedStoreCount = filteredStores.filter(s => getCurrentStatus(s) === 'Closed').length;
     const totalCafeCount = targetStores.filter(s => !isInventoryStore(s) && getCurrentStatus(s) !== 'Closed').length + closedStoreCount;
+    const pipelineCount = filteredStores.filter(s => s.status === 'In Pipeline' || s.status === 'INCOMPLETE_INFORMATION').length;
     const upcomingStoreCount = targetStores.filter(s => getCurrentStatus(s) === 'Upcoming Store').length;
     const pendingApprovalCount = targetStores.filter(s => s.status === 'PENDING_APPROVAL').length;
     const readyToGoLiveCount = targetStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live').length;
@@ -142,6 +143,7 @@ export default function Dashboard() {
     return {
       liveStoreCount,
       totalCafeCount,
+      pipelineCount,
       upcomingStoreCount,
       closedStoreCount,
       pendingApprovalCount,
@@ -226,6 +228,7 @@ export default function Dashboard() {
     { title: 'Total Cafe Count', value: stats.totalCafeCount, icon: <Storefront />, color: '#6366f1', subtitle: 'Portfolio size' },
     { title: 'Live Store Count', value: stats.liveStoreCount, icon: <CheckCircle />, color: '#10b981', subtitle: 'Currently active' },
     { title: 'Ready to Go Live Count', value: stats.readyToGoLiveCount, icon: <TaskAlt />, color: '#059669', subtitle: 'Awaiting launch' },
+    { title: 'Pipeline Count', value: stats.pipelineCount, icon: <Upcoming />, color: '#0ea5e9', subtitle: 'Pipeline phase' },
     { title: 'Upcoming Store Count', value: stats.upcomingStoreCount, icon: <Upcoming />, color: '#06b6d4', subtitle: 'Future pipeline' },
     { title: 'Closed Store Count', value: stats.closedStoreCount, icon: <Cancel />, color: '#ef4444', subtitle: 'Inactive locations' },
     { title: 'Approval Pending', value: stats.pendingApprovalCount, icon: <Warning />, color: '#f59e0b', subtitle: 'Needs review' },
