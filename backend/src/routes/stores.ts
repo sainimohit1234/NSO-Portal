@@ -1710,8 +1710,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
           const isSuperAdmin = user.role === 'SUPER_ADMIN';
           const hasEditContacts = user.permissions && user.permissions.includes('EDIT_CONTACTS');
 
-          for (let i = 0; i < results.length; i++) {
-            const row = results[i];
+          const promises = results.map(async (row, i) => {
             const rowErrors: string[] = [];
 
             // 1. Validate mandatory fields (non-empty)
@@ -1762,206 +1761,217 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
               }
             }
 
-            // Check if cafeCode already exists
-            const cafeCode = row.cafeCode;
-            if (cafeCode) {
-              const existing = await prisma.store.findUnique({ where: { cafeCode } });
-              if (existing) {
-                rowErrors.push(`A store with Cafe Code '${cafeCode}' already exists in the system.`);
-              }
-            }
-
-            if (rowErrors.length > 0) {
-              rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
-              continue;
-            }
-
-            // Insert the record
             try {
-              const data: any = { ...row };
-              data.brand = brand;
-
-              if (data.lat) data.lat = parseFloat(data.lat);
-              if (data.lng) data.lng = parseFloat(data.lng);
-              if (data.latitude) data.latitude = parseFloat(data.latitude);
-              if (data.latt) data.latt = parseFloat(data.latt);
-              if (data.long) data.long = parseFloat(data.long);
-              if (data.launchDate) data.launchDate = new Date(data.launchDate);
-              
-              data.enteredByEmail = user.email;
-              data.status = 'PENDING_APPROVAL';
-
-              delete data.areaManagerId;
-              delete data.cityHeadId;
-              delete data.cafeManagerId;
-
-              for (const key in data) {
-                 if (data[key] === '') data[key] = null;
+              // Check if cafeCode already exists
+              const cafeCode = row.cafeCode;
+              if (cafeCode) {
+                const existing = await prisma.store.findUnique({ where: { cafeCode } });
+                if (existing) {
+                  rowErrors.push(`A store with Cafe Code '${cafeCode}' already exists in the system.`);
+                }
               }
 
-              await prisma.store.create({
-                data: {
-                   ...data,
-                   cafeCode: data.cafeCode,
-                   cafeName: data.cafeName
+              if (rowErrors.length > 0) {
+                rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
+                return;
+              }
+
+              // Insert the record
+              try {
+                const data: any = { ...row };
+                data.brand = brand;
+
+                if (data.lat) data.lat = parseFloat(data.lat);
+                if (data.lng) data.lng = parseFloat(data.lng);
+                if (data.latitude) data.latitude = parseFloat(data.latitude);
+                if (data.latt) data.latt = parseFloat(data.latt);
+                if (data.long) data.long = parseFloat(data.long);
+                if (data.launchDate) data.launchDate = new Date(data.launchDate);
+                
+                data.enteredByEmail = user.email;
+                data.status = 'PENDING_APPROVAL';
+
+                delete data.areaManagerId;
+                delete data.cityHeadId;
+                delete data.cafeManagerId;
+
+                for (const key in data) {
+                   if (data[key] === '') data[key] = null;
                 }
-              });
-              processedCount++;
+
+                await prisma.store.create({
+                  data: {
+                     ...data,
+                     cafeCode: data.cafeCode,
+                     cafeName: data.cafeName
+                  }
+                });
+                processedCount++;
+              } catch (err: any) {
+                errors.push({ message: `Row ${i + 2}: We couldn't create the store in the database. Please try again.` });
+              }
             } catch (err: any) {
-              errors.push({ message: `Row ${i + 2}: We couldn't create the store in the database. Please try again.` });
+              errors.push({ message: `Row ${i + 2}: We couldn't process this row. Please try again.` });
             }
-          }
+          });
+
+          await Promise.all(promises);
         } else if (action === 'modify') {
           const isSuperAdmin = user.role === 'SUPER_ADMIN';
           const hasEditContacts = user.permissions && user.permissions.includes('EDIT_CONTACTS');
 
-          for (let i = 0; i < results.length; i++) {
-            const row = results[i];
+          const promises = results.map(async (row, i) => {
             const rowErrors: string[] = [];
             const cafeCode = row.cafeCode;
 
             if (!cafeCode || String(cafeCode).trim() === '') {
               rowErrors.push("Cafe Code is missing.");
               rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
-              continue;
+              return;
             }
 
-            const existing = await prisma.store.findUnique({ where: { cafeCode } });
-            if (!existing) {
-               rowErrors.push(`We couldn't find a store with Cafe Code '${cafeCode}' in the system.`);
-               rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
-               continue;
-            }
-
-            // Validate fields that are present in the row/CSV headers
-            const presentHeaders = Object.keys(row);
-            
-            // 1. Mandatory checks (for columns present in CSV headers but empty)
-            const missingFields = MANDATORY_FIELDS.filter(field => 
-              presentHeaders.includes(field) && (!row[field] || String(row[field]).trim() === '')
-            );
-            if (missingFields.length > 0) {
-              rowErrors.push(`The following required fields are empty: ${missingFields.map(getFriendlyFieldName).join(', ')}.`);
-            }
-
-            // 2. Email checks
-            const emailFields = ['cafeMailId', 'cafeManagerMailId', 'areaManagerEmail', 'cityHeadEmail'];
-            for (const field of emailFields) {
-              if (presentHeaders.includes(field) && row[field]) {
-                const emailVal = String(row[field]).toLowerCase().trim();
-                if (!emailVal.endsWith('@bluetokaicoffee.com') && !emailVal.endsWith('@gottea.in')) {
-                  rowErrors.push(`${getFriendlyFieldName(field)} must be a valid company email address ending with @bluetokaicoffee.com or @gottea.in.`);
-                }
-              }
-            }
-
-            // 3. Launch month format check
-            if (presentHeaders.includes('cafeLaunchMonth') && row.cafeLaunchMonth && !/^[a-zA-Z]+\s+\d{4}$/.test(String(row.cafeLaunchMonth).trim())) {
-              rowErrors.push("The launch month format is incorrect. Please write it like 'June 2026'.");
-            }
-
-            // 4. Cafe model check
-            if (presentHeaders.includes('cafeModel') && row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
-              rowErrors.push("The cafe model name is not recognized. Please choose a valid model.");
-            }
-
-            // 5. Menu option check
-            if (presentHeaders.includes('menu') && row.menu && !MENU_OPTIONS.includes(row.menu)) {
-              rowErrors.push("The menu type is not recognized. Please choose a valid option.");
-            }
-
-            // 6. State check
-            if (presentHeaders.includes('state') && row.state && !INDIAN_STATES.includes(row.state)) {
-              rowErrors.push("Please enter a valid Indian state name.");
-            }
-
-            // 7. Compute contact fields modifications
-            const modifiesContactDetails = CONTACT_FIELDS.some(key => {
-              if (row[key] === undefined) return false;
-              const dbVal = (existing as any)[key];
-              const reqVal = row[key];
-              const normDb = (dbVal === null || dbVal === undefined) ? '' : String(dbVal).trim();
-              const normReq = (reqVal === null || reqVal === undefined) ? '' : String(reqVal).trim();
-              return normDb !== normReq;
-            });
-
-            // 8. Compute non-contact fields modifications
-            const NOT_EDITABLE_FIELDS = [
-              'cafeName', 'cafeCode', 'cafeModel', 'zone', 
-              'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
-              'fssaiLicense', 'gstCertificateLink', 'isLocked', 'brand'
-            ];
-            const modifiesNonContactFields = Object.keys(row).some(key => {
-              if (CONTACT_FIELDS.includes(key) || NOT_EDITABLE_FIELDS.includes(key)) return false;
-              if (row[key] === undefined) return false;
-              const dbVal = (existing as any)[key];
-              const reqVal = row[key];
-              const normDb = (dbVal === null || dbVal === undefined) ? '' : String(dbVal).trim();
-              const normReq = (reqVal === null || reqVal === undefined) ? '' : String(reqVal).trim();
-              return normDb !== normReq;
-            });
-
-            // 9. Permissions & lock checks
-            if (existing.isLocked) {
-              if (!isSuperAdmin) {
-                if (modifiesNonContactFields) {
-                  rowErrors.push("This store is locked; you can only update its contact details.");
-                }
-                if (modifiesContactDetails && !hasEditContacts) {
-                  rowErrors.push("This store is locked and you do not have permission to change its contact details.");
-                }
-              }
-            } else {
-              if (!isSuperAdmin) {
-                if (modifiesContactDetails && !hasEditContacts) {
-                  rowErrors.push("You do not have permission to change the contact details for this store.");
-                }
-              }
-            }
-
-            if (rowErrors.length > 0) {
-              rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
-              continue;
-            }
-
-            // Perform the update
             try {
-              const data: any = { ...row };
-              if (data.lat) data.lat = parseFloat(data.lat);
-              if (data.lng) data.lng = parseFloat(data.lng);
-              if (data.latitude) data.latitude = parseFloat(data.latitude);
-              if (data.latt) data.latt = parseFloat(data.latt);
-              if (data.long) data.long = parseFloat(data.long);
-              if (data.launchDate) data.launchDate = new Date(data.launchDate);
+              const existing = await prisma.store.findUnique({ where: { cafeCode } });
+              if (!existing) {
+                 rowErrors.push(`We couldn't find a store with Cafe Code '${cafeCode}' in the system.`);
+                 rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
+                 return;
+              }
 
-              delete data.id;
-              delete data.createdAt;
-              delete data.updatedAt;
+              // Validate fields that are present in the row/CSV headers
+              const presentHeaders = Object.keys(row);
+              
+              // 1. Mandatory checks (for columns present in CSV headers but empty)
+              const missingFields = MANDATORY_FIELDS.filter(field => 
+                presentHeaders.includes(field) && (!row[field] || String(row[field]).trim() === '')
+              );
+              if (missingFields.length > 0) {
+                rowErrors.push(`The following required fields are empty: ${missingFields.map(getFriendlyFieldName).join(', ')}.`);
+              }
 
-              // Remove non-editable fields from update payload
-              const UPDATE_NOT_EDITABLE_FIELDS = [
+              // 2. Email checks
+              const emailFields = ['cafeMailId', 'cafeManagerMailId', 'areaManagerEmail', 'cityHeadEmail'];
+              for (const field of emailFields) {
+                if (presentHeaders.includes(field) && row[field]) {
+                  const emailVal = String(row[field]).toLowerCase().trim();
+                  if (!emailVal.endsWith('@bluetokaicoffee.com') && !emailVal.endsWith('@gottea.in')) {
+                    rowErrors.push(`${getFriendlyFieldName(field)} must be a valid company email address ending with @bluetokaicoffee.com or @gottea.in.`);
+                  }
+                }
+              }
+
+              // 3. Launch month format check
+              if (presentHeaders.includes('cafeLaunchMonth') && row.cafeLaunchMonth && !/^[a-zA-Z]+\s+\d{4}$/.test(String(row.cafeLaunchMonth).trim())) {
+                rowErrors.push("The launch month format is incorrect. Please write it like 'June 2026'.");
+              }
+
+              // 4. Cafe model check
+              if (presentHeaders.includes('cafeModel') && row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
+                rowErrors.push("The cafe model name is not recognized. Please choose a valid model.");
+              }
+
+              // 5. Menu option check
+              if (presentHeaders.includes('menu') && row.menu && !MENU_OPTIONS.includes(row.menu)) {
+                rowErrors.push("The menu type is not recognized. Please choose a valid option.");
+              }
+
+              // 6. State check
+              if (presentHeaders.includes('state') && row.state && !INDIAN_STATES.includes(row.state)) {
+                rowErrors.push("Please enter a valid Indian state name.");
+              }
+
+              // 7. Compute contact fields modifications
+              const modifiesContactDetails = CONTACT_FIELDS.some(key => {
+                if (row[key] === undefined) return false;
+                const dbVal = (existing as any)[key];
+                const reqVal = row[key];
+                const normDb = (dbVal === null || dbVal === undefined) ? '' : String(dbVal).trim();
+                const normReq = (reqVal === null || reqVal === undefined) ? '' : String(reqVal).trim();
+                return normDb !== normReq;
+              });
+
+              // 8. Compute non-contact fields modifications
+              const NOT_EDITABLE_FIELDS = [
                 'cafeName', 'cafeCode', 'cafeModel', 'zone', 
                 'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
-                'fssaiLicense', 'gstCertificateLink'
+                'fssaiLicense', 'gstCertificateLink', 'isLocked', 'brand'
               ];
-              UPDATE_NOT_EDITABLE_FIELDS.forEach(field => {
-                  delete data[field];
+              const modifiesNonContactFields = Object.keys(row).some(key => {
+                if (CONTACT_FIELDS.includes(key) || NOT_EDITABLE_FIELDS.includes(key)) return false;
+                if (row[key] === undefined) return false;
+                const dbVal = (existing as any)[key];
+                const reqVal = row[key];
+                const normDb = (dbVal === null || dbVal === undefined) ? '' : String(dbVal).trim();
+                const normReq = (reqVal === null || reqVal === undefined) ? '' : String(reqVal).trim();
+                return normDb !== normReq;
               });
 
-              for (const key in data) {
-                 if (data[key] === '') data[key] = null;
+              // 9. Permissions & lock checks
+              if (existing.isLocked) {
+                if (!isSuperAdmin) {
+                  if (modifiesNonContactFields) {
+                    rowErrors.push("This store is locked; you can only update its contact details.");
+                  }
+                  if (modifiesContactDetails && !hasEditContacts) {
+                    rowErrors.push("This store is locked and you do not have permission to change its contact details.");
+                  }
+                }
+              } else {
+                if (!isSuperAdmin) {
+                  if (modifiesContactDetails && !hasEditContacts) {
+                    rowErrors.push("You do not have permission to change the contact details for this store.");
+                  }
+                }
               }
 
-              data.brand = brand;
-              await prisma.store.update({
-                where: { id: existing.id },
-                data: data
-              });
-              processedCount++;
+              if (rowErrors.length > 0) {
+                rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
+                return;
+              }
+
+              // Perform the update
+              try {
+                const data: any = { ...row };
+                if (data.lat) data.lat = parseFloat(data.lat);
+                if (data.lng) data.lng = parseFloat(data.lng);
+                if (data.latitude) data.latitude = parseFloat(data.latitude);
+                if (data.latt) data.latt = parseFloat(data.latt);
+                if (data.long) data.long = parseFloat(data.long);
+                if (data.launchDate) data.launchDate = new Date(data.launchDate);
+
+                delete data.id;
+                delete data.createdAt;
+                delete data.updatedAt;
+
+                // Remove non-editable fields from update payload
+                const UPDATE_NOT_EDITABLE_FIELDS = [
+                  'cafeName', 'cafeCode', 'cafeModel', 'zone', 
+                  'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
+                  'fssaiLicense', 'gstCertificateLink'
+                ];
+                UPDATE_NOT_EDITABLE_FIELDS.forEach(field => {
+                    delete data[field];
+                });
+
+                for (const key in data) {
+                   if (data[key] === '') data[key] = null;
+                }
+
+                data.brand = brand;
+                await prisma.store.update({
+                  where: { id: existing.id },
+                  data: data
+                });
+                processedCount++;
+              } catch (err: any) {
+                errors.push({ message: `Row ${i + 2}: We couldn't save updates to the database. Please try again.` });
+              }
             } catch (err: any) {
-              errors.push({ message: `Row ${i + 2}: We couldn't save updates to the database. Please try again.` });
+              errors.push({ message: `Row ${i + 2}: We couldn't process this row. Please try again.` });
             }
-          }
+          });
+
+          await Promise.all(promises);
         }
 
         if (errors.length > 0) {
