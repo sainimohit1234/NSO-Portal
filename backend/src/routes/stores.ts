@@ -1905,7 +1905,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
 
             data.brand = brand;
             await prisma.store.update({
-              where: { cafeCode },
+              where: { id: existing.id },
               data: data
             });
             processedCount++;
