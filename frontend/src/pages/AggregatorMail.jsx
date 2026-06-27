@@ -340,10 +340,10 @@ export default function AggregatorMail() {
               <Table size="medium" sx={{ tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}>
                 <TableHead>
                   <TableRow sx={{ bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064' }}>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Category</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>Sub-Category</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>To</TableCell>
-                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>CC</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '15%' }}>Category</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Sub-Category</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '30%' }}>To</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>CC</TableCell>
                     <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '10%', textAlign: 'center' }}>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -462,7 +462,16 @@ export default function AggregatorMail() {
                               {isSubExpanded ? (
                                 <Stack spacing={0.5}>
                                   {row.to.map((email, idx) => (
-                                    <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.primary' }}>
+                                    <Typography 
+                                      key={idx} 
+                                      variant="body2" 
+                                      sx={{ 
+                                        fontSize: '0.725rem', 
+                                        color: 'text.primary',
+                                        wordBreak: 'break-all',
+                                        lineHeight: 1.2
+                                      }}
+                                    >
                                       {email}
                                     </Typography>
                                   ))}
@@ -482,7 +491,16 @@ export default function AggregatorMail() {
                               {isSubExpanded ? (
                                 <Stack spacing={0.5}>
                                   {row.cc.map((email, idx) => (
-                                    <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.primary' }}>
+                                    <Typography 
+                                      key={idx} 
+                                      variant="body2" 
+                                      sx={{ 
+                                        fontSize: '0.725rem', 
+                                        color: 'text.primary',
+                                        wordBreak: 'break-all',
+                                        lineHeight: 1.2
+                                      }}
+                                    >
                                       {email}
                                     </Typography>
                                   ))}
