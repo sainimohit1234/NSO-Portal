@@ -322,7 +322,7 @@ export default function AggregatorMail() {
       {/* Grid container to split screen side-by-side */}
       <Grid container spacing={4}>
         {/* Left Side: Recipient Mappings (width 50%) */}
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <CardHeader 
               title="Email Recipient Configuration" 
@@ -355,7 +355,7 @@ export default function AggregatorMail() {
                     Add New Email Mapping
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       <TextField
                         fullWidth
                         size="small"
@@ -365,7 +365,7 @@ export default function AggregatorMail() {
                         onChange={(e) => setNewCategory(e.target.value)}
                       />
                     </Grid>
-                    <Grid item xs={6}>
+                    <Grid size={6}>
                       <TextField
                         fullWidth
                         size="small"
@@ -375,7 +375,7 @@ export default function AggregatorMail() {
                         onChange={(e) => setNewSubCategory(e.target.value)}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         required
                         fullWidth
@@ -386,7 +386,7 @@ export default function AggregatorMail() {
                         onChange={(e) => setNewTo(e.target.value)}
                       />
                     </Grid>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                       <TextField
                         fullWidth
                         size="small"
@@ -396,7 +396,7 @@ export default function AggregatorMail() {
                         onChange={(e) => setNewCc(e.target.value)}
                       />
                     </Grid>
-                    <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                    <Grid size={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
                       <Button
                         variant="contained"
                         startIcon={<AddIcon />}
@@ -624,7 +624,7 @@ export default function AggregatorMail() {
         </Grid>
 
         {/* Right Side: Email Template Configuration (width 50%) */}
-        <Grid item xs={12} lg={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <CardHeader
               title="Email Template Configuration"
