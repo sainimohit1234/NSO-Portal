@@ -144,6 +144,7 @@ export default function Dashboard() {
     const readyToGoLiveStores = targetStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live');
     const fssaiThisMonthCount = targetStores.filter(isFssaiExpiringThisMonth).length;
     const rentThisMonthCount = targetStores.filter(isRentExpiringThisMonth).length;
+    const incompleteInfoCount = targetStores.filter(s => s.status === 'INCOMPLETE_INFORMATION').length;
 
     const areaManagersData = aggregateManagers(filteredStores, 'areaManager');
     const cityHeadsData = aggregateManagers(filteredStores, 'cityHead');
@@ -162,7 +163,8 @@ export default function Dashboard() {
       rentThisMonthCount,
       areaManagersData,
       cityHeadsData,
-      cafeManagersData
+      cafeManagersData,
+      incompleteInfoCount
     };
   }, [filteredStores]);
 
@@ -236,11 +238,12 @@ export default function Dashboard() {
   const statCards = [
     { title: 'Total Cafe Count', value: stats.totalCafeCount, icon: <Storefront />, color: '#6366f1', subtitle: 'Portfolio size' },
     { title: 'Live Store Count', value: stats.liveStoreCount, icon: <CheckCircle />, color: '#10b981', subtitle: 'Currently active' },
+    { title: 'Closed Store Count', value: stats.closedStoreCount, icon: <Cancel />, color: '#ef4444', subtitle: 'Inactive locations' },
+    { title: 'Upcoming Store Count', value: stats.upcomingStoreCount, icon: <Upcoming />, color: '#06b6d4', subtitle: 'Future pipeline' },
     { title: 'Ready to Go Live Count', value: stats.readyToGoLiveCount, icon: <TaskAlt />, color: '#059669', subtitle: 'Awaiting launch' },
     { title: 'Pipeline Count', value: stats.pipelineCount, icon: <Upcoming />, color: '#0ea5e9', subtitle: 'Pipeline phase' },
-    { title: 'Upcoming Store Count', value: stats.upcomingStoreCount, icon: <Upcoming />, color: '#06b6d4', subtitle: 'Future pipeline' },
-    { title: 'Closed Store Count', value: stats.closedStoreCount, icon: <Cancel />, color: '#ef4444', subtitle: 'Inactive locations' },
     { title: 'Approval Pending', value: stats.pendingApprovalCount, icon: <Warning />, color: '#f59e0b', subtitle: 'Needs review' },
+    { title: 'Incomplete Information', value: stats.incompleteInfoCount, icon: <Description />, color: '#94a3b8', subtitle: 'Requires updates' },
     { title: 'Current Month Expiry FSSAI Licence Count', value: stats.fssaiThisMonthCount, icon: <CalendarToday />, color: '#ec4899', subtitle: 'Compliance attention' },
     { title: 'Current Month Expiry Rent Count', value: stats.rentThisMonthCount, icon: <CalendarToday />, color: '#8b5cf6', subtitle: 'Lease attention' },
     { title: 'Area Managers Count', value: stats.areaManagersData.length, icon: <People />, color: '#f97316', subtitle: 'Regional owners' },
