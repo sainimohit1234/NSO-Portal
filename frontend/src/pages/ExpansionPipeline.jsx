@@ -217,7 +217,7 @@ export default function ExpansionPipeline() {
       state: '',
       address: '',
       cafeModel: '',
-      status: 'INCOMPLETE_INFORMATION',
+      status: 'In Pipeline',
       isActive: true,
       loiUrl: '',
       loiFileName: '',
@@ -234,10 +234,6 @@ export default function ExpansionPipeline() {
     if (!canModify) return;
     if (!store.cafeName.trim()) {
       setSnackbar({ open: true, message: 'Café Name is required.', severity: 'warning' });
-      return;
-    }
-    if (!store.cafeCode.trim()) {
-      setSnackbar({ open: true, message: 'Café Code is required.', severity: 'warning' });
       return;
     }
 
@@ -289,49 +285,6 @@ export default function ExpansionPipeline() {
       setSnackbar({ 
         open: true, 
         message: err.response?.data?.error || 'Failed to delete café.', 
-        severity: 'error' 
-      });
-      setLoading(false);
-    }
-  };
-
-  // Submit to Next Workflow Stage
-  const handleSubmitNextStage = async (store) => {
-    if (!canModify) return;
-    if (!store.loiUrl) {
-      setSnackbar({ open: true, message: 'Submission blocked: LOI document must be uploaded and saved first.', severity: 'error' });
-      return;
-    }
-
-    let nextStatus = '';
-    const currentStatus = store.status;
-
-    if (currentStatus === 'INCOMPLETE_INFORMATION') {
-      nextStatus = 'PENDING_APPROVAL';
-    } else if (currentStatus === 'PENDING_APPROVAL') {
-      nextStatus = 'APPROVED';
-    } else if (currentStatus === 'APPROVED' || currentStatus === 'NSO_APPROVED') {
-      nextStatus = 'COMPLIANCE_APPROVED';
-    } else if (currentStatus === 'COMPLIANCE_APPROVED') {
-      nextStatus = 'LIVE';
-    } else {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await axios.put(`/api/stores/${store.id}`, { status: nextStatus });
-      setSnackbar({ 
-        open: true, 
-        message: `Café stage advanced successfully to: ${nextStatus.replace(/_/g, ' ')}.`, 
-        severity: 'success' 
-      });
-      loadData();
-    } catch (err) {
-      console.error(err);
-      setSnackbar({ 
-        open: true, 
-        message: err.response?.data?.error || 'Failed to advance café stage.', 
         severity: 'error' 
       });
       setLoading(false);
@@ -485,7 +438,7 @@ export default function ExpansionPipeline() {
                 <TableCell sx={{ fontWeight: 800, width: 350 }}>Address</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 150 }}>Café Model</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 130 }}>Upload File</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 150 }}>Submit for Next Stage</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 180 }}>Status</TableCell>
                 {canModify && <TableCell sx={{ fontWeight: 800, width: 80 }} align="center">Actions</TableCell>}
               </TableRow>
             </TableHead>
@@ -642,29 +595,27 @@ export default function ExpansionPipeline() {
                         </Button>
                       </TableCell>
 
-                      {/* Submit for Next Stage */}
+                      {/* Status */}
                       <TableCell>
-                        <Tooltip title={!hasLoiSaved ? "Please upload and save an LOI document first" : `Advance from ${getStatusLabel(store.status)}`}>
-                          <span>
-                            <Button
-                              variant="contained"
-                              color="success"
+                        {(() => {
+                          const hasLoi = !!store.loiUrl;
+                          const currentStatus = store.status === 'Ready for Construction' ? 'Ready for Construction' : 'In Pipeline';
+                          return (
+                            <Select
+                              value={currentStatus}
                               size="small"
-                              disabled={!rowEditable || !hasLoiSaved}
-                              onClick={() => handleSubmitNextStage(store)}
-                              endIcon={<ArrowForwardIcon />}
-                              sx={{ 
-                                borderRadius: '8px', 
-                                fontWeight: 700, 
-                                fontSize: '0.72rem', 
-                                whiteSpace: 'nowrap',
-                                textTransform: 'uppercase'
-                              }}
+                              disabled={!rowEditable}
+                              onChange={(e) => handleFieldChange(store.id, 'status', e.target.value)}
+                              fullWidth
+                              sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                             >
-                              Submit
-                            </Button>
-                          </span>
-                        </Tooltip>
+                              <MenuItem value="In Pipeline">In Pipeline</MenuItem>
+                              {hasLoi && (
+                                <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
+                              )}
+                            </Select>
+                          );
+                        })()}
                       </TableCell>
 
                       {/* Actions */}
