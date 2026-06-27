@@ -428,9 +428,9 @@ export default function ExpansionPipeline() {
           <Table stickyHeader sx={{ minWidth: 1960, tableLayout: 'fixed', '& .MuiTableCell-root': { px: 1, py: 1.25 } }}>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800, width: 50 }}>S.No.</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 200 }}>Brand</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 300 }}>Café Name</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, fontWeight: 800, width: 50 }}>S.No.</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 50, zIndex: 4, fontWeight: 800, width: 200 }}>Brand</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 250, zIndex: 4, fontWeight: 800, width: 300, borderRight: '1.5px solid', borderColor: 'divider' }}>Café Name</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 150 }}>Café Code</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 110 }}>Pin Code</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 130 }}>City</TableCell>
@@ -463,11 +463,11 @@ export default function ExpansionPipeline() {
 
                   return (
                     <TableRow key={store.id} hover sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}>
-                      {/* Serial No. */}
-                      <TableCell sx={{ fontWeight: 800 }}>{index + 1}</TableCell>
+                       {/* Serial No. */}
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper', fontWeight: 800 }}>{index + 1}</TableCell>
 
                       {/* Brand Select */}
-                      <TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.paper' }}>
                         <Select
                           value={store.brand || 'BLUE_TOKAI_SUCHALI'}
                           size="small"
@@ -482,7 +482,7 @@ export default function ExpansionPipeline() {
                       </TableCell>
 
                       {/* Café Name */}
-                      <TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 250, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
                         <TextField
                           value={store.cafeName || ''}
                           size="small"
