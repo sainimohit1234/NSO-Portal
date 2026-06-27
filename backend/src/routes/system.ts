@@ -2,7 +2,7 @@ import { Router } from 'express';
 import nodemailer from 'nodemailer';
 import { authenticateToken, authorizeRoles } from './auth';
 import { getSMTPConfig, saveSMTPConfig, SMTPConfig } from '../utils/smtp';
-import { getEmailRecipients, saveEmailRecipients, EmailCategory } from '../utils/emailRecipients';
+import { getEmailRecipients, saveEmailRecipients, EmailCategory, getEmailMappings, saveEmailMappings, EmailMapping } from '../utils/emailRecipients';
 
 const router = Router();
 
@@ -134,6 +134,39 @@ router.put('/email-recipients', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'
   } catch (error) {
     console.error('Error saving email recipients:', error);
     res.status(500).json({ error: 'Failed to save email recipient configurations' });
+  }
+});
+
+// Get email mappings configuration
+router.get('/email-mappings', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), async (req, res) => {
+  try {
+    const config = await getEmailMappings();
+    res.json(config);
+  } catch (error) {
+    console.error('Error fetching email mappings:', error);
+    res.status(500).json({ error: 'Failed to fetch email recipient mappings' });
+  }
+});
+
+// Update email mappings configuration
+router.put('/email-mappings', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), async (req, res) => {
+  try {
+    const currentUser = (req as any).user;
+    const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
+    const hasEmailDirectoryPerm = currentUser?.permissions?.split(',').includes('EMAIL_DIRECTORY');
+    if (!isSuperAdmin && !hasEmailDirectoryPerm) {
+      return res.status(403).json({ error: 'Access Denied: Email Directory sub-access required.' });
+    }
+
+    const config = req.body;
+    if (!Array.isArray(config)) {
+      return res.status(400).json({ error: 'Configuration must be an array of mappings' });
+    }
+    await saveEmailMappings(config);
+    res.json({ message: 'Email recipient mappings saved successfully', config });
+  } catch (error) {
+    console.error('Error saving email mappings:', error);
+    res.status(500).json({ error: 'Failed to save email recipient mappings' });
   }
 });
 

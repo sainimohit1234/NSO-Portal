@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Box, Typography, Card, CardContent, Grid, TextField, Button, Stack, 
-  Paper, Chip, CardHeader, Divider, List, ListItem, ListItemText,
-  IconButton, Alert, Dialog, DialogTitle, DialogContent, DialogActions
+  Paper, Chip, CardHeader, Divider, Table, TableBody, TableCell, 
+  TableContainer, TableHead, TableRow, IconButton, Alert, Dialog, 
+  DialogTitle, DialogContent, DialogActions, MenuItem
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+import CloseIcon from '@mui/icons-material/Close';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -17,319 +18,177 @@ export default function AggregatorMail() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const canManageEmailDirectory = isSuperAdmin || user?.permissions?.split(',').includes('EMAIL_DIRECTORY');
 
-  // Configured recipient categories loaded from backend
-  const [categories, setCategories] = useState([]);
+  // Mappings state
+  const [mappings, setMappings] = useState([]);
+  const [categoryFilter, setCategoryFilter] = useState('All');
 
-  // Auto Mail configuration state
-  const [newAutoEmailInput, setNewAutoEmailInput] = useState('');
-  const [newAutoCcEmailInput, setNewAutoCcEmailInput] = useState('');
-  const [editingAutoCat, setEditingAutoCat] = useState(null); // 'auto_mails' or 'auto_mails_cc'
-  const [editingAutoIndex, setEditingAutoIndex] = useState(null);
-  const [editingAutoValue, setEditingAutoValue] = useState('');
-  const [confirmDeleteDialogOpen, setConfirmDeleteDialogOpen] = useState(false);
-  const [deleteCatId, setDeleteCatId] = useState(null);
-  const [deleteIndex, setDeleteIndex] = useState(null);
-  
+  // New mapping form state
+  const [newCategory, setNewCategory] = useState('');
+  const [newSubCategory, setNewSubCategory] = useState('');
+  const [newTo, setNewTo] = useState('');
+  const [newCc, setNewCc] = useState('');
+
+  // Inline editing state
+  const [editingId, setEditingId] = useState(null);
+  const [editCategory, setEditCategory] = useState('');
+  const [editSubCategory, setEditSubCategory] = useState('');
+  const [editTo, setEditTo] = useState('');
+  const [editCc, setEditCc] = useState('');
+
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
-  const fetchRecipients = () => {
-    axios.get('/api/system/email-recipients')
+  const fetchMappings = () => {
+    axios.get('/api/system/email-mappings')
       .then(res => {
-        setCategories(res.data);
+        setMappings(res.data);
       })
       .catch(err => {
-        console.error('Failed to fetch email recipients:', err);
-        // Fallback default mappings
-        setCategories([
-          { id: 'swiggy', name: 'Swiggy', type: 'to', emails: ['rahul.mukhi@swiggy.in', 'shaik.ansar@swiggy.in', 'premiumvm@swiggy.in'] },
-          { id: 'zomato', name: 'Zomato', type: 'to', emails: ['kriti.lahoty@zomato.com', 'ananya.roy@zomato.com', 'ananya.bawa@zomato.com'] },
-          { id: 'others', name: 'Others', type: 'to', emails: [] },
-          { id: 'cc', name: 'CC Email IDs (Applicable for Both Templates)', type: 'cc', emails: ['centraloperations@bluetokaicoffee.com', 'Anushree@bluetokaicoffee.com', 'akash.t@bluetokaicoffee.com'] },
-          { id: 'auto_mails', name: 'Mail IDs for Auto Mails (TO)', type: 'to', emails: [] },
-          { id: 'auto_mails_cc', name: 'Mail IDs for Auto Mails (CC)', type: 'cc', emails: [] }
-        ]);
+        console.error('Failed to fetch email mappings:', err);
+        setErrorMsg('Failed to load email configurations from server.');
       });
   };
 
   useEffect(() => {
-    fetchRecipients();
+    fetchMappings();
   }, []);
 
-  const handleAddAutoEmail = async (categoryId) => {
-    const inputVal = (categoryId === 'auto_mails' ? newAutoEmailInput : newAutoCcEmailInput).trim();
-    if (!inputVal) return;
-
-    const emailsToAdd = inputVal.split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    for (const email of emailsToAdd) {
-      if (!emailRegex.test(email)) {
-        setErrorMsg(`Invalid email format: ${email}`);
-        return;
-      }
-    }
-
-    const updated = categories.map(cat => {
-      if (cat.id === categoryId) {
-        const newEmails = [...cat.emails];
-        for (const email of emailsToAdd) {
-          if (!newEmails.includes(email)) {
-            newEmails.push(email);
-          }
-        }
-        return { ...cat, emails: newEmails };
-      }
-      return cat;
-    });
-
+  const saveMappingsToBackend = async (updatedList) => {
     try {
-      const res = await axios.put('/api/system/email-recipients', updated);
-      setCategories(res.data.config);
-      if (categoryId === 'auto_mails') {
-        setNewAutoEmailInput('');
-      } else {
-        setNewAutoCcEmailInput('');
-      }
-      setSuccessMsg('Email added successfully.');
+      const res = await axios.put('/api/system/email-mappings', updatedList);
+      setMappings(res.data.config);
+      setSuccessMsg('Configurations saved successfully.');
       setErrorMsg('');
     } catch (err) {
-      setErrorMsg(err.response?.data?.error || 'Failed to add email.');
+      console.error('Failed to save configurations:', err);
+      setErrorMsg(err.response?.data?.error || 'Failed to save configurations.');
     }
   };
 
-  const handleSaveEditAutoEmail = async (categoryId, idx) => {
-    const email = editingAutoValue.trim().toLowerCase();
+  const validateEmails = (emailStr) => {
+    if (!emailStr.trim()) return [];
+    const emails = emailStr.split(',').map(e => e.trim()).filter(Boolean);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setErrorMsg('Please enter a valid email address.');
+    for (const email of emails) {
+      if (!emailRegex.test(email)) {
+        throw new Error(`Invalid email address format: "${email}"`);
+      }
+    }
+    return emails;
+  };
+
+  const handleAddMapping = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    
+    const cat = newCategory.trim();
+    const subCat = newSubCategory.trim();
+    
+    if (!cat || !subCat) {
+      setErrorMsg('Category and Sub-Category are required fields.');
       return;
     }
 
-    const updated = categories.map(cat => {
-      if (cat.id === categoryId) {
-        const newEmails = [...cat.emails];
-        newEmails[idx] = email;
-        return { ...cat, emails: newEmails };
-      }
-      return cat;
-    });
-
-    try {
-      const res = await axios.put('/api/system/email-recipients', updated);
-      setCategories(res.data.config);
-      setEditingAutoCat(null);
-      setEditingAutoIndex(null);
-      setEditingAutoValue('');
-      setSuccessMsg('Email updated successfully.');
-      setErrorMsg('');
-    } catch (err) {
-      setErrorMsg(err.response?.data?.error || 'Failed to update email.');
-    }
-  };
-
-  const handleConfirmDeleteAutoEmail = async () => {
-    if (deleteIndex === null || !deleteCatId) return;
-
-    const updated = categories.map(cat => {
-      if (cat.id === deleteCatId) {
-        return {
-          ...cat,
-          emails: cat.emails.filter((_, idx) => idx !== deleteIndex)
-        };
-      }
-      return cat;
-    });
-
-    try {
-      const res = await axios.put('/api/system/email-recipients', updated);
-      setCategories(res.data.config);
-      setSuccessMsg('Email deleted successfully.');
-      setErrorMsg('');
-    } catch (err) {
-      setErrorMsg(err.response?.data?.error || 'Failed to delete email.');
-    } finally {
-      setConfirmDeleteDialogOpen(false);
-      setDeleteCatId(null);
-      setDeleteIndex(null);
-    }
-  };
-
-  const renderAutoMailsCard = () => {
-    const autoMailsCategory = categories.find(c => c.id === 'auto_mails') || { id: 'auto_mails', name: 'Mail IDs for Auto Mails (TO)', type: 'to', emails: [] };
-    const autoCcMailsCategory = categories.find(c => c.id === 'auto_mails_cc') || { id: 'auto_mails_cc', name: 'Mail IDs for Auto Mails (CC)', type: 'cc', emails: [] };
-
-    const renderSubSection = (category, inputValue, setInputValue, label) => {
-      return (
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Chip 
-              label={category.type.toUpperCase()} 
-              size="small" 
-              color={category.type === 'to' ? 'primary' : 'secondary'} 
-              variant={category.type === 'cc' ? 'outlined' : 'filled'}
-              sx={{ fontWeight: 800, height: 18, fontSize: '0.6rem', borderRadius: '4px' }} 
-            />
-            {label}
-          </Typography>
-          <Paper variant="outlined" sx={{ p: 2, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.01)', mb: 2, minHeight: 180, maxHeight: 300, overflowY: 'auto' }}>
-            <List dense sx={{ py: 0 }}>
-              {category.emails.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ display: 'block', textAlign: 'center', py: 6, fontWeight: 500 }}>
-                  No email IDs configured.
-                </Typography>
-              ) : (
-                category.emails.map((email, idx) => {
-                  const isEditing = editingAutoCat === category.id && editingAutoIndex === idx;
-                  return (
-                    <ListItem 
-                      key={idx} 
-                      disablePadding 
-                      sx={{ 
-                        py: 0.75, 
-                        borderBottom: '1px solid', 
-                        borderColor: 'divider',
-                        '&:last-child': { borderBottom: 'none' } 
-                      }} 
-                      secondaryAction={
-                        isEditing ? (
-                          <Stack direction="row" spacing={1}>
-                            <IconButton 
-                              edge="end" 
-                              size="small" 
-                              onClick={() => handleSaveEditAutoEmail(category.id, idx)} 
-                              color="success"
-                            >
-                              <CheckIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                            <IconButton 
-                              edge="end" 
-                              size="small" 
-                              onClick={() => {
-                                setEditingAutoCat(null);
-                                setEditingAutoIndex(null);
-                                setEditingAutoValue('');
-                              }} 
-                              color="error"
-                            >
-                              <CloseIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                          </Stack>
-                        ) : (
-                          <Stack direction="row" spacing={1}>
-                            <IconButton 
-                              edge="end" 
-                              size="small" 
-                              onClick={() => {
-                                setEditingAutoCat(category.id);
-                                setEditingAutoIndex(idx);
-                                setEditingAutoValue(email);
-                              }} 
-                              color="primary"
-                              disabled={!canManageEmailDirectory}
-                            >
-                              <EditIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                            <IconButton 
-                              edge="end" 
-                              size="small" 
-                              onClick={() => {
-                                setDeleteCatId(category.id);
-                                setDeleteIndex(idx);
-                                setConfirmDeleteDialogOpen(true);
-                              }} 
-                              color="error"
-                              disabled={!canManageEmailDirectory}
-                            >
-                              <DeleteIcon sx={{ fontSize: 18 }} />
-                            </IconButton>
-                          </Stack>
-                        )
-                      }
-                    >
-                      {isEditing ? (
-                        <TextField
-                          size="small"
-                          fullWidth
-                          value={editingAutoValue}
-                          onChange={(e) => setEditingAutoValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveEditAutoEmail(category.id, idx);
-                            if (e.key === 'Escape') {
-                              setEditingAutoCat(null);
-                              setEditingAutoIndex(null);
-                              setEditingAutoValue('');
-                            }
-                          }}
-                          sx={{ mr: 12 }}
-                          autoFocus
-                        />
-                      ) : (
-                        <ListItemText 
-                          primary={email} 
-                          primaryTypographyProps={{ 
-                            fontSize: '0.875rem', 
-                            fontWeight: 600,
-                            style: { wordBreak: 'break-all', paddingRight: '100px' } 
-                          }} 
-                        />
-                      )}
-                    </ListItem>
-                  );
-                })
-              )}
-            </List>
-          </Paper>
-
-          <Stack direction="row" spacing={2}>
-            <TextField 
-              size="small" 
-              placeholder={`Add email ID(s) (e.g. alert1@bluetokai.com, alert2@bluetokai.com)`}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              fullWidth
-              disabled={!canManageEmailDirectory}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleAddAutoEmail(category.id);
-                }
-              }}
-            />
-            <Button 
-              variant="contained" 
-              onClick={() => handleAddAutoEmail(category.id)}
-              disabled={!canManageEmailDirectory}
-              startIcon={<AddIcon />}
-              sx={{ borderRadius: '8px', px: 3, fontWeight: 700, boxShadow: 'none' }}
-            >
-              Add
-            </Button>
-          </Stack>
-        </Box>
-      );
-    };
-
-    return (
-      <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', width: '100%', border: '1px solid', borderColor: 'divider' }}>
-        <CardHeader 
-          title="Email Recipient Configuration" 
-          titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
-          subheader="Manage email recipients for system-generated and automated emails"
-        />
-        <Divider />
-        <CardContent sx={{ p: 3 }}>
-          <Grid container spacing={4}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              {renderSubSection(autoMailsCategory, newAutoEmailInput, setNewAutoEmailInput, "To Recipient List")}
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              {renderSubSection(autoCcMailsCategory, newAutoCcEmailInput, setNewAutoCcEmailInput, "CC Recipient List")}
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+    // Check duplicate combinations (case insensitive)
+    const isDuplicate = mappings.some(
+      m => m.category.toLowerCase() === cat.toLowerCase() && m.subCategory.toLowerCase() === subCat.toLowerCase()
     );
+    if (isDuplicate) {
+      setErrorMsg(`A mapping for Category "${cat}" and Sub-Category "${subCat}" already exists.`);
+      return;
+    }
+
+    try {
+      const parsedTo = validateEmails(newTo);
+      const parsedCc = validateEmails(newCc);
+
+      const newRow = {
+        id: `mapping_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        category: cat,
+        subCategory: subCat,
+        to: parsedTo,
+        cc: parsedCc
+      };
+
+      const updated = [...mappings, newRow];
+      await saveMappingsToBackend(updated);
+
+      // Reset form
+      setNewCategory('');
+      setNewSubCategory('');
+      setNewTo('');
+      setNewCc('');
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
   };
+
+  const handleStartEdit = (row) => {
+    setEditingId(row.id);
+    setEditCategory(row.category);
+    setEditSubCategory(row.subCategory);
+    setEditTo(row.to.join(', '));
+    setEditCc(row.cc.join(', '));
+  };
+
+  const handleSaveEdit = async (id) => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    
+    const cat = editCategory.trim();
+    const subCat = editSubCategory.trim();
+    
+    if (!cat || !subCat) {
+      setErrorMsg('Category and Sub-Category are required fields.');
+      return;
+    }
+
+    // Check duplicate combinations excluding self
+    const isDuplicate = mappings.some(
+      m => m.id !== id && m.category.toLowerCase() === cat.toLowerCase() && m.subCategory.toLowerCase() === subCat.toLowerCase()
+    );
+    if (isDuplicate) {
+      setErrorMsg(`A mapping for Category "${cat}" and Sub-Category "${subCat}" already exists.`);
+      return;
+    }
+
+    try {
+      const parsedTo = validateEmails(editTo);
+      const parsedCc = validateEmails(editCc);
+
+      const updated = mappings.map(m => {
+        if (m.id === id) {
+          return {
+            ...m,
+            category: cat,
+            subCategory: subCat,
+            to: parsedTo,
+            cc: parsedCc
+          };
+        }
+        return m;
+      });
+
+      await saveMappingsToBackend(updated);
+      setEditingId(null);
+    } catch (err) {
+      setErrorMsg(err.message);
+    }
+  };
+
+  const handleDeleteMapping = async (id) => {
+    const updated = mappings.filter(m => m.id !== id);
+    await saveMappingsToBackend(updated);
+    setConfirmDeleteId(null);
+  };
+
+  const uniqueCategories = ['All', ...new Set(mappings.map(m => m.category))];
+
+  const filteredMappings = mappings.filter(m => {
+    if (categoryFilter === 'All') return true;
+    return m.category.toLowerCase() === categoryFilter.toLowerCase();
+  });
 
   return (
     <Box sx={{ py: 1 }}>
@@ -338,7 +197,7 @@ export default function AggregatorMail() {
           Email Directory
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Manage email recipients for system-generated and automated emails.
+          Configure Category and Sub-Category recipient mappings for automated email dispatches.
         </Typography>
       </Box>
 
@@ -347,29 +206,254 @@ export default function AggregatorMail() {
 
       {!canManageEmailDirectory && (
         <Alert severity="info" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600 }}>
-          You are in view-only mode. You need the "Email Directory" sub-access permission to add, edit, or delete Mail IDs.
+          You are in view-only mode. You need the "Email Directory" sub-access permission to add, edit, or delete recipient configurations.
         </Alert>
       )}
 
-      {renderAutoMailsCard()}
+      <Stack spacing={4}>
+        {/* Configuration Card */}
+        <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', width: '100%', border: '1px solid', borderColor: 'divider' }}>
+          <CardHeader 
+            title="Email Recipient Configuration" 
+            titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
+            subheader="Manage recipient email addresses for Swiggy, Zomato, and other categories"
+            action={
+              <Box sx={{ display: 'flex', gap: 2, mt: 1, mr: 2 }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Filter Category"
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  sx={{ width: 200 }}
+                >
+                  {uniqueCategories.map(cat => (
+                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+                  ))}
+                </TextField>
+              </Box>
+            }
+          />
+          <Divider />
+          <CardContent sx={{ p: 3 }}>
+            
+            {/* Add Mapping Form (Enabled only for users with permissions) */}
+            {canManageEmailDirectory && (
+              <Paper variant="outlined" sx={{ p: 3, mb: 4, borderRadius: '12px', bgcolor: 'action.hover' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2 }}>
+                  Add New Email Mapping
+                </Typography>
+                <Grid container spacing={2.5}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Category"
+                      placeholder="e.g. Zomato"
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Sub-Category"
+                      placeholder="e.g. BTC Zomato"
+                      value={newSubCategory}
+                      onChange={(e) => setNewSubCategory(e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="To Recipient List"
+                      placeholder="e.g. abc@company.com, xyz@company.com"
+                      value={newTo}
+                      onChange={(e) => setNewTo(e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={3}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="CC Recipient List"
+                      placeholder="e.g. manager@company.com"
+                      value={newCc}
+                      onChange={(e) => setNewCc(e.target.value)}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+                    <Button
+                      variant="contained"
+                      startIcon={<AddIcon />}
+                      onClick={handleAddMapping}
+                      sx={{ borderRadius: '8px', px: 3, fontWeight: 700 }}
+                    >
+                      Add Mapping
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Paper>
+            )}
 
-      {/* Confirmation Dialog for Auto Mail ID Deletion */}
+            {/* Table View */}
+            <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell sx={{ fontWeight: 800, py: 1.5 }}>Category</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 1.5 }}>Sub-Category</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 1.5 }}>To Recipient List</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 1.5 }}>CC Recipient List</TableCell>
+                    <TableCell sx={{ fontWeight: 800, py: 1.5, align: 'center', width: 140 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredMappings.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} align="center" sx={{ py: 8, color: 'text.secondary', fontWeight: 600 }}>
+                        No email mappings configured.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredMappings.map((row) => {
+                      const isEditing = editingId === row.id;
+                      return (
+                        <TableRow key={row.id} hover>
+                          <TableCell sx={{ py: 1.5 }}>
+                            {isEditing ? (
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={editCategory}
+                                onChange={(e) => setEditCategory(e.target.value)}
+                              />
+                            ) : (
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                {row.category}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ py: 1.5 }}>
+                            {isEditing ? (
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={editSubCategory}
+                                onChange={(e) => setEditSubCategory(e.target.value)}
+                              />
+                            ) : (
+                              <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {row.subCategory}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ py: 1.5 }}>
+                            {isEditing ? (
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={editTo}
+                                onChange={(e) => setEditTo(e.target.value)}
+                              />
+                            ) : (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {row.to.map((email, idx) => (
+                                  <Chip key={idx} label={email} size="small" variant="outlined" sx={{ fontWeight: 500 }} />
+                                ))}
+                              </Box>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ py: 1.5 }}>
+                            {isEditing ? (
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={editCc}
+                                onChange={(e) => setEditCc(e.target.value)}
+                              />
+                            ) : (
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {row.cc.map((email, idx) => (
+                                  <Chip key={idx} label={email} size="small" variant="outlined" sx={{ fontWeight: 500 }} />
+                                ))}
+                              </Box>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ py: 1.5 }} align="center">
+                            {isEditing ? (
+                              <Stack direction="row" spacing={1} justifyContent="center">
+                                <IconButton 
+                                  size="small" 
+                                  color="success" 
+                                  onClick={() => handleSaveEdit(row.id)}
+                                >
+                                  <SaveIcon sx={{ fontSize: 20 }} />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={() => setEditingId(null)}
+                                >
+                                  <CloseIcon sx={{ fontSize: 20 }} />
+                                </IconButton>
+                              </Stack>
+                            ) : (
+                              <Stack direction="row" spacing={1} justifyContent="center">
+                                <IconButton 
+                                  size="small" 
+                                  color="primary" 
+                                  disabled={!canManageEmailDirectory}
+                                  onClick={() => handleStartEdit(row)}
+                                >
+                                  <EditIcon sx={{ fontSize: 20 }} />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  disabled={!canManageEmailDirectory}
+                                  onClick={() => setConfirmDeleteId(row.id)}
+                                >
+                                  <DeleteIcon sx={{ fontSize: 20 }} />
+                                </IconButton>
+                              </Stack>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
+      </Stack>
+
+      {/* Confirmation Dialog for Mapping Deletion */}
       <Dialog
-        open={confirmDeleteDialogOpen}
-        onClose={() => setConfirmDeleteDialogOpen(false)}
+        open={confirmDeleteId !== null}
+        onClose={() => setConfirmDeleteId(null)}
         PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}
       >
         <DialogTitle sx={{ fontWeight: 800 }}>Confirm Deletion</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Are you sure you want to delete this Mail ID?
+            Are you sure you want to delete this Category/Sub-Category recipient mapping?
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirmDeleteDialogOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>
+          <Button onClick={() => setConfirmDeleteId(null)} color="inherit" sx={{ fontWeight: 600 }}>
             Cancel
           </Button>
-          <Button onClick={handleConfirmDeleteAutoEmail} variant="contained" color="error" sx={{ fontWeight: 700, borderRadius: '8px' }}>
+          <Button 
+            onClick={() => handleDeleteMapping(confirmDeleteId)} 
+            variant="contained" 
+            color="error" 
+            sx={{ fontWeight: 700, borderRadius: '8px' }}
+          >
             Delete
           </Button>
         </DialogActions>
