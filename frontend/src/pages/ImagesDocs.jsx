@@ -24,6 +24,7 @@ export default function ImagesDocs() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLinkName, setNewLinkName] = useState('');
   const [newFileUrl, setNewFileUrl] = useState('');
+  const [newOriginalFileName, setNewOriginalFileName] = useState('');
   const [uploadingNewFile, setUploadingNewFile] = useState(false);
   const [addingSaving, setAddingSaving] = useState(false);
 
@@ -40,6 +41,7 @@ export default function ImagesDocs() {
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editFileUrl, setEditFileUrl] = useState('');
+  const [editOriginalFileName, setEditOriginalFileName] = useState('');
   const [uploadingEditFile, setUploadingEditFile] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
@@ -67,8 +69,10 @@ export default function ImagesDocs() {
       setErrorMsg('File size must not exceed 300KB.');
       if (isEdit) {
         setEditFileUrl('');
+        setEditOriginalFileName('');
       } else {
         setNewFileUrl('');
+        setNewOriginalFileName('');
       }
       return null;
     }
@@ -76,8 +80,10 @@ export default function ImagesDocs() {
     setErrorMsg('');
     if (isEdit) {
       setUploadingEditFile(true);
+      setEditOriginalFileName(file.name);
     } else {
       setUploadingNewFile(true);
+      setNewOriginalFileName(file.name);
     }
 
     const formData = new FormData();
@@ -117,11 +123,12 @@ export default function ImagesDocs() {
     try {
       await axios.post('/api/global-docs/add-link', {
         category: name,
-        linkName: name,
+        linkName: newOriginalFileName || url.substring(url.lastIndexOf('/') + 1),
         linkUrl: url
       });
       setNewLinkName('');
       setNewFileUrl('');
+      setNewOriginalFileName('');
       setShowAddForm(false);
       await fetchDocuments();
       setPreviewUrl(url);
@@ -138,6 +145,7 @@ export default function ImagesDocs() {
     setEditingId(doc.id);
     setEditName(doc.category);
     setEditFileUrl(doc.fileUrl);
+    setEditOriginalFileName(doc.fileName || '');
   };
 
   const handleSaveEdit = async (id) => {
@@ -150,7 +158,7 @@ export default function ImagesDocs() {
     try {
       await axios.put(`/api/global-docs/${id}`, {
         category: name,
-        linkName: name,
+        linkName: editOriginalFileName || url.substring(url.lastIndexOf('/') + 1),
         linkUrl: url
       });
 
@@ -164,6 +172,7 @@ export default function ImagesDocs() {
       setEditingId(null);
       setEditName('');
       setEditFileUrl('');
+      setEditOriginalFileName('');
       await fetchDocuments();
     } catch (err) {
       setErrorMsg(`Failed to update document for ${name}`);
@@ -298,7 +307,7 @@ export default function ImagesDocs() {
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                         Add New Doc
                       </Typography>
-                      <IconButton size="small" onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewFileUrl(''); }}>
+                      <IconButton size="small" onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewFileUrl(''); setNewOriginalFileName(''); }}>
                         <CloseIcon fontSize="small" />
                       </IconButton>
                     </Box>
@@ -338,7 +347,7 @@ export default function ImagesDocs() {
                         </Button>
                         {newFileUrl && (
                           <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, wordBreak: 'break-all' }}>
-                            ✓ File uploaded: {newFileUrl.substring(newFileUrl.lastIndexOf('/') + 1)}
+                            ✓ File uploaded: {newOriginalFileName || newFileUrl.substring(newFileUrl.lastIndexOf('/') + 1)}
                           </Typography>
                         )}
                       </Box>
@@ -346,7 +355,7 @@ export default function ImagesDocs() {
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         <Button
                           size="small"
-                          onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewFileUrl(''); }}
+                          onClick={() => { setShowAddForm(false); setNewLinkName(''); setNewFileUrl(''); setNewOriginalFileName(''); }}
                         >
                           Cancel
                         </Button>
@@ -398,7 +407,7 @@ export default function ImagesDocs() {
                               <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                                 Edit Doc
                               </Typography>
-                              <IconButton size="small" onClick={() => { setEditingId(null); setEditName(''); setEditFileUrl(''); }}>
+                              <IconButton size="small" onClick={() => { setEditingId(null); setEditName(''); setEditFileUrl(''); setEditOriginalFileName(''); }}>
                                 <CloseIcon fontSize="small" />
                               </IconButton>
                             </Box>
@@ -436,7 +445,7 @@ export default function ImagesDocs() {
                               </Button>
                               {editFileUrl && (
                                 <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, wordBreak: 'break-all' }}>
-                                  ✓ File uploaded: {editFileUrl.substring(editFileUrl.lastIndexOf('/') + 1)}
+                                  ✓ File uploaded: {editOriginalFileName || editFileUrl.substring(editFileUrl.lastIndexOf('/') + 1)}
                                 </Typography>
                               )}
                             </Box>
@@ -444,7 +453,7 @@ export default function ImagesDocs() {
                             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1.5 }}>
                               <Button
                                 size="small"
-                                onClick={() => { setEditingId(null); setEditName(''); setEditFileUrl(''); }}
+                                onClick={() => { setEditingId(null); setEditName(''); setEditFileUrl(''); setEditOriginalFileName(''); }}
                               >
                                 Cancel
                               </Button>
@@ -507,7 +516,9 @@ export default function ImagesDocs() {
                                   textDecorationColor: 'rgba(0,122,140,0.3)',
                                 }}
                               >
-                                {doc.fileUrl.substring(doc.fileUrl.lastIndexOf('/') + 1)}
+                                {doc.fileName && doc.fileName !== doc.category 
+                                  ? doc.fileName 
+                                  : doc.fileUrl.substring(doc.fileUrl.lastIndexOf('/') + 1)}
                               </Typography>
                             </Box>
 
