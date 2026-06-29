@@ -9,6 +9,8 @@ import {
   Select, InputAdornment, Autocomplete, Tabs, Tab
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
+import EditIcon from '@mui/icons-material/Edit';
+import SendIcon from '@mui/icons-material/Send';
 import axios from '../utils/api';
 
 import { useAuth } from '../context/AuthContext';
@@ -146,6 +148,9 @@ export default function EditStore() {
   }, [errors]);
 
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
+  const [emailMappings, setEmailMappings] = useState([]);
+  const [emailTemplates, setEmailTemplates] = useState({});
+  const [draftDialog, setDraftDialog] = useState({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
   const [prevStatus, setPrevStatus] = useState('');
   const [tempInStoreClosed, setTempInStoreClosed] = useState(false);
   const [tempDeliveryClosed, setTempDeliveryClosed] = useState(false);
@@ -256,7 +261,13 @@ export default function EditStore() {
       ? [axios.get(`/api/stores`), Promise.resolve({ data: [] })]
       : [axios.get(`/api/stores`), axios.get('/api/contacts')];
 
-    Promise.all(fetchPromises).then(([storesRes, contactsRes]) => {
+    Promise.all([
+      ...fetchPromises,
+      axios.get('/api/system/email-mappings').catch(() => ({ data: [] })),
+      axios.get('/api/system/email-templates').catch(() => ({ data: {} }))
+    ]).then(([storesRes, contactsRes, mappingsRes, templatesRes]) => {
+      setEmailMappings(mappingsRes.data || []);
+      setEmailTemplates(templatesRes.data || {});
       const stores = normalizeListResponse(storesRes.data, ['stores', 'data', 'items']);
       const contacts = normalizeListResponse(contactsRes.data, ['contacts', 'data', 'items']);
       const currentStore = stores.find(s => compareStoreIds(s.id, id));
@@ -754,6 +765,128 @@ export default function EditStore() {
     return changes;
   };
 
+  const getStatusAliases = (status) => {
+    const norm = (status || '').trim().toUpperCase();
+    if (norm === 'IN_PIPELINE' || norm === 'IN PIPELINE') {
+      return ['In Pipeline', 'Pipeline'];
+    }
+    if (norm === 'AGREEMENT_SIGNED' || norm === 'AGREEMENT SIGNED') {
+      return ['Agreement Signed'];
+    }
+    if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
+      return ['Ready for Construction'];
+    }
+    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
+      return ['Under Development'];
+    }
+    if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
+      return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
+    }
+    if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
+      return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
+    }
+    if (norm === 'APPROVED' || norm === 'NSO_APPROVED') {
+      return ['Approved', 'APPROVED', 'NSO_APPROVED'];
+    }
+    if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
+      return ['On Hold', 'ON_HOLD'];
+    }
+    if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
+      return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
+    }
+    if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
+      return ['Closed', 'CLOSED'];
+    }
+    if (norm === 'LIVE' || norm === 'LIVE STORES' || norm === 'LIVE STORE') {
+      return ['Live', 'LIVE'];
+    }
+    return [status];
+  };
+
+  const getMappedConfigForStatus = (status) => {
+    const aliases = getStatusAliases(status).map(a => a.toLowerCase());
+    const mapping = emailMappings.find(m => 
+      (m.category?.toLowerCase() === 'status changes' || m.category?.toLowerCase() === 'status triggered' || m.category?.toLowerCase() === 'status') &&
+      aliases.includes(m.subCategory?.toLowerCase())
+    );
+    if (!mapping) return null;
+
+    const templateKey = Object.keys(emailTemplates).find(k => k.toLowerCase() === mapping.subCategory.toLowerCase());
+    const template = templateKey ? emailTemplates[templateKey] : null;
+    if (!template) return null;
+
+    return { mapping, template };
+  };
+
+  const replacePlaceholders = (templateText, store) => {
+    if (!templateText) return '';
+    const brandNamePretty = store.brand === 'BLUE_TOKAI_SUCHALI' 
+      ? "Blue Tokai / Suchali's Artisan Bakehouse" 
+      : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
+
+    return templateText
+      .replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '')
+      .replace(/{brandName}|\[Brand Name\]|\[Brand\]/gi, brandNamePretty)
+      .replace(/{city}|\[City\]/gi, store.city || '')
+      .replace(/{state}|\[State\]/gi, store.state || '')
+      .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
+      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '')
+      .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
+      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
+  };
+
+  const handleSendEmail = async () => {
+    const data = pendingDataRef.current;
+    if (!data) return;
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      // 1. Send the email first
+      await axios.post(`/api/stores/${id}/send-status-email`, {
+        status: draftDialog.status,
+        to: draftDialog.to,
+        cc: draftDialog.cc,
+        subject: draftDialog.subject,
+        body: draftDialog.body
+      });
+
+      // 2. Save store details
+      const payload = {
+        ...data,
+        cafeLaunchMonth: data.cafeLaunchMonth && data.cafeLaunchYear
+          ? `${data.cafeLaunchMonth} ${data.cafeLaunchYear}`
+          : data.cafeLaunchMonth || '',
+        areaManagerId: data.areaManagerId || null,
+        cityHeadId: data.cityHeadId || null,
+        cafeManagerId: data.cafeManagerId || null,
+        expectedSales: data.expectedSalesVal
+          ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
+          : null,
+        ...(data.status === 'REJECTED' ? { mailStatus: '' } : {})
+      };
+      delete payload.cafeLaunchYear;
+      delete payload.expectedSalesVal;
+      delete payload.expectedSalesUnit;
+      
+      await axios.put(`/api/stores/${id}`, payload);
+      isSavedRef.current = true;
+      setIsSaved(true);
+      setDraftDialog({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
+      navigate(fromPath);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.error || 'Failed to send email and update store.');
+    } finally {
+      setLoading(false);
+      pendingDataRef.current = null;
+    }
+  };
+
+  const handleDraftCancel = () => {
+    setDraftDialog({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
+    pendingDataRef.current = null;
+  };
+
   // Step 1: Intercept form submit → compute diffs → show changes dialog
   const onSubmit = (data) => {
     setErrorMsg('');
@@ -787,6 +920,30 @@ export default function EditStore() {
   const handleChangesReviewed = () => {
     setShowChangesDialog(false);
     const data = pendingDataRef.current;
+    if (!data) return;
+
+    const isStatusChanged = data.status !== store.status;
+    if (isStatusChanged) {
+      const config = getMappedConfigForStatus(data.status);
+      if (config) {
+        const subject = replacePlaceholders(config.template.subject, store);
+        const body = replacePlaceholders(config.template.body, store);
+        const to = config.mapping.to.join(', ');
+        const cc = config.mapping.cc.join(', ');
+
+        setDraftDialog({
+          open: true,
+          status: data.status,
+          to,
+          cc,
+          subject,
+          body,
+          isEditable: false
+        });
+        return;
+      }
+    }
+
     const isTransitioningToApproved = (store?.status === 'PENDING_APPROVAL') && data?.status === 'APPROVED';
     if (isTransitioningToApproved) {
       setShowNsoConfirmDialog(true);
@@ -2419,6 +2576,98 @@ export default function EditStore() {
             Confirm
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Draft Email Dialog */}
+      <Dialog
+        open={draftDialog.open}
+        onClose={() => {}}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Draft Email
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Status: {draftDialog.status} — {store?.cafeName}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              onClick={handleDraftCancel}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+              disabled={draftDialog.isEditable || loading}
+              onClick={() => setDraftDialog(prev => ({ ...prev, isEditable: true }))}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            >
+              Modify
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              startIcon={<SendIcon sx={{ fontSize: 16 }} />}
+              onClick={handleSendEmail}
+              disabled={loading}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            >
+              Send
+            </Button>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="To"
+              value={draftDialog.to}
+              disabled={!draftDialog.isEditable || loading}
+              onChange={(e) => setDraftDialog(prev => ({ ...prev, to: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              label="CC"
+              value={draftDialog.cc}
+              disabled={!draftDialog.isEditable || loading}
+              onChange={(e) => setDraftDialog(prev => ({ ...prev, cc: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              label="Subject"
+              value={draftDialog.subject}
+              disabled={!draftDialog.isEditable || loading}
+              onChange={(e) => setDraftDialog(prev => ({ ...prev, subject: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={12}
+              label="Body"
+              value={draftDialog.body}
+              disabled={!draftDialog.isEditable || loading}
+              onChange={(e) => setDraftDialog(prev => ({ ...prev, body: e.target.value }))}
+              InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.9rem' } }}
+            />
+          </Stack>
+        </DialogContent>
       </Dialog>
 
     </Box>

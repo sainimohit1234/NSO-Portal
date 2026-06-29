@@ -1194,10 +1194,6 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req: 
       }
     });
 
-    if (status === 'PENDING_APPROVAL' || status === 'INCOMPLETE_INFORMATION') {
-      // Trigger automatic launch notification email
-      triggerUpcomingLaunchEmail(newStore);
-    }
 
     res.status(201).json(newStore);
   } catch (error: any) {
@@ -1324,13 +1320,7 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
       }
     });
 
-    if (wasPendingApproval && isNowApproved) {
-      triggerNsoApprovedEmail(updatedStore);
-    }
 
-    if (updatedStore.status !== store.status) {
-      await checkAndSendStatusEmail(updatedStore, updatedStore.status);
-    }
 
     res.json(updatedStore);
   } catch (error) {
@@ -1407,9 +1397,7 @@ router.put('/:id/compliance-approve', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'FI
       }
     });
 
-    if (updatedStore.status !== store.status) {
-      await checkAndSendStatusEmail(updatedStore, updatedStore.status);
-    }
+
 
     res.json(updatedStore);
   } catch (error) {
@@ -1812,14 +1800,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       }
     });
 
-    const isNowApproved = store.status === 'NSO_APPROVED' || store.status === 'APPROVED';
-    if (wasPendingApproval && isNowApproved) {
-      triggerNsoApprovedEmail(store);
-    }
 
-    if (store.status !== currentStore.status) {
-      await checkAndSendStatusEmail(store, store.status);
-    }
 
 
     res.json(store);
@@ -2971,7 +2952,7 @@ router.post('/:id/send-store-code-email', authenticateToken, async (req: any, re
       data: { status: 'Ready for Construction' }
     });
 
-    await checkAndSendStatusEmail(updatedStore, 'Ready for Construction');
+
 
     res.json({ message: 'Store code creation email sent and status updated successfully.', info });
   } catch (error: any) {
