@@ -6,7 +6,7 @@ import {
   MenuItem, Alert, CircularProgress, Divider, Chip, Switch, FormControlLabel,
   Dialog, DialogTitle, DialogContent, DialogActions,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Select, InputAdornment, Autocomplete, Tabs, Tab
+  Select, InputAdornment, Autocomplete, Tabs, Tab, Stack
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import EditIcon from '@mui/icons-material/Edit';
