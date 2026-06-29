@@ -594,8 +594,8 @@ const NewStore = () => {
       reset();
       setSnackbarMessage(
         isComplete 
-          ? 'The new store has been created and submitted for NSO Approval (email notification sent).'
-          : 'The new store has been created (email notification sent).'
+          ? 'The new store has been created and submitted for NSO Approval, and the email notification has been sent.'
+          : 'The new store has been created, and the email notification has been sent.'
       );
       setOpenSnackbar(true);
       setDraftDialog({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
@@ -690,8 +690,8 @@ const NewStore = () => {
       reset();
       setSnackbarMessage(
         isComplete 
-          ? 'The new store has been submitted for NSO Approval and the email notification has been sent.'
-          : 'The new store has been created and the email notification has been sent.'
+          ? 'The new store has been submitted for NSO Approval.'
+          : 'The new store has been created.'
       );
       setOpenSnackbar(true);
       setPendingSubmitData(null);
