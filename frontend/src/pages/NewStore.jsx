@@ -5,8 +5,10 @@ import {
   Box, Typography, TextField, Button, Grid, Card, CardContent, 
   MenuItem, Alert, CircularProgress, Divider, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Select, InputAdornment, Snackbar, Autocomplete, Tabs, Tab
+  Select, InputAdornment, Snackbar, Autocomplete, Tabs, Tab, Stack
 } from '@mui/material';
+import EditIcon from '@mui/icons-material/Edit';
+import SendIcon from '@mui/icons-material/Send';
 import axios from '../utils/api';
 import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
 import { useAuth } from '../context/AuthContext';
@@ -150,6 +152,9 @@ const NewStore = () => {
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [emailMappings, setEmailMappings] = useState([]);
+  const [emailTemplates, setEmailTemplates] = useState({});
+  const [draftDialog, setDraftDialog] = useState({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
   const [pendingSubmitData, setPendingSubmitData] = useState(null);
   const isSavedRef = useRef(false);
   const navigate = useNavigate();
@@ -267,6 +272,13 @@ const NewStore = () => {
     axios.get('/api/contacts')
       .then(res => setContacts(normalizeListResponse(res.data, ['contacts', 'data', 'items'])))
       .catch(err => console.error('Failed to load contacts:', err));
+    // Load email configurations
+    axios.get('/api/system/email-mappings')
+      .then(res => setEmailMappings(res.data || []))
+      .catch(err => console.error('Failed to load email mappings', err));
+    axios.get('/api/system/email-templates')
+      .then(res => setEmailTemplates(res.data || {}))
+      .catch(err => console.error('Failed to load email templates', err));
   }, []);
 
   // Auto-fill Latt and Long from Latitude (split by comma)
@@ -456,9 +468,174 @@ const NewStore = () => {
     }
   };
 
+  const getStatusAliases = (status) => {
+    const norm = (status || '').trim().toUpperCase();
+    if (norm === 'IN_PIPELINE' || norm === 'IN PIPELINE') {
+      return ['In Pipeline', 'Pipeline'];
+    }
+    if (norm === 'AGREEMENT_SIGNED' || norm === 'AGREEMENT SIGNED') {
+      return ['Agreement Signed'];
+    }
+    if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
+      return ['Ready for Construction'];
+    }
+    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
+      return ['Under Development'];
+    }
+    if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
+      return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
+    }
+    if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
+      return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
+    }
+    if (norm === 'APPROVED' || norm === 'NSO_APPROVED') {
+      return ['Approved', 'APPROVED', 'NSO_APPROVED'];
+    }
+    if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
+      return ['On Hold', 'ON_HOLD'];
+    }
+    if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
+      return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
+    }
+    if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
+      return ['Closed', 'CLOSED'];
+    }
+    if (norm === 'LIVE' || norm === 'LIVE STORES' || norm === 'LIVE STORE') {
+      return ['Live', 'LIVE'];
+    }
+    return [status];
+  };
+
+  const getMappedConfigForStatus = (status) => {
+    const aliases = getStatusAliases(status).map(a => a.toLowerCase());
+    const mapping = emailMappings.find(m => 
+      (m.category?.toLowerCase() === 'status changes' || m.category?.toLowerCase() === 'status triggered' || m.category?.toLowerCase() === 'status') &&
+      aliases.includes(m.subCategory?.toLowerCase())
+    );
+    if (!mapping) return null;
+
+    const templateKey = Object.keys(emailTemplates).find(k => k.toLowerCase() === mapping.subCategory.toLowerCase());
+    const template = templateKey ? emailTemplates[templateKey] : null;
+    if (!template) return null;
+
+    return { mapping, template };
+  };
+
+  const replacePlaceholders = (templateText, data) => {
+    if (!templateText) return '';
+    const brandNamePretty = data.brand === 'BLUE_TOKAI_SUCHALI' 
+      ? "Blue Tokai / Suchali's Artisan Bakehouse" 
+      : (data.brand === 'GOT_TEA' ? "Got Tea" : (data.brand || ''));
+
+    return templateText
+      .replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, data.cafeName || '')
+      .replace(/{brandName}|\[Brand Name\]|\[Brand\]/gi, brandNamePretty)
+      .replace(/{city}|\[City\]/gi, data.city || '')
+      .replace(/{state}|\[State\]/gi, data.state || '')
+      .replace(/{address}|\[Address\]/gi, data.cafeAddress || data.address || '')
+      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, data.cafeModel || '')
+      .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, data.cafeCode || '')
+      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, data.pinCode || '');
+  };
+
+  const handleSendEmail = async () => {
+    if (!pendingSubmitData) return;
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const isComplete = checkIsComplete(pendingSubmitData);
+      
+      let finalCafeCode = pendingSubmitData.cafeCode;
+      if (!finalCafeCode || String(finalCafeCode).trim() === '') {
+        finalCafeCode = `TEMP-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+      }
+
+      let finalCafeName = pendingSubmitData.cafeName;
+      if (!finalCafeName || String(finalCafeName).trim() === '') {
+        finalCafeName = 'Untitled Store';
+      }
+
+      const payload = {
+        ...pendingSubmitData,
+        cafeCode: finalCafeCode,
+        cafeName: finalCafeName,
+        status: isComplete ? 'PENDING_APPROVAL' : 'INCOMPLETE_INFORMATION',
+        cafeLaunchMonth: pendingSubmitData.cafeLaunchMonth && pendingSubmitData.cafeLaunchYear
+          ? `${pendingSubmitData.cafeLaunchMonth} ${pendingSubmitData.cafeLaunchYear}`
+          : pendingSubmitData.cafeLaunchMonth || '',
+        launchStatus: 'Upcoming Store',
+        latitude: pendingSubmitData.latitude ? parseFloat(pendingSubmitData.latitude) : null,
+        latt: pendingSubmitData.latt ? parseFloat(pendingSubmitData.latt) : null,
+        long: pendingSubmitData.long ? parseFloat(pendingSubmitData.long) : null,
+        lat: pendingSubmitData.latitude ? parseFloat(pendingSubmitData.latitude) : null,
+        lng: pendingSubmitData.long ? parseFloat(pendingSubmitData.long) : null,
+        areaManagerId: pendingSubmitData.areaManagerId || null,
+        cityHeadId: pendingSubmitData.cityHeadId || null,
+        cafeManagerId: pendingSubmitData.cafeManagerId || null,
+        expectedSales: pendingSubmitData.expectedSalesVal
+          ? `₹${pendingSubmitData.expectedSalesVal} ${pendingSubmitData.expectedSalesUnit || 'Lakhs'}`
+          : null,
+      };
+      delete payload.cafeLaunchYear;
+      delete payload.expectedSalesVal;
+      delete payload.expectedSalesUnit;
+
+      const storeRes = await axios.post('/api/stores', payload);
+      const createdStore = storeRes.data;
+
+      await axios.post(`/api/stores/${createdStore.id}/send-status-email`, {
+        status: draftDialog.status,
+        to: draftDialog.to,
+        cc: draftDialog.cc,
+        subject: draftDialog.subject,
+        body: draftDialog.body
+      });
+
+      reset();
+      setSnackbarMessage(
+        isComplete 
+          ? 'The new store has been created and submitted for NSO Approval (email notification sent).'
+          : 'The new store has been created (email notification sent).'
+      );
+      setOpenSnackbar(true);
+      setDraftDialog({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
+      setPendingSubmitData(null);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.error || 'Failed to create store and send email.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDraftCancel = () => {
+    setDraftDialog({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
+    setPendingSubmitData(null);
+  };
+
   const onSubmit = (data) => {
     setPendingSubmitData(data);
-    setConfirmOpen(true);
+    const targetStatus = checkIsComplete(data) ? 'PENDING_APPROVAL' : 'INCOMPLETE_INFORMATION';
+    const config = getMappedConfigForStatus(targetStatus);
+    
+    if (config) {
+      const subject = replacePlaceholders(config.template.subject, data);
+      const body = replacePlaceholders(config.template.body, data);
+      const to = config.mapping.to.join(', ');
+      const cc = config.mapping.cc.join(', ');
+
+      setDraftDialog({
+        open: true,
+        status: targetStatus,
+        to,
+        cc,
+        subject,
+        body,
+        isEditable: false
+      });
+    } else {
+      setConfirmOpen(true);
+    }
   };
 
   const handleCancelSubmit = () => {
@@ -1475,65 +1652,124 @@ const NewStore = () => {
         )}
       </form>
 
-      {/* NSO Approval Confirmation Dialog */}
+      {/* Simple Confirmation Dialog (when no email mapping exists) */}
       <Dialog
         open={confirmOpen}
         onClose={handleCancelSubmit}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
         PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper' } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.25rem', color: 'text.primary', pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-          Draft Email Preview
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Confirm New Store Creation
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          {pendingSubmitData && (
-            <Box>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                The following automated email will be sent upon creating this store:
-              </Typography>
-              <Box sx={{ p: 2.5, bgcolor: '#f8fafc', borderRadius: '8px', border: '1px solid', borderColor: 'divider', mb: 2 }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  Subject: Upcoming Café Launch Announcement - {pendingSubmitData.cafeName || 'Untitled Store'} | {pendingSubmitData.cafeCode || 'TEMP-CODE'} | {pendingSubmitData.city || 'N/A'} 🎉🎉
-                </Typography>
-                <Divider sx={{ my: 1.5 }} />
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'sans-serif', lineHeight: 1.6, textAlign: 'left' }}>
-                  {`Dear Team,
-
-🎉 We are excited to share that a new café is scheduled to launch soon! 🎉
-
-Please find the upcoming café details below:
-
-Brand Name: ${pendingSubmitData.brand === 'BLUE_TOKAI_SUCHALI' ? "Blue Tokai / Suchali's Artisan Bakehouse" : pendingSubmitData.brand === 'GOT_TEA' ? 'Got Tea' : pendingSubmitData.brand || 'N/A'}
-Cafe Name: ${pendingSubmitData.cafeName || 'Untitled Store'}
-Cafe Code: ${pendingSubmitData.cafeCode || 'TEMP-CODE'}
-Address: ${pendingSubmitData.cafeAddress || 'N/A'}
-City: ${pendingSubmitData.city || 'N/A'}
-State: ${pendingSubmitData.state || 'N/A'}
-Pin Code: ${pendingSubmitData.pinCode || 'N/A'}
-
-We are thrilled to continue expanding our presence and bringing our brand to a new location. This upcoming launch represents another important milestone in our growth journey.
-
-The team is working diligently to ensure a successful opening, and we look forward to welcoming our customers to this new café very soon.
-
-Further updates regarding the launch date and operational readiness will be shared shortly.
-
-Thank you to everyone involved in making this upcoming launch possible. Let's make this opening a great success!
-
-Best Regards,`}
-                </Typography>
-              </Box>
-            </Box>
-          )}
+        <DialogContent>
+          <Typography variant="body1" sx={{ mt: 1 }}>
+            {pendingSubmitData && checkIsComplete(pendingSubmitData) 
+              ? 'All mandatory fields are completed. This store will be submitted for NSO Approval. Do you want to proceed?'
+              : 'The basic details are filled. A new store record will be created. Do you want to proceed?'}
+          </Typography>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1.5 }}>
-          <Button onClick={handleConfirmSubmit} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700, px: 4 }}>
-            OK
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleCancelSubmit} variant="outlined" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Cancel
           </Button>
-          <Button onClick={handleCancelSubmit} variant="outlined" color="inherit" sx={{ borderRadius: '8px', fontWeight: 700, px: 3 }}>
-            Back
+          <Button onClick={handleConfirmSubmit} variant="contained" color="primary" sx={{ borderRadius: '8px', fontWeight: 700 }}>
+            Proceed
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Draft Email Dialog */}
+      <Dialog
+        open={draftDialog.open}
+        onClose={() => {}}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center', pr: 2 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              Draft Email
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Status: {draftDialog.status} — {pendingSubmitData?.cafeName || 'Untitled Store'}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              onClick={handleDraftCancel}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              color="primary"
+              startIcon={<EditIcon sx={{ fontSize: 16 }} />}
+              disabled={draftDialog.isEditable || loading}
+              onClick={() => setDraftDialog(prev => ({ ...prev, isEditable: true }))}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            >
+              Modify
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              color="success"
+              startIcon={<SendIcon sx={{ fontSize: 16 }} />}
+              onClick={handleSendEmail}
+              disabled={loading}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+            >
+              Send
+            </Button>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="To"
+              value={draftDialog.to}
+              disabled={!draftDialog.isEditable || loading}
+              onChange={(e) => setDraftDialog(prev => ({ ...prev, to: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              label="CC"
+              value={draftDialog.cc}
+              disabled={!draftDialog.isEditable || loading}
+              onChange={(e) => setDraftDialog(prev => ({ ...prev, cc: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              label="Subject"
+              value={draftDialog.subject}
+              disabled={!draftDialog.isEditable || loading}
+              onChange={(e) => setDraftDialog(prev => ({ ...prev, subject: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={12}
+              label="Body"
+              value={draftDialog.body}
+              disabled={!draftDialog.isEditable || loading}
+              onChange={(e) => setDraftDialog(prev => ({ ...prev, body: e.target.value }))}
+              InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.9rem' } }}
+            />
+          </Stack>
+        </DialogContent>
       </Dialog>
 
       {/* Unsaved changes warning dialog */}
