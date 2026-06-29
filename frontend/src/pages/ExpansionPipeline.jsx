@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Box, Typography, Card, Grid, Chip, TextField, MenuItem, 
+  Box, Typography, Card, CardContent, Grid, Chip, TextField, MenuItem, 
   Button, IconButton, Tooltip, Snackbar, Alert, CircularProgress,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   Dialog, DialogTitle, DialogContent, DialogActions, Select, Link, InputAdornment,
@@ -16,6 +16,10 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import LinkIcon from '@mui/icons-material/Link';
 import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
+import LayersIcon from '@mui/icons-material/Layers';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import ConstructionIcon from '@mui/icons-material/Construction';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +50,7 @@ export default function ExpansionPipeline() {
 
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState(null);
 
   // Upload Modal State
   const [uploadStore, setUploadStore] = useState(null);
@@ -618,6 +623,27 @@ Operations Team`;
     return status;
   };
 
+  const getStoreStatus = (store) => {
+    const isLocked = store.isLocked === true || store.isLocked === 'true';
+    if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
+      return 'Live';
+    } else if (store.status === 'Ready for Construction') {
+      return 'Ready for Construction';
+    } else if (store.status === 'Agreement Signed') {
+      return 'Agreement Signed';
+    }
+    return 'In Pipeline';
+  };
+
+  const pipelineCount = stores.filter(s => getStoreStatus(s) === 'In Pipeline').length;
+  const agreementCount = stores.filter(s => getStoreStatus(s) === 'Agreement Signed').length;
+  const constructionCount = stores.filter(s => getStoreStatus(s) === 'Ready for Construction').length;
+  const totalCount = stores.length;
+
+  const filteredStores = selectedStatusFilter
+    ? stores.filter(s => getStoreStatus(s) === selectedStatusFilter)
+    : stores;
+
   return (
     <Box sx={{ py: 1 }}>
       {/* Header */}
@@ -628,7 +654,7 @@ Operations Team`;
               Expansion Pipeline
             </Typography>
             <Chip 
-              label={`${stores.length} Active Projects`} 
+              label={selectedStatusFilter ? `${filteredStores.length} of ${stores.length} Projects` : `${stores.length} Active Projects`} 
               color="primary" 
               size="small" 
               sx={{ fontWeight: 700 }} 
@@ -650,6 +676,149 @@ Operations Team`;
             Add New Project
           </Button>
         )}
+      </Box>
+
+      {/* Filter Cards */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            sm: 'repeat(2, minmax(0, 1fr))',
+            md: 'repeat(4, minmax(0, 1fr))'
+          },
+          gap: 2,
+          mb: 3.5
+        }}
+      >
+        {[
+          {
+            key: 'all',
+            label: 'All Projects',
+            count: totalCount,
+            filterValue: null,
+            icon: <LayersIcon />,
+            color: '#0e8294'
+          },
+          {
+            key: 'pipeline',
+            label: 'In Pipeline',
+            count: pipelineCount,
+            filterValue: 'In Pipeline',
+            icon: <TimelineIcon />,
+            color: '#3b82f6'
+          },
+          {
+            key: 'agreement',
+            label: 'Agreement Signed',
+            count: agreementCount,
+            filterValue: 'Agreement Signed',
+            icon: <AssignmentIcon />,
+            color: '#10b981'
+          },
+          {
+            key: 'construction',
+            label: 'Ready for Construction',
+            count: constructionCount,
+            filterValue: 'Ready for Construction',
+            icon: <ConstructionIcon />,
+            color: '#f59e0b'
+          }
+        ].map((tile) => {
+          const isActive = selectedStatusFilter === tile.filterValue;
+          return (
+            <Card
+              key={tile.key}
+              onClick={() => setSelectedStatusFilter(isActive ? null : tile.filterValue)}
+              sx={{
+                bgcolor: 'background.paper',
+                borderRadius: '16px',
+                border: '2px solid',
+                borderColor: isActive ? tile.color : 'transparent',
+                boxShadow: isActive 
+                  ? `0 12px 24px ${tile.color}1e, inset 0 2px 0 rgba(255,255,255,0.5)`
+                  : '0 4px 12px rgba(0,0,0,0.03)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                position: 'relative',
+                overflow: 'hidden',
+                opacity: selectedStatusFilter !== null && !isActive ? 0.65 : 1,
+                transform: isActive ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: isActive ? 'scale(1.02) translateY(-2px)' : 'translateY(-3px)',
+                  boxShadow: isActive 
+                    ? `0 16px 32px ${tile.color}2c`
+                    : '0 12px 24px rgba(15,23,42,0.08)',
+                  opacity: 1,
+                  borderColor: isActive ? tile.color : `${tile.color}40`
+                }
+              }}
+            >
+              {/* Glassmorphic Background Glow */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: -24,
+                  right: -24,
+                  width: 90,
+                  height: 90,
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle, ${tile.color}18 0%, ${tile.color}00 70%)`
+                }}
+              />
+              <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        fontWeight: 700, 
+                        mb: 0.75, 
+                        textTransform: 'uppercase', 
+                        letterSpacing: '0.05em', 
+                        fontSize: '0.7rem' 
+                      }}
+                    >
+                      {tile.label}
+                    </Typography>
+                    <Typography 
+                      variant="h4" 
+                      sx={{ 
+                        fontWeight: 800, 
+                        color: 'text.primary', 
+                        fontSize: { xs: '1.8rem', md: '2.1rem' }, 
+                        lineHeight: 1, 
+                        mb: 0.5 
+                      }}
+                    >
+                      {tile.count}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {isActive ? 'Active Filter' : 'Click to filter'}
+                    </Typography>
+                  </Box>
+                  <Box 
+                    sx={{
+                      bgcolor: isActive ? tile.color : `${tile.color}12`,
+                      p: 1.25,
+                      borderRadius: 3.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: isActive ? '#fff' : tile.color,
+                      border: `1px solid ${tile.color}20`,
+                      transition: 'all 0.3s ease',
+                      boxShadow: isActive ? `0 4px 10px ${tile.color}40` : 'none'
+                    }}
+                  >
+                    {React.cloneElement(tile.icon, { sx: { fontSize: 24 } })}
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          );
+        })}
       </Box>
 
 
@@ -689,8 +858,14 @@ Operations Team`;
                     No expansion pipeline stores registered.
                   </TableCell>
                 </TableRow>
+              ) : filteredStores.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                    No stores match the selected status filter.
+                  </TableCell>
+                </TableRow>
               ) : (
-                stores.map((store, index) => {
+                filteredStores.map((store, index) => {
                   const hasLoi = !!store.loiUrl;
                   const isLocked = store.isLocked === true || store.isLocked === 'true';
                   const rowEditable = canModify && !isLocked;
