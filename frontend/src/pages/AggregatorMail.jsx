@@ -13,6 +13,21 @@ import SaveIcon from '@mui/icons-material/Save';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
+const STATUS_OPTIONS = [
+  'In Pipeline',
+  'Agreement Signed',
+  'Ready for Construction',
+  'Under Development',
+  'Incomplete Information',
+  'Sent to NSO Team for Approval',
+  'Approval Pending',
+  'Approved',
+  'On Hold',
+  'Compliance Approved',
+  'Closed',
+  'Live'
+];
+
 export default function AggregatorMail() {
   const { user } = useAuth();
   const theme = useTheme();
@@ -22,6 +37,7 @@ export default function AggregatorMail() {
   // Mappings state
   const [mappings, setMappings] = useState([]);
   const [categoryFilter, setCategoryFilter] = useState('All');
+  const [mappingType, setMappingType] = useState('general');
 
   // Expandable tree state
   const [expandedCategories, setExpandedCategories] = useState({});
@@ -182,7 +198,11 @@ export default function AggregatorMail() {
       await saveMappingsToBackend(updated);
 
       // Reset form
-      setNewCategory('');
+      if (mappingType === 'status') {
+        setNewCategory('Status Changes');
+      } else {
+        setNewCategory('');
+      }
       setNewSubCategory('');
       setNewTo('');
       setNewCc('');
@@ -355,26 +375,78 @@ export default function AggregatorMail() {
                     Add New Email Mapping
                   </Typography>
                   <Grid container spacing={2}>
-                    <Grid size={6}>
+                    <Grid size={12}>
                       <TextField
+                        select
                         fullWidth
                         size="small"
-                        label="Category"
-                        placeholder="e.g. Zomato"
-                        value={newCategory}
-                        onChange={(e) => setNewCategory(e.target.value)}
-                      />
+                        label="Mapping Type"
+                        value={mappingType}
+                        onChange={(e) => {
+                          const type = e.target.value;
+                          setMappingType(type);
+                          if (type === 'status') {
+                            setNewCategory('Status Changes');
+                          } else {
+                            setNewCategory('');
+                          }
+                          setNewSubCategory('');
+                        }}
+                      >
+                        <MenuItem value="general">General (Category / Sub-Category)</MenuItem>
+                        <MenuItem value="status">Status Triggered Notification</MenuItem>
+                      </TextField>
                     </Grid>
-                    <Grid size={6}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Sub-Category"
-                        placeholder="e.g. BTC Zomato"
-                        value={newSubCategory}
-                        onChange={(e) => setNewSubCategory(e.target.value)}
-                      />
-                    </Grid>
+
+                    {mappingType === 'general' ? (
+                      <>
+                        <Grid size={6}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="Category"
+                            placeholder="e.g. Zomato"
+                            value={newCategory}
+                            onChange={(e) => setNewCategory(e.target.value)}
+                          />
+                        </Grid>
+                        <Grid size={6}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            label="Sub-Category"
+                            placeholder="e.g. BTC Zomato"
+                            value={newSubCategory}
+                            onChange={(e) => setNewSubCategory(e.target.value)}
+                          />
+                        </Grid>
+                      </>
+                    ) : (
+                      <Grid size={12}>
+                        <TextField
+                          select
+                          fullWidth
+                          size="small"
+                          label="Select Status"
+                          value={newSubCategory}
+                          onChange={(e) => setNewSubCategory(e.target.value)}
+                        >
+                          <MenuItem value="">
+                            <em>— Select Status —</em>
+                          </MenuItem>
+                          {STATUS_OPTIONS.map(status => {
+                            const isAlreadyMapped = mappings.some(
+                              m => m.category === 'Status Changes' && m.subCategory.toLowerCase() === status.toLowerCase()
+                            );
+                            return (
+                              <MenuItem key={status} value={status} disabled={isAlreadyMapped}>
+                                {status} {isAlreadyMapped ? '(Already Mapped)' : ''}
+                              </MenuItem>
+                            );
+                          })}
+                        </TextField>
+                      </Grid>
+                    )}
                     <Grid size={12}>
                       <TextField
                         required
@@ -758,19 +830,42 @@ export default function AggregatorMail() {
       >
         <DialogTitle sx={{ fontWeight: 800 }}>Edit Email Mapping</DialogTitle>
         <DialogContent>
-          <Stack spacing={2.5} sx={{ mt: 1.5 }}>
-            <TextField
-              fullWidth
-              label="Category"
-              value={editCategory}
-              onChange={(e) => setEditCategory(e.target.value)}
-            />
-            <TextField
-              fullWidth
-              label="Sub-Category"
-              value={editSubCategory}
-              onChange={(e) => setEditSubCategory(e.target.value)}
-            />
+           <Stack spacing={2.5} sx={{ mt: 1.5 }}>
+            {editingRow?.category === 'Status Changes' ? (
+              <TextField
+                select
+                fullWidth
+                label="Select Status"
+                value={editSubCategory}
+                onChange={(e) => setEditSubCategory(e.target.value)}
+              >
+                {STATUS_OPTIONS.map(status => {
+                  const isAlreadyMapped = mappings.some(
+                    m => m.id !== editingRow.id && m.category === 'Status Changes' && m.subCategory.toLowerCase() === status.toLowerCase()
+                  );
+                  return (
+                    <MenuItem key={status} value={status} disabled={isAlreadyMapped}>
+                      {status} {isAlreadyMapped ? '(Already Mapped)' : ''}
+                    </MenuItem>
+                  );
+                })}
+              </TextField>
+            ) : (
+              <>
+                <TextField
+                  fullWidth
+                  label="Category"
+                  value={editCategory}
+                  onChange={(e) => setEditCategory(e.target.value)}
+                />
+                <TextField
+                  fullWidth
+                  label="Sub-Category"
+                  value={editSubCategory}
+                  onChange={(e) => setEditSubCategory(e.target.value)}
+                />
+              </>
+            )}
             <TextField
               required
               fullWidth

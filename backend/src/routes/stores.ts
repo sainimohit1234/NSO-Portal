@@ -104,7 +104,8 @@ import fs from 'fs';
 import path from 'path';
 import nodemailer from 'nodemailer';
 import { getSMTPConfig } from '../utils/smtp';
-import { getEmailRecipients } from '../utils/emailRecipients';
+import { getEmailRecipients, getEmailMappings } from '../utils/emailRecipients';
+import { getEmailTemplates } from '../utils/emailTemplates';
 import { getThreadMessageId, saveThreadMessageId } from '../utils/emailThreads';
 import * as XLSX from 'xlsx';
 import { exec } from 'child_process';
@@ -1012,6 +1013,139 @@ The countdown has begun, and we can't wait to celebrate another amazing café op
   }
 }
 
+function getStatusAliases(status: string): string[] {
+  const norm = status.trim().toUpperCase();
+  if (norm === 'IN_PIPELINE' || norm === 'IN PIPELINE') {
+    return ['In Pipeline', 'Pipeline'];
+  }
+  if (norm === 'AGREEMENT_SIGNED' || norm === 'AGREEMENT SIGNED') {
+    return ['Agreement Signed'];
+  }
+  if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
+    return ['Ready for Construction'];
+  }
+  if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
+    return ['Under Development'];
+  }
+  if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
+    return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
+  }
+  if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
+    return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
+  }
+  if (norm === 'APPROVED' || norm === 'NSO_APPROVED') {
+    return ['Approved', 'APPROVED', 'NSO_APPROVED'];
+  }
+  if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
+    return ['On Hold', 'ON_HOLD'];
+  }
+  if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
+    return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
+  }
+  if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
+    return ['Closed', 'CLOSED'];
+  }
+  if (norm === 'LIVE' || norm === 'LIVE STORES' || norm === 'LIVE STORE') {
+    return ['Live', 'LIVE'];
+  }
+  return [status];
+}
+
+function replacePlaceholders(templateText: string, store: any): string {
+  if (!templateText) return '';
+  const brandNamePretty = store.brand === 'BLUE_TOKAI_SUCHALI' 
+    ? "Blue Tokai / Suchali's Artisan Bakehouse" 
+    : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
+
+  return templateText
+    .replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '')
+    .replace(/{brandName}|\[Brand Name\]|\[Brand\]/gi, brandNamePretty)
+    .replace(/{city}|\[City\]/gi, store.city || '')
+    .replace(/{state}|\[State\]/gi, store.state || '')
+    .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
+    .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '')
+    .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
+    .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
+}
+
+async function checkAndSendStatusEmail(store: any, newStatus: string) {
+  try {
+    const mappings = await getEmailMappings();
+    const aliases = getStatusAliases(newStatus).map(a => a.toLowerCase());
+    
+    const statusMapping = mappings.find(m => 
+      (m.category?.toLowerCase() === 'status changes' || m.category?.toLowerCase() === 'status triggered' || m.category?.toLowerCase() === 'status') &&
+      aliases.includes(m.subCategory?.toLowerCase())
+    );
+
+    if (!statusMapping) {
+      console.log(`[Status Email] No email mapping found for status: "${newStatus}"`);
+      return;
+    }
+
+    const toEmails = statusMapping.to || [];
+    const ccEmails = statusMapping.cc || [];
+
+    if (toEmails.length === 0 && ccEmails.length === 0) {
+      console.log(`[Status Email] No recipients configured for status: "${newStatus}", skipping.`);
+      return;
+    }
+
+    const templatesMap = await getEmailTemplates();
+    const templateKey = Object.keys(templatesMap).find(k => k.toLowerCase() === statusMapping.subCategory.toLowerCase());
+    const template = templateKey ? templatesMap[templateKey] : null;
+
+    if (!template) {
+      console.log(`[Status Email] No template configured for status: "${newStatus}", skipping.`);
+      return;
+    }
+
+    const finalSubject = replacePlaceholders(template.subject, store);
+    const finalBody = replacePlaceholders(template.body, store);
+
+    const smtpConfig = await getSMTPConfig();
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.smtpHost,
+      port: smtpConfig.smtpPort,
+      secure: smtpConfig.smtpSecure,
+      auth: {
+        user: smtpConfig.smtpUser,
+        pass: smtpConfig.smtpPass
+      }
+    });
+
+    const mailOptions: any = {
+      from: smtpConfig.smtpUser,
+      to: toEmails,
+      cc: ccEmails.length > 0 ? ccEmails : undefined,
+      subject: finalSubject,
+      text: finalBody
+    };
+
+    console.log(`[Status Email] Triggering status email for "${store.cafeName}" status update to "${newStatus}"`);
+    
+    if (!smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email') {
+      const testAccount = await nodemailer.createTestAccount();
+      const testTransporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+      const info = await testTransporter.sendMail(mailOptions);
+      console.log('[Status Email] Status email sent to Ethereal: %s', nodemailer.getTestMessageUrl(info));
+    } else {
+      const info = await transporter.sendMail(mailOptions);
+      console.log('[Status Email] Status email sent successfully: %s', info.messageId);
+    }
+  } catch (error) {
+    console.error(`[Status Email] Failed to send status email for status: "${newStatus}":`, error);
+  }
+}
+
 // Create a new store
 router.post('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req: any, res) => {
   try {
@@ -1194,6 +1328,10 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
       triggerNsoApprovedEmail(updatedStore);
     }
 
+    if (updatedStore.status !== store.status) {
+      await checkAndSendStatusEmail(updatedStore, updatedStore.status);
+    }
+
     res.json(updatedStore);
   } catch (error) {
     console.error('Update store status error:', error);
@@ -1268,6 +1406,10 @@ router.put('/:id/compliance-approve', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'FI
         newValue: `COMPLIANCE_APPROVED by ${user?.name || 'Unknown'}`
       }
     });
+
+    if (updatedStore.status !== store.status) {
+      await checkAndSendStatusEmail(updatedStore, updatedStore.status);
+    }
 
     res.json(updatedStore);
   } catch (error) {
@@ -1673,6 +1815,10 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     const isNowApproved = store.status === 'NSO_APPROVED' || store.status === 'APPROVED';
     if (wasPendingApproval && isNowApproved) {
       triggerNsoApprovedEmail(store);
+    }
+
+    if (store.status !== currentStore.status) {
+      await checkAndSendStatusEmail(store, store.status);
     }
 
 
@@ -2745,10 +2891,12 @@ router.post('/:id/send-store-code-email', authenticateToken, async (req: any, re
     }
 
     // Automatically update the project status to Ready for Construction in the database
-    await prisma.store.update({
+    const updatedStore = await prisma.store.update({
       where: { id: storeId },
       data: { status: 'Ready for Construction' }
     });
+
+    await checkAndSendStatusEmail(updatedStore, 'Ready for Construction');
 
     res.json({ message: 'Store code creation email sent and status updated successfully.', info });
   } catch (error: any) {
