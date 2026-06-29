@@ -11,6 +11,7 @@ import {
 import EmailIcon from '@mui/icons-material/Email';
 import EditIcon from '@mui/icons-material/Edit';
 import SendIcon from '@mui/icons-material/Send';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import axios from '../utils/api';
 
 import { useAuth } from '../context/AuthContext';
@@ -135,6 +136,39 @@ export default function EditStore() {
   const getTabHasError = (tabName) => {
     const fields = TAB_FIELDS[tabName] || [];
     return fields.some(field => !!errors[field]);
+  };
+
+  const TAB_REQUIRED_FIELDS = {
+    'Cafe Basic Details': [
+      'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress',
+      'zone', 'cafeLocationGoogleLink', 'latitude', 'latt', 'long',
+      'cafeOpenTiming', 'cafeClosingTime', 'actualClosingTime'
+    ],
+    'Contact Details': [
+      'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId'
+    ],
+    'GST & FSSAI Details': [
+      'gstNo', 'fssaiNo'
+    ],
+    'Operations Details': [
+      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate', 'cafeModel'
+    ],
+    'Others': [
+      'cluster', 'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
+    ],
+    'Swiggy / Zomato Integration': []
+  };
+
+  const getTabErrorCount = (tabName, watchedValues) => {
+    const requiredList = TAB_REQUIRED_FIELDS[tabName] || [];
+    let count = 0;
+    requiredList.forEach(field => {
+      const val = watchedValues[field];
+      if (val === null || val === undefined || String(val).trim() === '') {
+        count++;
+      }
+    });
+    return count;
   };
 
   // Automatically switch activeTab to the first tab that has validation errors
@@ -1308,15 +1342,20 @@ export default function EditStore() {
             }}
           >
             {TABS.map(tab => {
-              const hasError = getTabHasError(tab);
+              const errCount = getTabErrorCount(tab, watchedFields);
+              const isComplete = errCount === 0;
               return (
                 <Tab 
                   key={tab} 
                   label={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       {tab}
-                      {hasError && (
-                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'error.main' }} />
+                      {isComplete ? (
+                        <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main', ml: 0.5 }} />
+                      ) : (
+                        <Typography variant="caption" sx={{ color: 'error.main', ml: 0.5, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          — 🔴 {errCount} {errCount === 1 ? 'Error' : 'Errors'}
+                        </Typography>
                       )}
                     </Box>
                   } 
