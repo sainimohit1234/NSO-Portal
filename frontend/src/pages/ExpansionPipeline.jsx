@@ -20,6 +20,7 @@ import LayersIcon from '@mui/icons-material/Layers';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ConstructionIcon from '@mui/icons-material/Construction';
+import EngineeringIcon from '@mui/icons-material/Engineering';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -627,6 +628,8 @@ Operations Team`;
     const isLocked = store.isLocked === true || store.isLocked === 'true';
     if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
       return 'Live';
+    } else if (store.status === 'Under Development') {
+      return 'Under Development';
     } else if (store.status === 'Ready for Construction') {
       return 'Ready for Construction';
     } else if (store.status === 'Agreement Signed') {
@@ -638,6 +641,7 @@ Operations Team`;
   const pipelineCount = stores.filter(s => getStoreStatus(s) === 'In Pipeline').length;
   const agreementCount = stores.filter(s => getStoreStatus(s) === 'Agreement Signed').length;
   const constructionCount = stores.filter(s => getStoreStatus(s) === 'Ready for Construction').length;
+  const developmentCount = stores.filter(s => getStoreStatus(s) === 'Under Development').length;
   const totalCount = stores.length;
 
   const filteredStores = selectedStatusFilter
@@ -685,7 +689,7 @@ Operations Team`;
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, minmax(0, 1fr))',
-            md: 'repeat(4, minmax(0, 1fr))'
+            md: 'repeat(5, minmax(0, 1fr))'
           },
           gap: 2,
           mb: 3.5
@@ -723,6 +727,14 @@ Operations Team`;
             filterValue: 'Ready for Construction',
             icon: <ConstructionIcon />,
             color: '#f59e0b'
+          },
+          {
+            key: 'development',
+            label: 'Under Development',
+            count: developmentCount,
+            filterValue: 'Under Development',
+            icon: <EngineeringIcon />,
+            color: '#8b5cf6'
           }
         ].map((tile) => {
           const isActive = selectedStatusFilter === tile.filterValue;
@@ -1154,45 +1166,49 @@ Operations Team`;
                       <TableCell>
                         {(() => {
                           const isLocked = store.isLocked === true || store.isLocked === 'true';
-                          
-                          let currentStatus = 'In Pipeline';
-                          if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
-                            currentStatus = 'Live';
-                          } else if (store.status === 'Ready for Construction') {
-                            currentStatus = 'Ready for Construction';
-                          } else if (store.status === 'Agreement Signed') {
-                            currentStatus = 'Agreement Signed';
-                          }
-
-                          return (
-                            <Select
-                              value={currentStatus}
-                              size="small"
-                              onChange={(e) => {
-                                const newStatus = e.target.value;
-                                if (newStatus === 'Ready for Construction') {
-                                  handleStatusChangeToReady(store);
-                                } else {
-                                  handleFieldChange(store.id, 'status', newStatus);
-                                }
-                              }}
-                              fullWidth
-                              sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
-                            >
-                              {!hasLoi && (
-                                <MenuItem value="In Pipeline">In Pipeline</MenuItem>
-                              )}
-                              {(hasLoi || currentStatus === 'Agreement Signed') && (
-                                <MenuItem value="Agreement Signed">Agreement Signed</MenuItem>
-                              )}
-                              {(hasLoi || currentStatus === 'Ready for Construction' || currentStatus === 'Agreement Signed') && (
-                                <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
-                              )}
-                              {(isLocked || currentStatus === 'Live') && (
-                                <MenuItem value="Live">Live</MenuItem>
-                              )}
-                            </Select>
-                          );
+                             let currentStatus = 'In Pipeline';
+                           if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
+                             currentStatus = 'Live';
+                           } else if (store.status === 'Under Development') {
+                             currentStatus = 'Under Development';
+                           } else if (store.status === 'Ready for Construction') {
+                             currentStatus = 'Ready for Construction';
+                           } else if (store.status === 'Agreement Signed') {
+                             currentStatus = 'Agreement Signed';
+                           }
+ 
+                           return (
+                             <Select
+                               value={currentStatus}
+                               size="small"
+                               onChange={(e) => {
+                                 const newStatus = e.target.value;
+                                 if (newStatus === 'Ready for Construction') {
+                                   handleStatusChangeToReady(store);
+                                 } else {
+                                   handleFieldChange(store.id, 'status', newStatus);
+                                 }
+                               }}
+                               fullWidth
+                               sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
+                             >
+                               {!hasLoi && (
+                                 <MenuItem value="In Pipeline">In Pipeline</MenuItem>
+                               )}
+                               {(hasLoi || currentStatus === 'Agreement Signed') && (
+                                 <MenuItem value="Agreement Signed">Agreement Signed</MenuItem>
+                               )}
+                               {(hasLoi || currentStatus === 'Ready for Construction' || currentStatus === 'Agreement Signed' || currentStatus === 'Under Development') && (
+                                 <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
+                               )}
+                               {(currentStatus === 'Ready for Construction' || currentStatus === 'Under Development') && (
+                                 <MenuItem value="Under Development">Under Development</MenuItem>
+                               )}
+                               {(isLocked || currentStatus === 'Live') && (
+                                 <MenuItem value="Live">Live</MenuItem>
+                               )}
+                             </Select>
+                           );
                         })()}
                       </TableCell>
 
