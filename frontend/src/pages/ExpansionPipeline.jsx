@@ -1192,13 +1192,14 @@ Operations Team`;
                                fullWidth
                                sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                              >
-                               {!hasLoi && (
+                               {currentStatus === 'In Pipeline' && (
                                  <MenuItem value="In Pipeline">In Pipeline</MenuItem>
                                )}
-                               {(hasLoi || currentStatus === 'Agreement Signed') && (
+                               {((currentStatus === 'In Pipeline' && hasLoi) || currentStatus === 'Agreement Signed') && (
                                  <MenuItem value="Agreement Signed">Agreement Signed</MenuItem>
                                )}
-                               {(hasLoi || currentStatus === 'Ready for Construction' || currentStatus === 'Agreement Signed' || currentStatus === 'Under Development') && (
+                               {((hasLoi && (currentStatus === 'In Pipeline' || currentStatus === 'Agreement Signed')) || 
+                                 currentStatus === 'Ready for Construction') && (
                                  <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
                                )}
                                {(currentStatus === 'Ready for Construction' || currentStatus === 'Under Development') && (
