@@ -2839,6 +2839,81 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
   }
 });
 
+// POST /:id/send-status-email (Send Custom Status Triggered email and update status)
+router.post('/:id/send-status-email', authenticateToken, async (req: any, res) => {
+  const storeId = req.params.id;
+  const { status, to, cc, subject, body } = req.body;
+  if (!storeId || !status) {
+    return res.status(400).json({ error: 'Store ID and status are required.' });
+  }
+
+  try {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found.' });
+    }
+
+    const smtpConfig = await getSMTPConfig();
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.smtpHost,
+      port: smtpConfig.smtpPort,
+      secure: smtpConfig.smtpSecure,
+      auth: {
+        user: smtpConfig.smtpUser,
+        pass: smtpConfig.smtpPass
+      }
+    });
+
+    const parsedTo = typeof to === 'string' ? to.split(',').map((e: string) => e.trim()).filter(Boolean) : to;
+    const parsedCc = typeof cc === 'string' ? cc.split(',').map((e: string) => e.trim()).filter(Boolean) : cc;
+
+    const mailOptions: any = {
+      from: smtpConfig.smtpUser,
+      to: parsedTo,
+      cc: parsedCc && parsedCc.length > 0 ? parsedCc : undefined,
+      subject: subject,
+      text: body
+    };
+
+    let info;
+    if (!smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email') {
+      const testAccount = await nodemailer.createTestAccount();
+      const testTransporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+      info = await testTransporter.sendMail(mailOptions);
+      console.log('Status Trigger Email sent to Ethereal: %s', nodemailer.getTestMessageUrl(info));
+    } else {
+      info = await transporter.sendMail(mailOptions);
+    }
+
+    // Update the store status in the database
+    const updatedStore = await prisma.store.update({
+      where: { id: storeId },
+      data: { status: status }
+    });
+
+    await prisma.storeHistory.create({
+      data: {
+        storeId: updatedStore.id,
+        action: `Status updated to ${status} via mapped trigger email`,
+        newValue: status
+      }
+    });
+
+    res.json({ message: 'Status email sent and status updated successfully.', store: updatedStore, info });
+  } catch (error: any) {
+    console.error('Error sending status email:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 // POST /:id/send-store-code-email (Send New Store Code Creation email and update status)
 router.post('/:id/send-store-code-email', authenticateToken, async (req: any, res) => {
   const storeId = req.params.id;

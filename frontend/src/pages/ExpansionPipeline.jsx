@@ -53,6 +53,10 @@ export default function ExpansionPipeline() {
   const [loading, setLoading] = useState(true);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState(null);
 
+  // Email Mappings & Templates for mapped triggers checking
+  const [emailMappings, setEmailMappings] = useState([]);
+  const [emailTemplates, setEmailTemplates] = useState({});
+
   // Upload Modal State
   const [uploadStore, setUploadStore] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState({ loi: null, budget: null, agreement: null });
@@ -144,6 +148,12 @@ export default function ExpansionPipeline() {
 
   useEffect(() => {
     loadData();
+    axios.get('/api/system/email-mappings')
+      .then(res => setEmailMappings(res.data || []))
+      .catch(err => console.error('Failed to load email mappings', err));
+    axios.get('/api/system/email-templates')
+      .then(res => setEmailTemplates(res.data || {}))
+      .catch(err => console.error('Failed to load email templates', err));
   }, []);
 
 
@@ -305,6 +315,105 @@ export default function ExpansionPipeline() {
     }
   };
 
+  const getStatusAliases = (status) => {
+    const norm = (status || '').trim().toUpperCase();
+    if (norm === 'IN_PIPELINE' || norm === 'IN PIPELINE') {
+      return ['In Pipeline', 'Pipeline'];
+    }
+    if (norm === 'AGREEMENT_SIGNED' || norm === 'AGREEMENT SIGNED') {
+      return ['Agreement Signed'];
+    }
+    if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
+      return ['Ready for Construction'];
+    }
+    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
+      return ['Under Development'];
+    }
+    if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
+      return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
+    }
+    if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
+      return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
+    }
+    if (norm === 'APPROVED' || norm === 'NSO_APPROVED') {
+      return ['Approved', 'APPROVED', 'NSO_APPROVED'];
+    }
+    if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
+      return ['On Hold', 'ON_HOLD'];
+    }
+    if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
+      return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
+    }
+    if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
+      return ['Closed', 'CLOSED'];
+    }
+    if (norm === 'LIVE' || norm === 'LIVE STORES' || norm === 'LIVE STORE') {
+      return ['Live', 'LIVE'];
+    }
+    return [status];
+  };
+
+  const getMappedConfigForStatus = (status) => {
+    const aliases = getStatusAliases(status).map(a => a.toLowerCase());
+    const mapping = emailMappings.find(m => 
+      (m.category?.toLowerCase() === 'status changes' || m.category?.toLowerCase() === 'status triggered' || m.category?.toLowerCase() === 'status') &&
+      aliases.includes(m.subCategory?.toLowerCase())
+    );
+    if (!mapping) return null;
+
+    const templateKey = Object.keys(emailTemplates).find(k => k.toLowerCase() === mapping.subCategory.toLowerCase());
+    const template = templateKey ? emailTemplates[templateKey] : null;
+    if (!template) return null;
+
+    return { mapping, template };
+  };
+
+  const replacePlaceholders = (templateText, store) => {
+    if (!templateText) return '';
+    const brandNamePretty = store.brand === 'BLUE_TOKAI_SUCHALI' 
+      ? "Blue Tokai / Suchali's Artisan Bakehouse" 
+      : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
+
+    return templateText
+      .replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '')
+      .replace(/{brandName}|\[Brand Name\]|\[Brand\]/gi, brandNamePretty)
+      .replace(/{city}|\[City\]/gi, store.city || '')
+      .replace(/{state}|\[State\]/gi, store.state || '')
+      .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
+      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '')
+      .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
+      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
+  };
+
+  const handleDropdownStatusChange = (store, newStatus) => {
+    if (newStatus === 'Ready for Construction') {
+      handleStatusChangeToReady(store);
+      return;
+    }
+
+    const config = getMappedConfigForStatus(newStatus);
+    if (config) {
+      const subject = replacePlaceholders(config.template.subject, store);
+      const body = replacePlaceholders(config.template.body, store);
+      const to = config.mapping.to.join(', ');
+      const cc = config.mapping.cc.join(', ');
+
+      setDraftDialog({
+        open: true,
+        store,
+        status: newStatus,
+        to,
+        cc,
+        subject,
+        body,
+        isEditable: false,
+        isStatusTrigger: true
+      });
+    } else {
+      handleFieldChange(store.id, 'status', newStatus);
+    }
+  };
+
   // Ready for Construction Flow Handlers
   const handleStatusChangeToReady = (store) => {
     const hasCode = !!(store.cafeCode && store.cafeCode.trim());
@@ -429,14 +538,25 @@ Operations Team`;
     const store = draftDialog.store;
     try {
       setLoading(true);
-      await axios.post(`/api/stores/${store.id}/send-store-code-email`, {
-        to: draftDialog.to,
-        cc: draftDialog.cc,
-        subject: draftDialog.subject,
-        body: draftDialog.body
-      });
+      if (draftDialog.isStatusTrigger) {
+        await axios.post(`/api/stores/${store.id}/send-status-email`, {
+          status: draftDialog.status,
+          to: draftDialog.to,
+          cc: draftDialog.cc,
+          subject: draftDialog.subject,
+          body: draftDialog.body
+        });
+        setSnackbar({ open: true, message: `Email sent and status updated to ${draftDialog.status}.`, severity: 'success' });
+      } else {
+        await axios.post(`/api/stores/${store.id}/send-store-code-email`, {
+          to: draftDialog.to,
+          cc: draftDialog.cc,
+          subject: draftDialog.subject,
+          body: draftDialog.body
+        });
+        setSnackbar({ open: true, message: 'Email sent and status updated to Ready for Construction.', severity: 'success' });
+      }
       setDraftDialog({ open: false, store: null, to: '', cc: '', subject: '', body: '', isEditable: false });
-      setSnackbar({ open: true, message: 'Email sent and status updated to Ready for Construction.', severity: 'success' });
       loadData();
     } catch (err) {
       console.error(err);
@@ -446,14 +566,18 @@ Operations Team`;
   };
 
   const handleDraftBack = () => {
-    const store = draftDialog.store;
-    setDraftDialog({ open: false, store: null, to: '', cc: '', subject: '', body: '', isEditable: false });
-    setConfirmDialog({
-      open: true,
-      store,
-      message: 'Are you sure you want to send this project to the NSO Team for further processing and send the Store Code Creation email?',
-      hasCode: false
-    });
+    if (draftDialog.isStatusTrigger) {
+      setDraftDialog({ open: false, store: null, to: '', cc: '', subject: '', body: '', isEditable: false });
+    } else {
+      const store = draftDialog.store;
+      setDraftDialog({ open: false, store: null, to: '', cc: '', subject: '', body: '', isEditable: false });
+      setConfirmDialog({
+        open: true,
+        store,
+        message: 'Are you sure you want to send this project to the NSO Team for further processing and send the Store Code Creation email?',
+        hasCode: false
+      });
+    }
   };
 
   const handleDraftModify = () => {
@@ -1182,13 +1306,9 @@ Operations Team`;
                                value={currentStatus}
                                size="small"
                                onChange={(e) => {
-                                 const newStatus = e.target.value;
-                                 if (newStatus === 'Ready for Construction') {
-                                   handleStatusChangeToReady(store);
-                                 } else {
-                                   handleFieldChange(store.id, 'status', newStatus);
-                                 }
-                               }}
+                                  const newStatus = e.target.value;
+                                  handleDropdownStatusChange(store, newStatus);
+                                }}
                                fullWidth
                                sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                              >
@@ -1357,7 +1477,7 @@ Operations Team`;
               Draft Email
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Store Code Creation — {draftDialog.store?.cafeName}
+              {draftDialog.isStatusTrigger ? `Status: ${draftDialog.status}` : 'Store Code Creation'} — {draftDialog.store?.cafeName}
             </Typography>
           </Box>
           <Stack direction="row" spacing={1}>
@@ -1368,7 +1488,7 @@ Operations Team`;
               onClick={handleDraftBack}
               sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
             >
-              Back
+              {draftDialog.isStatusTrigger ? 'Cancel' : 'Back'}
             </Button>
             <Button
               size="small"
