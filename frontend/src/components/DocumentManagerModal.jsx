@@ -527,21 +527,32 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                      <Typography variant="h6" fontWeight={800} sx={{ mt: 0.5 }}>{previewDoc.type}</Typography>
                      {getRequiredTypes().find(rt => rt.type === previewDoc.type)?.requiresDates && (
-                       <Box sx={{ display: 'flex', gap: 2 }}>
-                         <TextField 
-                           label="Issued On" type="date" size="small" InputLabelProps={{ shrink: true }}
-                           value={previewDoc.metadata?.issuedOn || ''}
-                           onChange={(e) => handleUpdateMetadata(previewDoc.id, 'issuedOn', e.target.value)}
-                           disabled={!canModify || !isEditMode}
-                           sx={{ width: 150 }}
-                         />
-                         <TextField 
-                           label="Valid Until" type="date" size="small" InputLabelProps={{ shrink: true }}
-                           value={previewDoc.metadata?.validUntil || ''}
-                           onChange={(e) => handleUpdateMetadata(previewDoc.id, 'validUntil', e.target.value)}
-                           disabled={!canModify || !isEditMode}
-                           sx={{ width: 150 }}
-                         />
+                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                         {previewDoc.type === 'FSSAI License' && (
+                           <TextField
+                             label="FSSAI Number" size="small"
+                             value={previewDoc.metadata?.fssaiNumber || ''}
+                             onChange={(e) => handleUpdateMetadata(previewDoc.id, 'fssaiNumber', e.target.value)}
+                             disabled={!canModify || !isEditMode}
+                             sx={{ width: 316 }}
+                           />
+                         )}
+                         <Box sx={{ display: 'flex', gap: 2 }}>
+                           <TextField 
+                             label="Issued On" type="date" size="small" InputLabelProps={{ shrink: true }}
+                             value={previewDoc.metadata?.issuedOn || ''}
+                             onChange={(e) => handleUpdateMetadata(previewDoc.id, 'issuedOn', e.target.value)}
+                             disabled={!canModify || !isEditMode}
+                             sx={{ width: 150 }}
+                           />
+                           <TextField 
+                             label="Valid Until" type="date" size="small" InputLabelProps={{ shrink: true }}
+                             value={previewDoc.metadata?.validUntil || ''}
+                             onChange={(e) => handleUpdateMetadata(previewDoc.id, 'validUntil', e.target.value)}
+                             disabled={!canModify || !isEditMode}
+                             sx={{ width: 150 }}
+                           />
+                         </Box>
                        </Box>
                      )}
                    </Box>
