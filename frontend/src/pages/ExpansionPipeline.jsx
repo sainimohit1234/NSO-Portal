@@ -1249,15 +1249,6 @@ Operations Team`;
                       {canModify && (
                         <TableCell align="center">
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                            <Tooltip title="Edit full cafe details">
-                              <IconButton 
-                                size="small" 
-                                color="info" 
-                                onClick={() => navigate(`/stores/${store.id}`)}
-                              >
-                                <EditIcon sx={{ fontSize: 18 }} />
-                              </IconButton>
-                            </Tooltip>
                             <Tooltip title="Save properties">
                               <IconButton 
                                 size="small" 
