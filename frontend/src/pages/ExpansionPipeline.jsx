@@ -54,6 +54,16 @@ export default function ExpansionPipeline() {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState(null);
+  const [editingStoreIds, setEditingStoreIds] = useState(new Set());
+
+  const toggleEditMode = (storeId) => {
+    setEditingStoreIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(storeId)) newSet.delete(storeId);
+      else newSet.add(storeId);
+      return newSet;
+    });
+  };
 
   // Email Mappings & Templates for mapped triggers checking
   const [emailMappings, setEmailMappings] = useState([]);
@@ -269,16 +279,19 @@ export default function ExpansionPipeline() {
       const payload = { ...store };
       // Remove local client-only properties
       delete payload.isTemp;
+      const method = store.isTemp ? 'post' : 'put';
+      const endpoint = store.isTemp ? '/api/stores' : `/api/stores/${store.id}`;
+      await axios({ method, url: endpoint, data: payload });
+      setSnackbar({ open: true, message: store.isTemp ? 'Café created successfully' : 'Changes saved successfully', severity: 'success' });
       
-      if (store.isTemp) {
-        // Create store in DB
-        await axios.post('/api/stores', payload);
-        setSnackbar({ open: true, message: 'Café registered successfully.', severity: 'success' });
-      } else {
-        // Update store in DB
-        await axios.put(`/api/stores/${store.id}`, payload);
-        setSnackbar({ open: true, message: 'Café details saved successfully.', severity: 'success' });
+      if (!store.isTemp) {
+        setEditingStoreIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(store.id);
+          return newSet;
+        });
       }
+      
       loadData();
     } catch (err) {
       console.error(err);
@@ -1014,7 +1027,7 @@ Operations Team`;
                 filteredStores.map((store, index) => {
                   const hasLoi = !!store.loiUrl;
                   const isLocked = store.isLocked === true || store.isLocked === 'true';
-                  const rowEditable = canModify && !isLocked;
+                  const rowEditable = canModify && !isLocked && (store.isTemp || editingStoreIds.has(store.id));
 
                   return (
                     <TableRow key={store.id} hover sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}>
@@ -1249,11 +1262,21 @@ Operations Team`;
                       {canModify && (
                         <TableCell align="center">
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                            <Tooltip title={editingStoreIds.has(store.id) ? "Cancel editing" : "Enable inline editing"}>
+                              <IconButton 
+                                size="small" 
+                                color={editingStoreIds.has(store.id) ? "default" : "info"}
+                                disabled={isLocked}
+                                onClick={() => toggleEditMode(store.id)}
+                              >
+                                <EditIcon sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            </Tooltip>
                             <Tooltip title="Save properties">
                               <IconButton 
                                 size="small" 
                                 color="primary" 
-                                disabled={isLocked}
+                                disabled={isLocked || (!editingStoreIds.has(store.id) && !store.isTemp)}
                                 onClick={() => handleSaveRow(store)}
                               >
                                 <SaveIcon sx={{ fontSize: 18 }} />
