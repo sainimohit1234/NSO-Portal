@@ -1,13 +1,14 @@
 import { alpha, createTheme, responsiveFontSizes } from '@mui/material/styles';
 
-const primaryMain = '#6fcddc';
-const primaryDark = '#3faebf';
-const primaryLight = '#dff6fa';
-const primaryDeep = '#123846';
-const surfaceBorder = alpha(primaryDeep, 0.38);
-const glassSurface = alpha('#ffffff', 0.68);
-const glassSurfaceStrong = alpha('#ffffff', 0.82);
-const frostedShadow = '0 16px 40px rgba(17, 24, 39, 0.07)';
+const primaryMain = '#0A314D'; // Blue Tokai Navy
+const primaryDark = '#061E33';
+const primaryLight = '#174A73';
+const primaryDeep = '#041524';
+const surfaceBorder = alpha('#000000', 0.08);
+const paperSurface = '#FFFFFF';
+const defaultBg = '#F4F6F8';
+const lightShadow = '0 4px 20px rgba(0, 0, 0, 0.04)';
+const hoverShadow = '0 8px 24px rgba(10, 49, 77, 0.1)';
 
 const baseTheme = createTheme({
   palette: {
@@ -16,7 +17,7 @@ const baseTheme = createTheme({
       main: primaryMain,
       light: primaryLight,
       dark: primaryDark,
-      contrastText: '#08313c'
+      contrastText: '#FFFFFF'
     },
     secondary: {
       main: '#8b6cf0',
@@ -25,39 +26,39 @@ const baseTheme = createTheme({
       contrastText: '#ffffff'
     },
     background: {
-      default: '#f4f8f9',
-      paper: glassSurface
+      default: defaultBg,
+      paper: paperSurface
     },
     text: {
-      primary: '#16313a',
-      secondary: '#4c6b75',
-      disabled: '#89a5ad'
+      primary: '#1E293B',
+      secondary: '#475569',
+      disabled: '#94A3B8'
     },
-    divider: alpha(primaryDeep, 0.32),
+    divider: surfaceBorder,
     success: {
-      main: '#1ca37c',
-      light: '#def8f0',
-      dark: '#14785c'
+      main: '#10B981',
+      light: '#D1FAE5',
+      dark: '#059669'
     },
     warning: {
-      main: '#d99a28',
-      light: '#fff4d7',
-      dark: '#a56d08'
+      main: '#F59E0B',
+      light: '#FEF3C7',
+      dark: '#D97706'
     },
     error: {
-      main: '#dd5c63',
-      light: '#ffe4e6',
-      dark: '#ab2d39'
+      main: '#EF4444',
+      light: '#FEE2E2',
+      dark: '#DC2626'
     },
     info: {
-      main: '#4597e6',
-      light: '#e1f0ff',
-      dark: '#236eb6'
+      main: '#3B82F6',
+      light: '#DBEAFE',
+      dark: '#2563EB'
     },
     action: {
-      hover: alpha(primaryMain, 0.10),
-      selected: alpha(primaryMain, 0.16),
-      focus: alpha(primaryMain, 0.18)
+      hover: alpha(primaryMain, 0.04),
+      selected: alpha(primaryMain, 0.08),
+      focus: alpha(primaryMain, 0.12)
     }
   },
   typography: {
@@ -90,24 +91,18 @@ const baseTheme = createTheme({
         },
         body: {
           minHeight: '100vh',
-          color: '#16313a',
-          backgroundColor: '#f4f8f9',
-          backgroundImage: `
-            radial-gradient(circle at 12% 18%, rgba(111, 205, 220, 0.18), transparent 22%),
-            radial-gradient(circle at 86% 14%, rgba(139, 108, 240, 0.08), transparent 18%),
-            radial-gradient(circle at 80% 82%, rgba(111, 205, 220, 0.12), transparent 18%),
-            linear-gradient(180deg, #fbfdfd 0%, #f4f9fa 48%, #edf5f7 100%)
-          `,
+          color: '#1E293B',
+          backgroundColor: defaultBg,
           backgroundAttachment: 'fixed',
-          scrollbarColor: `${alpha(primaryDark, 0.45)} ${alpha('#ffffff', 0.65)}`,
+          scrollbarColor: `${alpha('#0A314D', 0.25)} ${alpha('#000000', 0.05)}`,
           '&::-webkit-scrollbar': { width: 10, height: 10 },
-          '&::-webkit-scrollbar-track': { background: alpha('#ffffff', 0.55) },
+          '&::-webkit-scrollbar-track': { background: alpha('#000000', 0.05) },
           '&::-webkit-scrollbar-thumb': {
-            background: alpha(primaryDark, 0.34),
+            background: alpha('#0A314D', 0.2),
             borderRadius: 999
           },
           '&::-webkit-scrollbar-thumb:hover': {
-            background: alpha(primaryDark, 0.48)
+            background: alpha('#0A314D', 0.4)
           }
         },
         '#root': {
@@ -122,24 +117,23 @@ const baseTheme = createTheme({
           padding: '7px 13px',
           minHeight: 38,
           boxShadow: 'none',
-          backdropFilter: 'blur(14px)',
           transition: 'transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, border-color 180ms ease',
           '&:hover': {
             transform: 'translateY(-1px)',
-            boxShadow: '0 10px 22px rgba(111, 205, 220, 0.18)'
+            boxShadow: hoverShadow
           }
         },
         containedPrimary: {
-          background: `linear-gradient(135deg, ${primaryMain} 0%, ${primaryDark} 100%)`,
-          color: '#08313c'
+          background: primaryMain,
+          color: '#FFFFFF'
         },
         outlinedPrimary: {
-          borderColor: alpha(primaryDark, 0.25),
-          color: primaryDeep,
-          backgroundColor: alpha('#ffffff', 0.38),
+          borderColor: alpha(primaryMain, 0.4),
+          color: primaryMain,
+          backgroundColor: 'transparent',
           '&:hover': {
-            borderColor: alpha(primaryDark, 0.45),
-            backgroundColor: alpha(primaryMain, 0.12)
+            borderColor: primaryMain,
+            backgroundColor: alpha(primaryMain, 0.04)
           }
         }
       }
@@ -148,11 +142,9 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 20,
-          border: `2px solid ${alpha(primaryDeep, 0.16)}`,
-          boxShadow: frostedShadow,
-          background: `linear-gradient(180deg, ${glassSurfaceStrong} 0%, ${glassSurface} 100%)`,
-          backdropFilter: 'blur(22px)',
-          WebkitBackdropFilter: 'blur(22px)',
+          border: `1px solid ${surfaceBorder}`,
+          boxShadow: lightShadow,
+          background: paperSurface,
           backgroundImage: 'none'
         }
       }
@@ -161,18 +153,17 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none',
-          backgroundColor: glassSurfaceStrong,
-          backdropFilter: 'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)'
+          backgroundColor: paperSurface,
+          boxShadow: lightShadow
         }
       }
     },
     MuiCardContent: {
       styleOverrides: {
         root: {
-          padding: 20,
+          padding: 24,
           '&:last-child': {
-            paddingBottom: 20
+            paddingBottom: 24
           }
         }
       }
@@ -181,29 +172,29 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          backgroundColor: alpha('#ffffff', 0.58),
-          backdropFilter: 'blur(10px)',
+          backgroundColor: '#FFFFFF',
           minHeight: 42,
           fontSize: '0.84rem',
-          fontWeight: 800,
+          fontWeight: 600,
           '& .MuiOutlinedInput-notchedOutline': {
-            borderColor: alpha(primaryDeep, 0.16),
+            borderColor: alpha('#1E293B', 0.2),
             borderWidth: '1.5px'
           },
           '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: alpha(primaryDeep, 0.32),
+            borderColor: alpha('#1E293B', 0.4),
             borderWidth: '1.5px'
           },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: alpha(primaryDeep, 0.65),
+            borderColor: primaryMain,
             borderWidth: '2px',
-            boxShadow: `0 0 0 4px ${alpha(primaryMain, 0.22)}`
+            boxShadow: `0 0 0 4px ${alpha(primaryMain, 0.15)}`
           },
           '&.Mui-disabled': {
-            color: alpha('#16313a', 0.75),
-            WebkitTextFillColor: alpha('#16313a', 0.75),
+            backgroundColor: '#F8FAFC',
+            color: alpha('#1E293B', 0.5),
+            WebkitTextFillColor: alpha('#1E293B', 0.5),
             '& .MuiOutlinedInput-notchedOutline': {
-              borderColor: alpha(primaryDeep, 0.10),
+              borderColor: alpha('#1E293B', 0.1),
               borderWidth: '1.5px'
             }
           }
@@ -233,14 +224,14 @@ const baseTheme = createTheme({
           position: 'relative',
           transform: 'none',
           marginBottom: 6,
-          fontWeight: 800,
+          fontWeight: 700,
           fontSize: '0.8rem',
-          color: '#16313a',
+          color: '#475569',
           '&.Mui-disabled': {
-            color: alpha('#16313a', 0.85)
+            color: alpha('#475569', 0.5)
           },
           '&.Mui-focused': {
-            color: primaryDeep
+            color: primaryMain
           }
         }
       }
@@ -250,8 +241,8 @@ const baseTheme = createTheme({
         paper: {
           borderRadius: 14,
           border: `1px solid ${surfaceBorder}`,
-          background: `linear-gradient(180deg, ${alpha('#ffffff', 0.90)} 0%, ${alpha('#ffffff', 0.78)} 100%)`,
-          boxShadow: frostedShadow
+          background: paperSurface,
+          boxShadow: '0 12px 36px rgba(0,0,0,0.08)'
         }
       }
     },
@@ -260,11 +251,14 @@ const baseTheme = createTheme({
         root: {
           borderRadius: 12,
           margin: '4px 8px',
+          color: '#1E293B',
           '&:hover': {
-            backgroundColor: alpha(primaryMain, 0.12)
+            backgroundColor: alpha(primaryMain, 0.06)
           },
           '&.Mui-selected': {
-            backgroundColor: alpha(primaryMain, 0.18)
+            backgroundColor: alpha(primaryMain, 0.1),
+            color: primaryMain,
+            fontWeight: 700
           }
         }
       }
@@ -272,12 +266,10 @@ const baseTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          color: primaryDeep,
+          color: '#1E293B',
+          backgroundColor: '#FFFFFF',
           borderBottom: `1px solid ${surfaceBorder}`,
-          background: `linear-gradient(180deg, ${alpha('#ffffff', 0.76)} 0%, ${alpha('#ffffff', 0.54)} 100%)`,
-          boxShadow: '0 10px 32px rgba(111, 205, 220, 0.12)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)'
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.02)',
         }
       }
     },
@@ -285,9 +277,8 @@ const baseTheme = createTheme({
       styleOverrides: {
         paper: {
           borderRight: `1px solid ${surfaceBorder}`,
-          background: `linear-gradient(180deg, ${alpha('#ffffff', 0.70)} 0%, ${alpha('#f5fcfe', 0.64)} 100%)`,
-          backdropFilter: 'blur(22px)',
-          WebkitBackdropFilter: 'blur(22px)'
+          backgroundColor: '#FFFFFF',
+          color: '#1E293B'
         }
       }
     },
@@ -295,13 +286,13 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiTableCell-root': {
-            backgroundColor: primaryDeep,
-            color: '#ffffff',
+            backgroundColor: '#F8FAFC',
+            color: '#475569',
             fontWeight: 800,
             textTransform: 'uppercase',
             fontSize: '0.72rem',
             letterSpacing: '0.06em',
-            borderBottom: `2px solid ${primaryDeep}`
+            borderBottom: `2px solid ${alpha(primaryMain, 0.2)}`
           }
         }
       }
@@ -309,11 +300,12 @@ const baseTheme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: `1.5px solid ${alpha(primaryDeep, 0.14)}`,
-          paddingTop: 11,
-          paddingBottom: 11,
-          fontSize: '0.8rem',
-          fontWeight: 800
+          borderBottom: `1px solid ${surfaceBorder}`,
+          paddingTop: 14,
+          paddingBottom: 14,
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          color: '#1E293B'
         }
       }
     },
@@ -321,7 +313,7 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           '&:hover': {
-            backgroundColor: alpha(primaryMain, 0.05)
+            backgroundColor: alpha(primaryMain, 0.02)
           }
         }
       }
@@ -334,8 +326,8 @@ const baseTheme = createTheme({
           height: 30,
           fontSize: '0.75rem',
           '& .MuiChip-label': {
-            paddingLeft: 10,
-            paddingRight: 10
+            paddingLeft: 12,
+            paddingRight: 12
           }
         }
       }
@@ -343,8 +335,8 @@ const baseTheme = createTheme({
     MuiDivider: {
       styleOverrides: {
         root: {
-          borderColor: alpha(primaryDeep, 0.16),
-          borderWidth: '1.5px'
+          borderColor: surfaceBorder,
+          borderWidth: '1px'
         }
       }
     },
@@ -353,26 +345,29 @@ const baseTheme = createTheme({
         root: {
           borderRadius: 14,
           border: `1px solid ${surfaceBorder}`,
-          backdropFilter: 'blur(14px)',
           '& .MuiAlert-message': {
-            fontWeight: 700
+            fontWeight: 600
           }
         },
         standardSuccess: {
-          backgroundColor: alpha('#def8f0', 0.84),
-          color: '#104b3a'
+          backgroundColor: '#F0FDF4',
+          color: '#166534',
+          border: '1px solid #BBF7D0'
         },
         standardError: {
-          backgroundColor: alpha('#ffe4e6', 0.88),
-          color: '#7b2230'
+          backgroundColor: '#FEF2F2',
+          color: '#991B1B',
+          border: '1px solid #FECACA'
         },
         standardWarning: {
-          backgroundColor: alpha('#fff4d7', 0.90),
-          color: '#7a5207'
+          backgroundColor: '#FFFBEB',
+          color: '#92400E',
+          border: '1px solid #FDE68A'
         },
         standardInfo: {
-          backgroundColor: alpha('#e7f7fb', 0.88),
-          color: primaryDeep
+          backgroundColor: '#EFF6FF',
+          color: '#1E40AF',
+          border: '1px solid #BFDBFE'
         }
       }
     },
@@ -380,8 +375,10 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
+          color: '#64748B',
           '&:hover': {
-            backgroundColor: alpha(primaryMain, 0.12)
+            backgroundColor: alpha(primaryMain, 0.06),
+            color: primaryMain
           }
         }
       }
@@ -396,14 +393,26 @@ const baseTheme = createTheme({
     MuiListItemButton: {
       styleOverrides: {
         root: {
-          borderRadius: 14
+          borderRadius: 14,
+          margin: '4px 8px',
+          '&.Mui-selected': {
+            backgroundColor: alpha(primaryMain, 0.08),
+            color: primaryMain,
+            '& .MuiListItemIcon-root': {
+              color: primaryMain
+            }
+          },
+          '&:hover': {
+            backgroundColor: alpha(primaryMain, 0.04)
+          }
         }
       }
     },
     MuiListItemIcon: {
       styleOverrides: {
         root: {
-          minWidth: 34
+          minWidth: 36,
+          color: '#64748B'
         }
       }
     },
@@ -421,8 +430,8 @@ const baseTheme = createTheme({
         paper: {
           borderRadius: 18,
           border: `1px solid ${surfaceBorder}`,
-          background: `linear-gradient(180deg, ${alpha('#ffffff', 0.90)} 0%, ${alpha('#f7fdff', 0.76)} 100%)`,
-          boxShadow: frostedShadow
+          background: paperSurface,
+          boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
         }
       }
     }
