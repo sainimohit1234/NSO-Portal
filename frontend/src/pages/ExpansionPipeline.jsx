@@ -23,6 +23,8 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
+import DocumentManagerModal from '../components/DocumentManagerModal';
+
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 import { fetchStoresFromFirestore } from '../services/storeService';
@@ -59,6 +61,7 @@ export default function ExpansionPipeline() {
 
   // Upload Modal State
   const [uploadStore, setUploadStore] = useState(null);
+  const [uploadModalConfig, setUploadModalConfig] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState({ loi: null, budget: null, agreement: null });
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewName, setPreviewName] = useState('');
@@ -963,20 +966,27 @@ Operations Team`;
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', overflow: 'hidden' }}>
         <TableContainer sx={{ maxHeight: '78vh', overflowX: 'auto' }}>
           <Table stickyHeader sx={{ minWidth: 2500, tableLayout: 'fixed', '& .MuiTableCell-root': { px: 1, py: 1.25 } }}>
-            <TableHead>
+                        <TableHead>
+              {/* 
+                WARNING: The sequence and placement of the columns below are STRICTLY LOCKED. 
+                Do NOT reorder, edit, or remove the first 13 columns (from S.No. up to MISCELLANEOUS DOCUMENTS).
+                Any new column added in the future MUST be inserted AFTER "MISCELLANEOUS DOCUMENTS" and BEFORE "Status".
+              */}
               <TableRow>
-                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, fontWeight: 800, width: 50 }}>S.No.</TableCell>
-                <TableCell sx={{ position: 'sticky', left: 50, zIndex: 4, fontWeight: 800, width: 200 }}>Brand</TableCell>
-                <TableCell sx={{ position: 'sticky', left: 250, zIndex: 4, fontWeight: 800, width: 300, borderRight: '1.5px solid', borderColor: 'divider' }}>Café Name</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 150 }}>Café Code</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, fontWeight: 800, width: 50, bgcolor: 'background.default', color: 'text.primary' }}>S.No.</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 50, zIndex: 4, fontWeight: 800, width: 160, bgcolor: 'background.default', color: 'text.primary' }}>Brand</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 210, zIndex: 4, fontWeight: 800, width: 240, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.default', color: 'text.primary' }}>Café Name</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 450, zIndex: 4, fontWeight: 800, width: 110, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.default', color: 'text.primary' }}>Café Code</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 110 }}>Pin Code</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 130 }}>City</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 130 }}>State</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 350 }}>Address</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 150 }}>Café Model</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 180 }}>Upload LOI</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 180 }}>Budget File</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 220 }}>Lease / Rental Agreement</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>LEGAL DOCUMENTS</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>FINANCIAL DOCUMENTS</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>PROJECT DOCUMENTS</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 220, textAlign: 'center' }}>MISCELLANEOUS DOCUMENTS</TableCell>
+
                 <TableCell sx={{ fontWeight: 800, width: 180 }}>Status</TableCell>
                 {canModify && <TableCell sx={{ fontWeight: 800, width: 80 }} align="center">Actions</TableCell>}
               </TableRow>
@@ -1008,11 +1018,16 @@ Operations Team`;
 
                   return (
                     <TableRow key={store.id} hover sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}>
+                       {/* 
+                         WARNING: The sequence of TableCells below is STRICTLY LOCKED and MUST match the TableHead above. 
+                         Do NOT reorder, edit, or remove the first 13 columns (from S.No. up to MISCELLANEOUS DOCUMENTS).
+                         Any new column must be inserted AFTER "MISCELLANEOUS DOCUMENTS".
+                       */}
                        {/* Serial No. */}
-                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper', fontWeight: 800 }}>{index + 1}</TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.default', color: 'text.primary', fontWeight: 800 }}>{index + 1}</TableCell>
 
                       {/* Brand Select */}
-                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.paper' }}>
+                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.default' }}>
                         <Select
                           value={store.brand || 'BLUE_TOKAI_SUCHALI'}
                           size="small"
@@ -1025,9 +1040,8 @@ Operations Team`;
                           <MenuItem value="GOT_TEA">Got Tea</MenuItem>
                         </Select>
                       </TableCell>
-
                       {/* Café Name */}
-                      <TableCell sx={{ position: 'sticky', left: 250, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
+                      <TableCell sx={{ position: 'sticky', left: 210, zIndex: 2, bgcolor: 'background.default', borderRight: '1.5px solid', borderColor: 'divider' }}>
                         <TextField
                           value={store.cafeName || ''}
                           size="small"
@@ -1052,7 +1066,7 @@ Operations Team`;
                       </TableCell>
 
                       {/* Café Code */}
-                      <TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 450, zIndex: 2, bgcolor: 'background.default', borderRight: '1.5px solid', borderColor: 'divider' }}>
                         <TextField
                           value={store.cafeCode || ''}
                           size="small"
@@ -1127,163 +1141,61 @@ Operations Team`;
                         </Select>
                       </TableCell>
 
-                      {/* Upload LOI Column */}
-                      <TableCell>
-                        <input
-                          type="file"
-                          id={`file-upload-inline-loi-${store.id}`}
-                          style={{ display: 'none' }}
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              const maxSize = 200 * 1024;
-                              if (file.size > maxSize) {
-                                setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 200KB.', severity: 'error' });
-                                return;
-                              }
-                              performInlineUpload(store, 'loi', file);
-                            }
-                          }}
+                                            {/* LEGAL DOCUMENTS */}
+                      <TableCell align="center">
+                        <Chip 
+                          label={store.loiUrl && store.agreementUrl ? "Documents Uploaded" : "Awaiting Documents"} 
+                          onClick={() => setUploadModalConfig({ store, category: 'Legal Documents' })}
+                          sx={{ 
+                            bgcolor: store.loiUrl && store.agreementUrl ? 'success.light' : 'warning.light', 
+                            color: store.loiUrl && store.agreementUrl ? 'success.dark' : 'warning.dark', 
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: store.loiUrl && store.agreementUrl ? 'success.main' : 'warning.main', color: 'primary.contrastText' }
+                          }} 
                         />
-                        {store.loiUrl ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CheckCircleIcon color="success" sx={{ fontSize: 18 }} />
-                            <Link
-                              component="button"
-                              variant="body2"
-                              onClick={() => {
-                                setPreviewUrl(store.loiUrl);
-                                setPreviewName(store.loiFileName || 'LOI Document');
-                              }}
-                              sx={{ fontWeight: 800, textDecoration: 'none', fontSize: '0.8rem', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            >
-                              {store.loiFileName || 'LOI'}
-                            </Link>
-                            {rowEditable && (
-                              <IconButton size="small" color="error" onClick={() => performInlineDelete(store, 'loi')}>
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            )}
-                          </Box>
-                        ) : (
-                          rowEditable && (
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<CloudUploadIcon />}
-                              onClick={() => document.getElementById(`file-upload-inline-loi-${store.id}`).click()}
-                              sx={{ borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
-                            >
-                              Upload LOI
-                            </Button>
-                          )
-                        )}
                       </TableCell>
-
-                      {/* Budget File Column */}
-                      <TableCell>
-                        <input
-                          type="file"
-                          id={`file-upload-inline-budget-${store.id}`}
-                          style={{ display: 'none' }}
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              const maxSize = 200 * 1024;
-                              if (file.size > maxSize) {
-                                setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 200KB.', severity: 'error' });
-                                return;
-                              }
-                              performInlineUpload(store, 'budget', file);
-                            }
-                          }}
+                      {/* FINANCIAL DOCUMENTS */}
+                      <TableCell align="center">
+                        <Chip 
+                          label={store.budgetUrl ? "Documents Uploaded" : "Awaiting Documents"} 
+                          onClick={() => setUploadModalConfig({ store, category: 'Financial Documents' })}
+                          sx={{ 
+                            bgcolor: store.budgetUrl ? 'success.light' : 'warning.light', 
+                            color: store.budgetUrl ? 'success.dark' : 'warning.dark', 
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: store.budgetUrl ? 'success.main' : 'warning.main', color: 'primary.contrastText' }
+                          }} 
                         />
-                        {store.budgetUrl ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CheckCircleIcon color="success" sx={{ fontSize: 18 }} />
-                            <Link
-                              component="button"
-                              variant="body2"
-                              onClick={() => {
-                                setPreviewUrl(store.budgetUrl);
-                                setPreviewName(store.budgetFileName || 'Budget File');
-                              }}
-                              sx={{ fontWeight: 800, textDecoration: 'none', fontSize: '0.8rem', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            >
-                              {store.budgetFileName || 'Budget'}
-                            </Link>
-                            {rowEditable && (
-                              <IconButton size="small" color="error" onClick={() => performInlineDelete(store, 'budget')}>
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            )}
-                          </Box>
-                        ) : (
-                          rowEditable && (
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<CloudUploadIcon />}
-                              onClick={() => document.getElementById(`file-upload-inline-budget-${store.id}`).click()}
-                              sx={{ borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
-                            >
-                              Upload Budget
-                            </Button>
-                          )
-                        )}
                       </TableCell>
-
-                      {/* Lease / Rental Agreement Column */}
-                      <TableCell>
-                        <input
-                          type="file"
-                          id={`file-upload-inline-agreement-${store.id}`}
-                          style={{ display: 'none' }}
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              const maxSize = 200 * 1024;
-                              if (file.size > maxSize) {
-                                setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 200KB.', severity: 'error' });
-                                return;
-                              }
-                              performInlineUpload(store, 'agreement', file);
-                            }
-                          }}
+                      {/* PROJECT DOCUMENTS */}
+                      <TableCell align="center">
+                        <Chip 
+                          label="Awaiting Documents" 
+                          onClick={() => setUploadModalConfig({ store, category: 'Project Documents' })}
+                          sx={{ 
+                            bgcolor: 'warning.light', 
+                            color: 'warning.dark', 
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: 'warning.main', color: 'primary.contrastText' }
+                          }} 
                         />
-                        {store.agreementUrl ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CheckCircleIcon color="success" sx={{ fontSize: 18 }} />
-                            <Link
-                              component="button"
-                              variant="body2"
-                              onClick={() => {
-                                setPreviewUrl(store.agreementUrl);
-                                setPreviewName(store.agreementFileName || 'Agreement File');
-                              }}
-                              sx={{ fontWeight: 800, textDecoration: 'none', fontSize: '0.8rem', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                            >
-                              {store.agreementFileName || 'Agreement'}
-                            </Link>
-                            {rowEditable && (
-                              <IconButton size="small" color="error" onClick={() => performInlineDelete(store, 'agreement')}>
-                                <DeleteIcon sx={{ fontSize: 16 }} />
-                              </IconButton>
-                            )}
-                          </Box>
-                        ) : (
-                          rowEditable && (
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              startIcon={<CloudUploadIcon />}
-                              onClick={() => document.getElementById(`file-upload-inline-agreement-${store.id}`).click()}
-                              sx={{ borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap' }}
-                            >
-                              Upload Agreement
-                            </Button>
-                          )
-                        )}
+                      </TableCell>
+                      {/* MISCELLANEOUS DOCUMENTS */}
+                      <TableCell align="center">
+                        <Chip 
+                          label="Optional" 
+                          onClick={() => setUploadModalConfig({ store, category: 'Miscellaneous Documents' })}
+                          sx={{ 
+                            bgcolor: 'info.light', 
+                            color: 'info.dark', 
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            '&:hover': { bgcolor: 'info.main', color: 'primary.contrastText' }
+                          }} 
+                        />
                       </TableCell>
 
                       {/* Status */}
@@ -1337,6 +1249,15 @@ Operations Team`;
                       {canModify && (
                         <TableCell align="center">
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                            <Tooltip title="Edit full cafe details">
+                              <IconButton 
+                                size="small" 
+                                color="info" 
+                                onClick={() => navigate(`/stores/${store.id}`)}
+                              >
+                                <EditIcon sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            </Tooltip>
                             <Tooltip title="Save properties">
                               <IconButton 
                                 size="small" 
@@ -1383,11 +1304,11 @@ Operations Team`;
                 src={previewUrl} 
                 width="100%" 
                 height="500px" 
-                style={{ border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#fff' }} 
+                style={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', backgroundColor: 'background.paper' }} 
                 title="Document Preview" 
               />
             ) : getFileType(previewUrl, previewName) === 'image' ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 1, border: '1px solid #e2e8f0', borderRadius: '8px', bgcolor: '#fff', height: 500 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 1, border: '1px solid', borderColor: 'divider', borderRadius: '8px', bgcolor: 'background.paper', height: 500 }}>
                 <img 
                   src={previewUrl} 
                   alt="Preview" 
@@ -1395,7 +1316,7 @@ Operations Team`;
                 />
               </Box>
             ) : (
-              <Box sx={{ p: 4, textAlign: 'center', border: '1px solid #e2e8f0', borderRadius: '8px', bgcolor: '#fff', height: 500, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+              <Box sx={{ p: 4, textAlign: 'center', border: '1px solid', borderColor: 'divider', borderRadius: '8px', bgcolor: 'background.paper', height: 500, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
                 <Typography variant="body2" sx={{ fontWeight: 700, mb: 1.5 }}>
                   No inline preview available for this file format (e.g. CSV/Excel).
                 </Typography>
@@ -1555,6 +1476,22 @@ Operations Team`;
         </DialogContent>
       </Dialog>
 
+      
+            {/* Upload Documents Modal */}
+      {uploadModalConfig && (
+        <DocumentManagerModal 
+          open={!!uploadModalConfig} 
+          store={uploadModalConfig.store}
+          activeCategory={uploadModalConfig.category}
+          canModify={canModify}
+          onClose={() => setUploadModalConfig(null)}
+          setSnackbar={setSnackbar}
+          onSave={(payload) => {
+              setStores(prev => prev.map(s => s.id === uploadModalConfig.store.id ? { ...s, ...payload } : s));
+          }}
+        />
+      )}
+
       {/* Snackbar Alerts */}
       <Snackbar
         open={snackbar.open}
@@ -1571,6 +1508,8 @@ Operations Team`;
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    
+            
+</Box>
   );
 }
