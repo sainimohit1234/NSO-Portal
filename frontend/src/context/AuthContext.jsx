@@ -321,6 +321,56 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  useEffect(() => {
+    if (!user) return;
+
+    const INACTIVITY_LIMIT = 24 * 60 * 60 * 1000; // 24 hours
+
+    const lastActivityStr = localStorage.getItem('nso_portal_last_activity');
+    const lastUid = localStorage.getItem('nso_portal_last_activity_uid');
+    
+    if (lastActivityStr && lastUid === user.id) {
+      const lastActivity = parseInt(lastActivityStr, 10);
+      if (Date.now() - lastActivity >= INACTIVITY_LIMIT) {
+        logAuthDebug('Closing user session: Inactivity exceeded 24 hours.');
+        logout();
+        return;
+      }
+    } else {
+      localStorage.setItem('nso_portal_last_activity', Date.now().toString());
+      localStorage.setItem('nso_portal_last_activity_uid', user.id);
+    }
+
+    const activityEvents = ['mousedown', 'click', 'keypress', 'scroll', 'touchstart'];
+    const handleActivity = () => {
+      localStorage.setItem('nso_portal_last_activity', Date.now().toString());
+      localStorage.setItem('nso_portal_last_activity_uid', user.id);
+    };
+
+    activityEvents.forEach(event => {
+      window.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    const checkInterval = setInterval(() => {
+      const storedActivity = localStorage.getItem('nso_portal_last_activity');
+      const storedUid = localStorage.getItem('nso_portal_last_activity_uid');
+      if (storedActivity && storedUid === user.id) {
+        const lastActivity = parseInt(storedActivity, 10);
+        if (Date.now() - lastActivity >= INACTIVITY_LIMIT) {
+          logAuthDebug('Automatically logging out due to 24-hour inactivity limit.');
+          logout();
+        }
+      }
+    }, 10000);
+
+    return () => {
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      clearInterval(checkInterval);
+    };
+  }, [user]);
+
   return (
     <AuthContext.Provider
       value={{

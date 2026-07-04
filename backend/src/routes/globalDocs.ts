@@ -41,6 +41,25 @@ router.post('/add-link', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asyn
     };
 
     const docRef = await db.collection('globalDocuments').add(newDoc);
+
+    // Audit log in storageFiles
+    try {
+      await db.collection('storageFiles').add({
+        storeId: 'global',
+        cafeCode: 'Global',
+        cafeName: 'Global Documents',
+        fileName: newDoc.fileName,
+        fileUrl: newDoc.fileUrl,
+        docType: 'global_document',
+        category: newDoc.category,
+        uploadedBy: req.user?.email || 'System',
+        uploadedAt: newDoc.uploadedAt,
+        status: 'Live'
+      });
+    } catch (auditErr) {
+      console.error('Failed to audit log global document upload:', auditErr);
+    }
+
     res.status(201).json({ id: docRef.id, ...newDoc });
   } catch (error) {
     console.error('Failed to add link:', error);
@@ -81,12 +100,52 @@ router.delete('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (
   const { id } = req.params;
   try {
     const docRef = db.collection('globalDocuments').doc(id);
-    const doc = await docRef.get();
-    if (!doc.exists) {
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
       return res.status(404).json({ error: 'Link not found' });
     }
 
+    const docData = docSnap.data() || {};
+    const fileUrl = docData.fileUrl;
+
     await docRef.delete();
+
+    // Audit log in storageFiles
+    if (fileUrl) {
+      try {
+        const storageSnapshot = await db.collection('storageFiles').where('fileUrl', '==', fileUrl).get();
+        if (!storageSnapshot.empty) {
+          const batch = db.batch();
+          storageSnapshot.forEach(item => {
+            batch.update(db.collection('storageFiles').doc(item.id), {
+              status: 'Deleted',
+              deletedBy: req.user?.email || 'System',
+              deletedAt: new Date().toISOString()
+            });
+          });
+          await batch.commit();
+        } else {
+          // If no record exists (e.g. legacy file), create a deleted record
+          await db.collection('storageFiles').add({
+            storeId: 'global',
+            cafeCode: 'Global',
+            cafeName: 'Global Documents',
+            fileName: docData.fileName || docData.fileUrl || 'Global Document',
+            fileUrl,
+            docType: 'global_document',
+            category: docData.category || 'Images & Docs',
+            uploadedBy: 'System',
+            uploadedAt: docData.uploadedAt || new Date().toISOString(),
+            status: 'Deleted',
+            deletedBy: req.user?.email || 'System',
+            deletedAt: new Date().toISOString()
+          });
+        }
+      } catch (auditErr) {
+        console.error('Failed to audit log global document deletion:', auditErr);
+      }
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Failed to delete link:', error);

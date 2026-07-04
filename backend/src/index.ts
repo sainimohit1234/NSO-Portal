@@ -3,8 +3,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import dns from 'dns';
+import fs from 'fs';
 import * as functions from 'firebase-functions/v2';
-import { firebaseAdmin } from './lib/firebase-admin';
+import { firebaseAdmin, getActiveBucket } from './lib/firebase-admin';
 
 // Globally prioritize IPv4 over IPv6 for dns resolution to avoid outbound connection failures
 dns.setDefaultResultOrder('ipv4first');
@@ -16,7 +17,40 @@ const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+
+app.get('/uploads/:filename', async (req, res) => {
+  const { filename } = req.params;
+  const localPath = path.resolve(process.cwd(), 'uploads', filename);
+
+  if (fs.existsSync(localPath)) {
+    return res.sendFile(localPath);
+  }
+
+  // If not local, stream from Google Cloud Storage
+  try {
+    const bucket = await getActiveBucket();
+    const storageFile = bucket.file(`NSO DATA/${filename}`);
+    const [exists] = await storageFile.exists();
+
+    if (exists) {
+      const [metadata] = await storageFile.getMetadata();
+      res.setHeader('Content-Type', metadata.contentType || 'application/octet-stream');
+      
+      const stream = storageFile.createReadStream();
+      stream.on('error', (err) => {
+        console.error(`Error streaming GCS file NSO DATA/${filename}:`, err);
+        if (!res.headersSent) {
+          res.status(500).send('Error retrieving file');
+        }
+      });
+      return stream.pipe(res);
+    }
+  } catch (err) {
+    console.error(`Error retrieving GCS file NSO DATA/${filename}:`, err);
+  }
+
+  return res.status(404).send('Not Found');
+});
 
 import storeRoutes from './routes/stores';
 import userRoutes from './routes/users';
@@ -33,6 +67,8 @@ const LEGACY_ADMIN_PASSWORD = '11111';
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'NSM Portal Backend is running' });
 });
+
+
 
 app.get('/api/temp-live-codes', async (req, res) => {
   try {

@@ -112,8 +112,8 @@ export default function Approvals() {
     if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
       return ['Ready for Construction'];
     }
-    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
-      return ['Under Development'];
+    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT' || norm === 'UNDER CONSTRUCTION') {
+      return ['Under Construction'];
     }
     if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
       return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
@@ -166,7 +166,7 @@ export default function Approvals() {
       .replace(/{city}|\[City\]/gi, store.city || '')
       .replace(/{state}|\[State\]/gi, store.state || '')
       .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
-      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '')
+      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
       .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
       .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
   };
@@ -318,6 +318,10 @@ export default function Approvals() {
       const codeMatch = (store.cafeCode || '').toLowerCase().includes(query);
       searchMatch = nameMatch || codeMatch;
     }
+    
+    // Live filter
+    const isLive = store.status === 'Live' || store.status === 'LIVE';
+    if (isLive) return false;
     
     // Approval filter
     let approvalMatch = true;

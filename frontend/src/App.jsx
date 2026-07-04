@@ -13,14 +13,14 @@ import Settings from './pages/Settings';
 import ContactDetails from './pages/ContactDetails';
 import Login from './pages/Login';
 import BulkAction from './pages/BulkAction';
-import Compliance from './pages/Compliance';
-import ComplianceDetails from './pages/ComplianceDetails';
+
 import AggregatorMail from './pages/AggregatorMail';
 import UpcomingStores from './pages/UpcomingStores';
 import ImagesDocs from './pages/ImagesDocs';
 import ExpansionPipeline from './pages/ExpansionPipeline';
 import DeleteBranches from './pages/DeleteBranches';
 import UserRegistrations from './pages/UserRegistrations';
+import SwiggyZomatoIntegration from './pages/SwiggyZomatoIntegration';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children, allowedRoles }) {
@@ -83,13 +83,10 @@ const router = createBrowserRouter([
         path: 'approvals',
         element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER']}><Approvals /></ProtectedRoute>
       },
+
       {
-        path: 'compliance',
-        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'FINANCE']}><Compliance /></ProtectedRoute>
-      },
-      {
-        path: 'compliance/:id',
-        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'FINANCE']}><ComplianceDetails /></ProtectedRoute>
+        path: 'swiggy-zomato',
+        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE']}><SwiggyZomatoIntegration /></ProtectedRoute>
       },
       {
         path: 'images-docs',
@@ -117,9 +114,17 @@ const router = createBrowserRouter([
       },
       {
         path: 'user-registrations',
-        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN']}><UserRegistrations /></ProtectedRoute>
+        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}><UserRegistrations /></ProtectedRoute>
+      },
+      {
+        path: '*',
+        element: <Navigate to="/" replace />
       }
     ]
+  },
+  {
+    path: '*',
+    element: <Navigate to="/" replace />
   }
 ]);
 

@@ -4,7 +4,7 @@ import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Chip, Button, Stack, TextField, MenuItem,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Alert, Avatar, Switch, FormControlLabel,
-  InputAdornment
+  InputAdornment, List, ListItem, ListItemButton, ListItemText, Divider
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditIcon from '@mui/icons-material/Edit';
@@ -21,6 +21,55 @@ import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 
 const ROLES = ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE', 'USER'];
+
+const PERM_MODULES = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'all_stores', label: 'All Stores' },
+  { key: 'expansion_pipeline', label: 'Expansion Pipeline' },
+  { key: 'nso_approval', label: 'NSO Approval' },
+  { key: 'swiggy_zomato', label: 'Swiggy / Zomato Integration' },
+  { key: 'email_directory', label: 'Email Directory' },
+  { key: 'store_control_center', label: 'Store Control Center' },
+  { key: 'user_registrations', label: 'User Registrations' },
+  { key: 'settings', label: 'Settings' }
+];
+
+const MODULE_SUB_PERMS = {
+  dashboard: [],
+  all_stores: [
+    { key: 'EDIT_CONTACTS', label: 'Edit Contacts' },
+    { key: 'EDIT_STORES', label: 'Edit Store Details' },
+    { key: 'APPROVER', label: 'Approver' },
+    { key: 'GO_LIVE', label: 'Go-Live Access' }
+  ],
+  expansion_pipeline: [
+    { key: 'VIEWER', label: 'Viewer' }
+  ],
+  nso_approval: [
+    { key: 'APPROVER', label: 'Approver' }
+  ],
+  swiggy_zomato: [],
+  email_directory: [
+    { key: 'VIEW_ONLY', label: 'View Only' },
+    { key: 'EDIT_ACCESS', label: 'Edit Access' }
+  ],
+  store_control_center: [],
+  user_registrations: [],
+  settings: [
+    { key: 'CREATE_USER', label: 'Create User' }
+  ]
+};
+
+const ALL_SUB_PERMS = [
+  { key: 'EDIT_CONTACTS', label: 'Edit Contacts' },
+  { key: 'EDIT_STORES', label: 'Edit Store Details' },
+  { key: 'APPROVER', label: 'Approver' },
+  { key: 'GO_LIVE', label: 'Go-Live Access' },
+  { key: 'CREATE_USER', label: 'Create User' },
+  { key: 'VIEWER', label: 'Viewer' },
+  { key: 'VIEW_ONLY', label: 'View Only' },
+  { key: 'EDIT_ACCESS', label: 'Edit Access' }
+];
 
 const ROLE_INFO = {
   SUPER_ADMIN: {
@@ -48,7 +97,7 @@ const ROLE_INFO = {
     border: 'rgba(56, 189, 248, 0.25)',
   },
   FINANCE: {
-    label: 'Finance',
+    label: 'Legal and Finance',
     description: 'Access to financial records. Can update license and rent expiries.',
     icon: <ManageAccountsIcon />,
     color: '#eab308',
@@ -70,10 +119,12 @@ export default function Settings() {
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN';
   const isManager = currentUser?.role === 'MANAGER';
   const hasCreateUserPermission = currentUser?.permissions ? currentUser.permissions.split(',').map(p => p.trim()).includes('CREATE_USER') : false;
-  const canManageUsers = isSuperAdmin || ((currentUser?.role === 'MANAGER' || currentUser?.role === 'FINANCE') && hasCreateUserPermission);
+  const canManageUsers = isSuperAdmin || currentUser?.role === 'ADMIN' || ((currentUser?.role === 'MANAGER' || currentUser?.role === 'FINANCE') && hasCreateUserPermission);
 
   let visibleRoles = ROLES;
-  if (currentUser?.role === 'MANAGER') {
+  if (currentUser?.role === 'ADMIN') {
+    visibleRoles = ['ADMIN', 'MANAGER', 'FINANCE', 'USER'];
+  } else if (currentUser?.role === 'MANAGER') {
     if (hasCreateUserPermission) {
       visibleRoles = ['MANAGER'];
     } else {
@@ -86,12 +137,101 @@ export default function Settings() {
   const [users, setUsers] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [permsDialogOpen, setPermsDialogOpen] = useState(false);
+  const [selectedModule, setSelectedModule] = useState('dashboard');
   const [tempPermissions, setTempPermissions] = useState('');
   const [editingUser, setEditingUser] = useState(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', oldPassword: '', phone: '', role: 'USER', permissions: '' });
 
+  useEffect(() => {
+    const visibleKeys = PERM_MODULES.filter(m => {
+      if (m.key === 'swiggy_zomato') return form.role === 'SUPER_ADMIN' || form.role === 'ADMIN';
+      if (m.key === 'store_control_center') return form.role === 'SUPER_ADMIN';
+      if (m.key === 'user_registrations') return form.role === 'SUPER_ADMIN' || form.role === 'ADMIN';
+      return true;
+    }).map(m => m.key);
+    if (!visibleKeys.includes(selectedModule)) {
+      setSelectedModule('dashboard');
+    }
+  }, [form.role, selectedModule]);
+
+  const isModuleEnabled = (moduleKey) => {
+    const list = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
+    return list.includes(moduleKey);
+  };
+
+  const isSubPermEnabled = (moduleKey, subKey) => {
+    const list = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
+    return list.includes(`${moduleKey}:${subKey}`);
+  };
+
+  const handleToggleModule = (moduleKey, enabled) => {
+    let list = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
+    if (enabled) {
+      if (!list.includes(moduleKey)) {
+        list.push(moduleKey);
+      }
+    } else {
+      list = list.filter(p => p !== moduleKey);
+      list = list.filter(p => !p.startsWith(`${moduleKey}:`));
+    }
+    setTempPermissions(list.join(','));
+  };
+
+  const handleToggleSubPerm = (moduleKey, subKey, enabled) => {
+    let list = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
+    const compositeKey = `${moduleKey}:${subKey}`;
+    if (enabled) {
+      if (!list.includes(compositeKey)) {
+        list.push(compositeKey);
+      }
+      
+      // Mutual exclusion logic for VIEWER
+      if (subKey === 'VIEWER') {
+        list = list.filter(p => !p.startsWith(`${moduleKey}:`) || p === compositeKey);
+      } else {
+        list = list.filter(p => p !== `${moduleKey}:VIEWER`);
+      }
+
+      // Mutual exclusion logic for Email Directory
+      if (moduleKey === 'email_directory') {
+        if (subKey === 'VIEW_ONLY') {
+          list = list.filter(p => p !== `${moduleKey}:EDIT_ACCESS`);
+        } else if (subKey === 'EDIT_ACCESS') {
+          list = list.filter(p => p !== `${moduleKey}:VIEW_ONLY`);
+        }
+      }
+    } else {
+      list = list.filter(p => p !== compositeKey);
+    }
+    setTempPermissions(list.join(','));
+  };
+
   const handleOpenPermsDialog = () => {
-    setTempPermissions(form.permissions || '');
+    let initialPerms = form.permissions || '';
+    if (!initialPerms) {
+      // Default: Dashboard, Settings with Create User sub-access, Email Directory with View Only sub-access
+      const defaults = [
+        'dashboard', 
+        'settings', 'settings:CREATE_USER', 'CREATE_USER',
+        'email_directory', 'email_directory:VIEW_ONLY', 'VIEW_ONLY'
+      ];
+      initialPerms = defaults.join(',');
+    } else {
+      // Ensure dashboard is always enabled by default if not present
+      const list = initialPerms.split(',').map(p => p.trim()).filter(p => p);
+      if (!list.includes('dashboard')) {
+        list.push('dashboard');
+      }
+      // Ensure settings and settings:CREATE_USER are enabled by default for new config
+      if (!list.includes('settings')) {
+        list.push('settings');
+        if (!list.includes('settings:CREATE_USER')) {
+          list.push('settings:CREATE_USER');
+        }
+      }
+      initialPerms = list.join(',');
+    }
+    setTempPermissions(initialPerms);
     setPermsDialogOpen(true);
   };
 
@@ -100,7 +240,20 @@ export default function Settings() {
   };
 
   const handleConfirmPerms = () => {
-    setForm(prev => ({ ...prev, permissions: tempPermissions }));
+    let list = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
+    const globalPermsToAdd = new Set();
+    list.forEach(p => {
+      if (p.includes(':')) {
+        const [_, subPerm] = p.split(':');
+        globalPermsToAdd.add(subPerm);
+      }
+    });
+    const managedKeys = ALL_SUB_PERMS.map(sp => sp.key);
+    list = list.filter(p => !managedKeys.includes(p));
+    globalPermsToAdd.forEach(gp => {
+      list.push(gp);
+    });
+    setForm(prev => ({ ...prev, permissions: list.join(',') }));
     setPermsDialogOpen(false);
   };
   const [errorMsg, setErrorMsg] = useState('');
@@ -197,9 +350,9 @@ export default function Settings() {
   };
 
   const openCreateDialog = () => {
-    if (!isSuperAdmin && !hasCreateUserPermission) return;
+    if (!isSuperAdmin && currentUser?.role !== 'ADMIN' && !hasCreateUserPermission) return;
     setEditingUser(null);
-    const defaultRole = isSuperAdmin ? 'USER' : (currentUser?.role || 'USER');
+    const defaultRole = (isSuperAdmin || currentUser?.role === 'ADMIN') ? 'USER' : (currentUser?.role || 'USER');
     setForm({ name: '', email: '', password: '', oldPassword: '', phone: '', role: defaultRole, permissions: '' });
     setErrorMsg('');
     setUsernameError('');
@@ -209,7 +362,8 @@ export default function Settings() {
   };
 
   const openEditDialog = (user) => {
-    if (!isSuperAdmin && !(hasCreateUserPermission && user.role === currentUser?.role)) return;
+    if (user.role === 'SUPER_ADMIN' && !isSuperAdmin) return;
+    if (!isSuperAdmin && currentUser?.role !== 'ADMIN' && !(hasCreateUserPermission && user.role === currentUser?.role)) return;
     setEditingUser(user);
     setForm({
       name: user.name,
@@ -647,12 +801,12 @@ export default function Settings() {
                       {canManageUsers && (
                         <TableCell align="right">
                           <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                            {(isSuperAdmin || (hasCreateUserPermission && user.role === currentUser?.role)) && (
+                            {(isSuperAdmin || (currentUser?.role === 'ADMIN' && user.role !== 'SUPER_ADMIN') || (hasCreateUserPermission && user.role === currentUser?.role)) && (
                               <IconButton size="small" onClick={() => openEditDialog(user)} sx={{ color: 'text.secondary' }}>
                                 <EditIcon fontSize="small" />
                               </IconButton>
                             )}
-                            {isSuperAdmin && user.id !== currentUser?.id && (
+                            {((isSuperAdmin && user.id !== currentUser?.id) || (currentUser?.role === 'ADMIN' && user.role !== 'SUPER_ADMIN' && user.id !== currentUser?.id)) && (
                               <IconButton size="small" onClick={() => handleDelete(user)} sx={{ color: 'error.main' }}>
                                 <DeleteOutlineIcon fontSize="small" />
                               </IconButton>
@@ -933,7 +1087,7 @@ export default function Settings() {
                   onClick={handleOpenPermsDialog}
                   sx={{ borderRadius: '8px', fontWeight: 600 }}
                 >
-                  Sub-Access Permissions
+                  Access Permission
                 </Button>
               </Box>
             )}
@@ -949,225 +1103,177 @@ export default function Settings() {
         </DialogActions>
       </Dialog>
 
-      {/* Secondary Dialog: Sub-Access Permissions */}
+      {/* Secondary Dialog: Access Permissions */}
       <Dialog
         open={permsDialogOpen}
         onClose={handleCancelPerms}
-        maxWidth="xs"
+        maxWidth="md"
         fullWidth
-        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', p: 1 } }}
+        PaperProps={{ sx: { borderRadius: '24px', p: 1 } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.2rem', pb: 1 }}>
-          Sub-Access Permissions
+        <DialogTitle sx={{ fontWeight: 800, fontSize: '1.25rem', pb: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Access Permissions</span>
+          <IconButton onClick={handleCancelPerms} size="small">
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ py: 1.5 }}>
-          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-            Enable or disable required sub-access permissions for <strong>{ROLE_INFO[form.role]?.label || form.role}</strong> profile:
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-            {(form.role === 'FINANCE' || form.role === 'SUPER_ADMIN') ? (
-              <>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={tempPermissions.includes('APPROVER')}
-                      disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                      onChange={(e) => {
-                        const perms = tempPermissions.split(',').filter(p => p);
-                        if (e.target.checked) perms.push('APPROVER');
-                        else { const idx = perms.indexOf('APPROVER'); if (idx > -1) perms.splice(idx, 1); }
-                        setTempPermissions(perms.join(','));
-                      }}
-                    />
-                  }
-                  label="Approver"
-                />
-                {form.role === 'FINANCE' && isSuperAdmin && (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={tempPermissions.includes('CREATE_USER')}
-                        disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                        onChange={(e) => {
-                          const perms = tempPermissions.split(',').filter(p => p);
-                          if (e.target.checked) perms.push('CREATE_USER');
-                          else { const idx = perms.indexOf('CREATE_USER'); if (idx > -1) perms.splice(idx, 1); }
-                          setTempPermissions(perms.join(','));
-                        }}
-                      />
+        <Divider />
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'row', width: '100%', minHeight: 400 }}>
+            {/* Left Column: Modules List */}
+            <Box sx={{ width: '50%', borderRight: '1px solid', borderColor: 'divider', p: 2, overflow: 'auto', maxHeight: '55vh' }}>
+              <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Modules Access
+              </Typography>
+              <List disablePadding>
+                {(() => {
+                  const visibleModules = PERM_MODULES.filter(m => {
+                    if (m.key === 'swiggy_zomato') {
+                      return form.role === 'SUPER_ADMIN' || form.role === 'ADMIN';
                     }
-                    label="Create User"
-                  />
-                )}
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={tempPermissions.includes('EMAIL_DIRECTORY')}
-                      disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                      onChange={(e) => {
-                        const perms = tempPermissions.split(',').filter(p => p);
-                        if (e.target.checked) perms.push('EMAIL_DIRECTORY');
-                        else { const idx = perms.indexOf('EMAIL_DIRECTORY'); if (idx > -1) perms.splice(idx, 1); }
-                        setTempPermissions(perms.join(','));
-                      }}
-                    />
-                  }
-                  label="Email Directory"
-                />
-                {form.role === 'SUPER_ADMIN' && (
+                    if (m.key === 'store_control_center') {
+                      return form.role === 'SUPER_ADMIN';
+                    }
+                    if (m.key === 'user_registrations') {
+                      return form.role === 'SUPER_ADMIN' || form.role === 'ADMIN';
+                    }
+                    return true;
+                  });
+
+                  return visibleModules.map((m) => {
+                    const enabled = isModuleEnabled(m.key);
+                    const selected = selectedModule === m.key;
+                    return (
+                      <ListItem
+                        key={m.key}
+                        disablePadding
+                        secondaryAction={
+                          <Switch
+                            edge="end"
+                            checked={enabled}
+                            disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
+                            onChange={(e) => handleToggleModule(m.key, e.target.checked)}
+                          />
+                        }
+                        sx={{ mb: 1 }}
+                      >
+                        <ListItemButton
+                          selected={selected}
+                          onClick={() => setSelectedModule(m.key)}
+                          sx={{
+                            borderRadius: '12px',
+                            py: 1,
+                            pr: 8, // Give space for secondary action switch
+                            '&.Mui-selected': {
+                              bgcolor: 'rgba(63, 174, 191, 0.08)',
+                              '&:hover': { bgcolor: 'rgba(63, 174, 191, 0.12)' }
+                            }
+                          }}
+                        >
+                          <ListItemText
+                            primary={m.label}
+                            primaryTypographyProps={{ sx: { fontWeight: 700, fontSize: '0.9rem' } }}
+                          />
+                        </ListItemButton>
+                      </ListItem>
+                    );
+                  });
+                })()}
+              </List>
+            </Box>
+
+            {/* Right Column: Sub-access Permissions */}
+            <Box sx={{ width: '50%', p: 3, display: 'flex', flexDirection: 'column', bgcolor: '#f8fafc' }}>
+              {(() => {
+                const currentModuleObj = PERM_MODULES.find(m => m.key === selectedModule);
+                const moduleEnabled = isModuleEnabled(selectedModule);
+                
+                return (
                   <>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={tempPermissions.split(',').map(p => p.trim()).includes('GO_LIVE')}
-                          disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                          onChange={(e) => {
-                            const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
-                            if (e.target.checked) perms.push('GO_LIVE');
-                            else { const idx = perms.indexOf('GO_LIVE'); if (idx > -1) perms.splice(idx, 1); }
-                            setTempPermissions(perms.join(','));
-                          }}
-                        />
+                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Sub-Access Control
+                    </Typography>
+                    <Typography variant="h6" sx={{ mb: 3, fontWeight: 800, color: 'primary.main' }}>
+                      {currentModuleObj?.label}
+                    </Typography>
+                    
+                    {!moduleEnabled ? (
+                      <Box sx={{ display: 'flex', flexGrow: 1, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', p: 3, color: 'text.secondary', textAlign: 'center' }}>
+                        <Typography variant="body2" sx={{ mb: 1, fontWeight: 700 }}>
+                          Module Disabled
+                        </Typography>
+                        <Typography variant="caption">
+                          Enable the access toggle on the left list to configure sub-permissions for this module.
+                        </Typography>
+                      </Box>
+                    ) : (() => {
+                      const currentSubPerms = MODULE_SUB_PERMS[selectedModule] || [];
+                      if (currentSubPerms.length === 0) {
+                        return (
+                          <Box sx={{ display: 'flex', flexGrow: 1, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', p: 3, color: 'text.secondary', textAlign: 'center' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                              No sub-access settings
+                            </Typography>
+                            <Typography variant="caption">
+                              This module does not require any additional sub-permissions.
+                            </Typography>
+                          </Box>
+                        );
                       }
-                      label="Go-Live Access"
-                    />
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={tempPermissions.split(',').map(p => p.trim()).includes('DELETE_BRANCH')}
-                          disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                          onChange={(e) => {
-                            const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
-                            if (e.target.checked) perms.push('DELETE_BRANCH');
-                            else { const idx = perms.indexOf('DELETE_BRANCH'); if (idx > -1) perms.splice(idx, 1); }
-                            setTempPermissions(perms.join(','));
-                          }}
-                        />
-                      }
-                      label="Delete Branches"
-                    />
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={tempPermissions.split(',').map(p => p.trim()).includes('APPROVE_COMPLIANCE')}
-                          disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                          onChange={(e) => {
-                            const perms = tempPermissions.split(',').map(p => p.trim()).filter(p => p);
-                            if (e.target.checked) perms.push('APPROVE_COMPLIANCE');
-                            else { const idx = perms.indexOf('APPROVE_COMPLIANCE'); if (idx > -1) perms.splice(idx, 1); }
-                            setTempPermissions(perms.join(','));
-                          }}
-                        />
-                      }
-                      label="Approve Compliance"
-                    />
+                      
+                      return (
+                        <Stack spacing={2}>
+                          {currentSubPerms.map((sp) => {
+                            const checked = isSubPermEnabled(selectedModule, sp.key);
+                            
+                            // Custom rules for Create User: only Super Admin and Admin (and Manager/Finance with Create User permission if editing others)
+                            const isCreateUserDisabled = sp.key === 'CREATE_USER' && !isSuperAdmin && form.role !== 'ADMIN' && form.role !== 'MANAGER' && form.role !== 'FINANCE';
+                            const disabledSelf = (isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id;
+                            const disabled = isCreateUserDisabled || disabledSelf;
+
+                            return (
+                              <Box 
+                                key={sp.key} 
+                                sx={{ 
+                                  display: 'flex', 
+                                  justifyContent: 'space-between', 
+                                  alignItems: 'center',
+                                  p: 1.5,
+                                  bgcolor: '#fff',
+                                  borderRadius: '10px',
+                                  border: '1px solid',
+                                  borderColor: 'divider',
+                                  opacity: disabled ? 0.6 : 1
+                                }}
+                              >
+                                <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                                  {sp.label}
+                                </Typography>
+                                <Switch
+                                  size="small"
+                                  checked={checked}
+                                  disabled={disabled}
+                                  onChange={(e) => handleToggleSubPerm(selectedModule, sp.key, e.target.checked)}
+                                />
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                      );
+                    })()}
                   </>
-                )}
-              </>
-            ) : (
-              <>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={tempPermissions.includes('EDIT_CONTACTS')}
-                      disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                      onChange={(e) => {
-                        const perms = tempPermissions.split(',').filter(p => p);
-                        if (e.target.checked) perms.push('EDIT_CONTACTS');
-                        else { const idx = perms.indexOf('EDIT_CONTACTS'); if (idx > -1) perms.splice(idx, 1); }
-                        setTempPermissions(perms.join(','));
-                      }}
-                    />
-                  }
-                  label="Edit Contacts"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={tempPermissions.includes('EDIT_STORES')}
-                      disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                      onChange={(e) => {
-                        const perms = tempPermissions.split(',').filter(p => p);
-                        if (e.target.checked) perms.push('EDIT_STORES');
-                        else { const idx = perms.indexOf('EDIT_STORES'); if (idx > -1) perms.splice(idx, 1); }
-                        setTempPermissions(perms.join(','));
-                      }}
-                    />
-                  }
-                  label="Edit Store Details"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={tempPermissions.includes('APPROVER')}
-                      disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                      onChange={(e) => {
-                        const perms = tempPermissions.split(',').filter(p => p);
-                        if (e.target.checked) perms.push('APPROVER');
-                        else { const idx = perms.indexOf('APPROVER'); if (idx > -1) perms.splice(idx, 1); }
-                        setTempPermissions(perms.join(','));
-                      }}
-                    />
-                  }
-                  label="Approver"
-                />
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={tempPermissions.includes('GO_LIVE')}
-                      disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                      onChange={(e) => {
-                        const perms = tempPermissions.split(',').filter(p => p);
-                        if (e.target.checked) perms.push('GO_LIVE');
-                        else { const idx = perms.indexOf('GO_LIVE'); if (idx > -1) perms.splice(idx, 1); }
-                        setTempPermissions(perms.join(','));
-                      }}
-                    />
-                  }
-                  label="Go-Live Access"
-                />
-                {isSuperAdmin && (
-                  <FormControlLabel
-                    control={
-                      <Switch
-                        checked={tempPermissions.includes('CREATE_USER')}
-                        disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                        onChange={(e) => {
-                          const perms = tempPermissions.split(',').filter(p => p);
-                          if (e.target.checked) perms.push('CREATE_USER');
-                          else { const idx = perms.indexOf('CREATE_USER'); if (idx > -1) perms.splice(idx, 1); }
-                          setTempPermissions(perms.join(','));
-                        }}
-                      />
-                    }
-                    label="Create User"
-                  />
-                )}
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={tempPermissions.includes('EMAIL_DIRECTORY')}
-                      disabled={(isManager || currentUser?.role === 'FINANCE') && editingUser?.id === currentUser?.id}
-                      onChange={(e) => {
-                        const perms = tempPermissions.split(',').filter(p => p);
-                        if (e.target.checked) perms.push('EMAIL_DIRECTORY');
-                        else { const idx = perms.indexOf('EMAIL_DIRECTORY'); if (idx > -1) perms.splice(idx, 1); }
-                        setTempPermissions(perms.join(','));
-                      }}
-                    />
-                  }
-                  label="Email Directory"
-                />
-              </>
-            )}
+                );
+              })()}
+            </Box>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCancelPerms} variant="outlined" sx={{ borderRadius: '8px', fontWeight: 600 }}>
+        <Divider />
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleCancelPerms} variant="outlined" sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700 }}>
             Cancel
           </Button>
-          <Button onClick={handleConfirmPerms} variant="contained" sx={{ borderRadius: '8px', fontWeight: 700 }}>
-            Confirm
+          <Button onClick={handleConfirmPerms} variant="contained" sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, px: 3 }}>
+            Confirm Access
           </Button>
         </DialogActions>
       </Dialog>

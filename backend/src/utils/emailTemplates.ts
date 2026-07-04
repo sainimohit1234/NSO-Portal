@@ -1,11 +1,11 @@
 import { firebaseAdmin } from '../lib/firebase-admin';
 
-export interface EmailTemplate {
+interface EmailTemplate {
   subject: string;
   body: string;
 }
 
-export interface EmailTemplatesMap {
+interface EmailTemplatesMap {
   [subCategory: string]: EmailTemplate;
 }
 

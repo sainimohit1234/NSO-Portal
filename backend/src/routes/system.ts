@@ -3,7 +3,7 @@ import nodemailer from 'nodemailer';
 import { authenticateToken, authorizeRoles } from './auth';
 import { getSMTPConfig, saveSMTPConfig, SMTPConfig } from '../utils/smtp';
 import { getEmailRecipients, saveEmailRecipients, EmailCategory, getEmailMappings, saveEmailMappings, EmailMapping } from '../utils/emailRecipients';
-import { getEmailTemplates, saveEmailTemplates, EmailTemplatesMap } from '../utils/emailTemplates';
+import { getEmailTemplates, saveEmailTemplates } from '../utils/emailTemplates';
 
 const router = Router();
 

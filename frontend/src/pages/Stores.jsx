@@ -334,7 +334,7 @@ Please find the complete store details for ${store.cafeName || 'N/A'} (${store.c
 --- BASIC DETAILS ---
 Café Name: ${store.cafeName || 'N/A'}
 Café Code: ${store.cafeCode || 'N/A'}
-Café Model: ${store.cafeModel || 'N/A'}
+Café Module: ${store.cafeModule || store.cafeModel || 'N/A'}
 Address: ${store.cafeAddress || 'N/A'}
 City: ${store.city || 'N/A'}
 State: ${store.state || 'N/A'}

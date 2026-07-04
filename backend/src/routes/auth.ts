@@ -100,13 +100,18 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     req.user = dbUser;
 
     // Update heartbeat and lastLoginAt
-    const updates: any = { lastActiveAt: new Date().toISOString() };
-    if (!dbUser.lastLoginAt) {
-      updates.lastLoginAt = new Date().toISOString();
+    const nowStr = new Date().toISOString();
+    const updates: any = { lastActiveAt: nowStr };
+    
+    const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
+    const shouldUpdateLoginTime = !dbUser.lastLoginAt || new Date(dbUser.lastLoginAt).getTime() < twelveHoursAgo;
+    
+    if (shouldUpdateLoginTime) {
+      updates.lastLoginAt = nowStr;
     }
     
     await db.collection('users').doc(dbUser.id).update(updates)
-      .catch(e => console.error('Failed to update lastActiveAt:', e));
+      .catch(e => console.error('Failed to update lastActiveAt/lastLoginAt:', e));
 
     next();
   } catch (error) {

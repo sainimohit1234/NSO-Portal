@@ -69,7 +69,7 @@ router.get('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), as
 });
 
 // Create a new user
-router.post('/', authorizeRoles('SUPER_ADMIN', 'MANAGER', 'FINANCE'), async (req, res) => {
+router.post('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), async (req, res) => {
   try {
     const { name, email, password, phone, role, permissions } = req.body;
     if (!name || !email) {
@@ -78,6 +78,10 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'MANAGER', 'FINANCE'), async (req
 
     const currentUser = (req as any).user;
     const targetRole = role || 'USER';
+
+    if (targetRole === 'SUPER_ADMIN' && currentUser?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Only Super Admin users can create a Super Admin profile.' });
+    }
 
     // Role restrictions for Manager and Finance
     if (currentUser?.role === 'MANAGER' || currentUser?.role === 'FINANCE') {
@@ -92,10 +96,10 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'MANAGER', 'FINANCE'), async (req
       }
     }
 
-    if (currentUser?.role !== 'SUPER_ADMIN' && permissions) {
+    if (currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'ADMIN' && permissions) {
       const payloadHasCreateUser = permissions.split(',').map((p: string) => p.trim()).includes('CREATE_USER');
       if (payloadHasCreateUser) {
-        return res.status(403).json({ error: 'Access denied: Only Super Admin users can grant the Create User permission.' });
+        return res.status(403).json({ error: 'Access denied: Only Super Admin and Admin users can grant the Create User permission.' });
       }
     }
 
@@ -155,7 +159,7 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'MANAGER', 'FINANCE'), async (req
 });
 
 // Update a user (name, phone, role)
-router.put('/:id', authorizeRoles('SUPER_ADMIN', 'MANAGER', 'FINANCE'), async (req, res) => {
+router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), async (req, res) => {
   const { id } = req.params;
   const { name, email, password, phone, role } = req.body;
   try {
@@ -166,6 +170,10 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'MANAGER', 'FINANCE'), async (r
       return res.status(404).json({ error: 'User not found' });
     }
     const targetUser = { id: userDoc.id, ...userDoc.data() } as any;
+
+    if (targetUser.role === 'SUPER_ADMIN' && currentUser?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Only Super Admin users can modify a Super Admin profile.' });
+    }
 
     if (currentUser?.role === 'MANAGER' || currentUser?.role === 'FINANCE') {
       const hasCreatePermission = currentUser?.permissions
@@ -185,11 +193,11 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'MANAGER', 'FINANCE'), async (r
       }
     }
 
-    if (currentUser?.role !== 'SUPER_ADMIN' && req.body.permissions !== undefined) {
+    if (currentUser?.role !== 'SUPER_ADMIN' && currentUser?.role !== 'ADMIN' && req.body.permissions !== undefined) {
       const targetHasCreateUser = targetUser.permissions ? targetUser.permissions.split(',').map((p: string) => p.trim()).includes('CREATE_USER') : false;
       const payloadHasCreateUser = req.body.permissions ? req.body.permissions.split(',').map((p: string) => p.trim()).includes('CREATE_USER') : false;
       if (targetHasCreateUser !== payloadHasCreateUser) {
-        return res.status(403).json({ error: 'Access denied: Only Super Admin users can grant or revoke the Create User permission.' });
+        return res.status(403).json({ error: 'Access denied: Only Super Admin and Admin users can grant or revoke the Create User permission.' });
       }
     }
 
@@ -240,7 +248,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'MANAGER', 'FINANCE'), async (r
 });
 
 // Delete a user
-router.delete('/:id', authorizeRoles('SUPER_ADMIN'), async (req, res) => {
+router.delete('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
   const { id } = req.params;
   try {
     const currentUser = (req as any).user;
@@ -250,6 +258,10 @@ router.delete('/:id', authorizeRoles('SUPER_ADMIN'), async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     const targetUser = { id: userDoc.id, ...userDoc.data() } as any;
+
+    if (targetUser.role === 'SUPER_ADMIN' && currentUser?.role !== 'SUPER_ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Only Super Admin users can delete a Super Admin profile.' });
+    }
 
     if (targetUser.id === currentUser.id) {
       return res.status(400).json({ error: 'Access denied: You cannot delete your own user account.' });
@@ -279,6 +291,23 @@ router.delete('/:id', authorizeRoles('SUPER_ADMIN'), async (req, res) => {
   } catch (error: any) {
     console.error('Delete user error:', error);
     res.status(500).json({ error: error.message || 'Failed to delete user' });
+  }
+});
+
+// GET /api/storage-files (List all tracked upload/delete file operations, restricted to SUPER_ADMIN)
+router.get('/storage-files', authorizeRoles('SUPER_ADMIN'), async (req: any, res) => {
+  try {
+    const snapshot = await db.collection('storageFiles').get();
+    const files: any[] = [];
+    snapshot.forEach(doc => {
+      files.push({ id: doc.id, ...doc.data() });
+    });
+    // Sort by uploadedAt descending
+    files.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+    res.json(files);
+  } catch (error) {
+    console.error('Failed to get storage files:', error);
+    res.status(500).json({ error: 'Failed to retrieve storage files' });
   }
 });
 

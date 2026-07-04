@@ -40,6 +40,8 @@ import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import TuneIcon from '@mui/icons-material/Tune';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import ViewWeekIcon from '@mui/icons-material/ViewWeek';
+import SyncIcon from '@mui/icons-material/Sync';
+import CloudQueueIcon from '@mui/icons-material/CloudQueue';
 import Chip from '@mui/material/Chip';
 import { useAuth } from '../context/AuthContext';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
@@ -132,17 +134,43 @@ export default function Layout() {
     { text: 'New Store Creation', icon: <AddCircleOutlined />, path: '/stores/new', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
     { text: 'All Upcoming Stores', icon: <CalendarTodayIcon />, path: '/upcoming-stores', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
     { text: 'NSO Approval', icon: <AssignmentTurnedIn />, path: '/approvals', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
-    { text: 'Compliance & Lease', icon: <GavelIcon />, path: '/compliance', roles: ['SUPER_ADMIN', 'ADMIN', 'FINANCE'] },
+
+    { text: 'Swiggy / Zomato Integration', icon: <SyncIcon />, path: '/swiggy-zomato', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
     { text: 'Email Directory', icon: <MailOutlineIcon />, path: '/aggregator-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
     { text: 'Bulk Action', icon: <LayersIcon />, path: '/bulk-action', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
     { text: 'Settings', icon: <Settings />, path: '/settings', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
     { text: 'Images and Other Docs', icon: <PhotoLibraryIcon />, path: '/images-docs', roles: ['SUPER_ADMIN'] },
     { text: 'Store Control Center', icon: <TuneIcon />, path: '/delete-branches', roles: ['SUPER_ADMIN'] },
     { text: 'Contact Details', icon: <ContactsIcon />, path: '/contacts', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
-    { text: 'User Registrations', icon: <HowToRegIcon />, path: '/user-registrations', roles: ['SUPER_ADMIN'] },
+    { text: 'User Registrations', icon: <HowToRegIcon />, path: '/user-registrations', roles: ['SUPER_ADMIN', 'ADMIN'] },
   ];
 
-  const filteredMenuItems = menuItems.filter(item => !item.roles || item.roles.includes(user?.role));
+  const MODULE_KEYS = {
+    'Dashboard': 'dashboard',
+    'All Stores': 'all_stores',
+    'Expansion Pipeline': 'expansion_pipeline',
+    'NSO Approval': 'nso_approval',
+    'Swiggy / Zomato Integration': 'swiggy_zomato',
+    'Email Directory': 'email_directory',
+    'Store Control Center': 'store_control_center',
+    'User Registrations': 'user_registrations',
+    'Settings': 'settings'
+  };
+
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.roles && !item.roles.includes(user?.role)) {
+      return false;
+    }
+    const moduleKey = MODULE_KEYS[item.text];
+    if (moduleKey && user?.role !== 'SUPER_ADMIN') {
+      const userPermList = user?.permissions ? user.permissions.split(',').map(p => p.trim()) : [];
+      const hasAnyModuleConfigured = Object.values(MODULE_KEYS).some(mKey => userPermList.includes(mKey));
+      if (hasAnyModuleConfigured && !userPermList.includes(moduleKey)) {
+        return false;
+      }
+    }
+    return true;
+  });
   const currentPage = useMemo(
     () => menuItems.find(item => item.path === location.pathname)?.text || 'Dashboard',
     [location.pathname]

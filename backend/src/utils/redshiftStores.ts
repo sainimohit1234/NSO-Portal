@@ -315,7 +315,7 @@ function mapRowToStoreData(row: RedshiftStoreRow, existingStore?: Store | null) 
   };
 }
 
-export async function fetchRedshiftStores() {
+async function fetchRedshiftStores() {
   if (!isConfigured()) {
     return [];
   }
@@ -324,7 +324,7 @@ export async function fetchRedshiftStores() {
   return result.rows;
 }
 
-export async function upsertStore(prisma: any, record: any, forceUpdate = false) {
+async function upsertStore(prisma: any, record: any, forceUpdate = false) {
   if (!isConfigured()) {
     return { synced: 0, skipped: true };
   }

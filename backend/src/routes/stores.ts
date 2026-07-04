@@ -4,7 +4,8 @@ import { Router } from 'express';
 import { PrismaClient } from '../lib/prisma-mock';
 import { authenticateToken, authorizeRoles } from './auth';
 import multer from 'multer';
-import { firebaseAdmin } from '../lib/firebase-admin';
+import { firebaseAdmin, getActiveBucket } from '../lib/firebase-admin';
+import { Storage } from '@google-cloud/storage';
 const busboy = require('busboy');
 
 const parseMultipart = (req: any, writeToDisk: boolean = false): Promise<{ fields: any; file: any }> => {
@@ -117,7 +118,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 const STORE_CSV_HEADERS = [
   { id: 'cafeName', title: 'cafeName' },
   { id: 'cafeCode', title: 'cafeCode' },
-  { id: 'cafeModel', title: 'cafeModel' },
+  { id: 'cafeModule', title: 'cafeModule' },
   { id: 'cafeAddress', title: 'cafeAddress' },
   { id: 'city', title: 'city' },
   { id: 'state', title: 'state' },
@@ -163,11 +164,15 @@ const STORE_CSV_HEADERS = [
   { id: 'smokingZone', title: 'smokingZone' },
   { id: 'parkingOption', title: 'parkingOption' },
   { id: 'wheelchairAccessibility', title: 'wheelchairAccessibility' },
-  { id: 'menu', title: 'menu' },
+  { id: 'pricingVersion', title: 'pricingVersion' },
+  { id: 'indoorSeatingCount', title: 'indoorSeatingCount' },
+  { id: 'outdoorSeatingCount', title: 'outdoorSeatingCount' },
+  { id: 'totalNoOfTables', title: 'totalNoOfTables' },
+  { id: 'copyMenuFrom', title: 'copyMenuFrom' },
 ];
 
 const MANDATORY_FIELDS = [
-  'cafeName', 'cafeCode', 'cafeModel', 'cafeAddress', 'city', 'state', 'pinCode', 'zone', 
+  'cafeName', 'cafeCode', 'cafeModule', 'cafeAddress', 'city', 'state', 'pinCode', 'zone', 
   'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
   'actualClosingTime', 'cityHeadEmail', 'cityHeadPhone', 'platformType', 
   'tradingArea', 'launchStatus', 'launchDate'
@@ -402,96 +407,70 @@ async function extractOrGenerateGstNo(filename: string, fileBuffer: Buffer | nul
 
 // POST /upload-file (Upload a compliance document)
 router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), parseMultipartMiddleware(true), async (req: any, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
-
-  const fileType = req.query.type;
-  if (fileType === 'fssai') {
-    const filenameLower = req.file.originalname.toLowerCase();
-    if (!filenameLower.includes('fssai')) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (err) {
-        console.error('Failed to clean up file:', err);
-      }
-      return res.status(400).json({ 
-        error: 'FSSAI Verification Failed', 
-        message: 'FSSAI logo / seal could not be verified in the document. Please ensure you are uploading the official FSSAI Certificate with a valid logo (filename must contain "fssai").' 
-      });
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
     }
-  }
 
-  if (fileType === 'gst') {
-    const filenameLower = req.file.originalname.toLowerCase();
-    if (!filenameLower.includes('gst')) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (err) {
-        console.error('Failed to clean up file:', err);
-      }
-      return res.status(400).json({ 
-        error: 'GST Verification Failed', 
-        message: 'GST logo / header could not be verified in the document. Please ensure you are uploading the official GST Certificate with a valid logo (filename must contain "gst").' 
-      });
-    }
-  }
-
-  if (fileType === 'converter') {
-    const previousUrl = req.query.previousUrl;
-    if (previousUrl && typeof previousUrl === 'string' && previousUrl.startsWith('/uploads/')) {
-      const filename = previousUrl.replace(/^\/uploads\//, '');
-      const safeFilename = path.basename(filename);
-      
-      const inUse = await isFileInUse(safeFilename);
-      if (!inUse) {
-        const filePath = path.resolve(process.cwd(), 'uploads', safeFilename);
-        if (fs.existsSync(filePath)) {
-          try {
-            fs.unlinkSync(filePath);
-            console.log(`Successfully deleted previous converter file: ${filePath}`);
-          } catch (err) {
-            console.error(`Failed to delete previous converter file: ${filePath}`, err);
-          }
+    const fileType = req.query.type;
+    if (fileType === 'fssai') {
+      const filenameLower = req.file.originalname.toLowerCase();
+      if (!filenameLower.includes('fssai')) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (err) {
+          console.error('Failed to clean up file:', err);
         }
-      } else {
-        console.log(`Preserved previous converter file (in use): ${safeFilename}`);
+        return res.status(400).json({ 
+          error: 'FSSAI Verification Failed', 
+          message: 'FSSAI logo / seal could not be verified in the document. Please ensure you are uploading the official FSSAI Certificate with a valid logo (filename must contain "fssai").' 
+        });
       }
     }
-  }
 
-  let fileUrl = `/uploads/${req.file.filename}`;
+    if (fileType === 'gst') {
+      const filenameLower = req.file.originalname.toLowerCase();
+      if (!filenameLower.includes('gst')) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (err) {
+          console.error('Failed to clean up file:', err);
+        }
+        return res.status(400).json({ 
+          error: 'GST Verification Failed', 
+          message: 'GST logo / header could not be verified in the document. Please ensure you are uploading the official GST Certificate with a valid logo (filename must contain "gst").' 
+        });
+      }
+    }
 
-  const isCloudFunctions = !!process.env.K_SERVICE || !!process.env.FUNCTION_TARGET;
-  if (isCloudFunctions || process.env.NODE_ENV === 'production') {
+
+
+    let fileUrl = `/uploads/${req.file.filename}`;
+
+    const isCloudFunctions = !!process.env.K_SERVICE || !!process.env.FUNCTION_TARGET;
     try {
-      const bucket = firebaseAdmin.storage().bucket();
-      const storageFile = bucket.file(`uploads/${req.file.filename}`);
+      const bucket = await getActiveBucket();
+      const storageFile = bucket.file(`NSO DATA/${req.file.filename}`);
       const fileBuffer = fs.readFileSync(req.file.path);
       await storageFile.save(fileBuffer, {
         metadata: { contentType: req.file.mimetype }
       });
-      const [signedUrl] = await storageFile.getSignedUrl({
-        action: 'read',
-        expires: '03-09-2491'
-      });
-      fileUrl = signedUrl;
-      console.log('Successfully saved to Google Cloud Storage (signed URL):', fileUrl);
-    } catch (storageErr) {
-      console.error('Failed to upload to Google Cloud Storage, falling back to local file:', storageErr);
+      console.log('Successfully saved to Google Cloud Storage:', fileUrl);
+    } catch (storageErr: any) {
+      console.error('Failed to upload to Google Cloud Storage:', storageErr);
+      if (isCloudFunctions || process.env.NODE_ENV === 'production') {
+        throw new Error(`Cloud Storage upload failed: ${storageErr.message || storageErr}`);
+      }
     }
-  }
 
-  let extraData: any = {};
-  const fileBuffer = req.file.buffer || (req.file.path ? fs.readFileSync(req.file.path) : null);
-  if (fileType === 'fssai') {
-    const fssaiData = await extractOrGenerateFssaiData(req.file.originalname, fileBuffer);
-    extraData = { ...extraData, ...fssaiData };
-  } else if (fileType === 'gst') {
-    extraData.gstNo = await extractOrGenerateGstNo(req.file.originalname, fileBuffer);
-  }
+    let extraData: any = {};
+    // Auto-extraction disabled at user request. All values will be entered manually.
 
-  res.json({ url: fileUrl, ...extraData });
+    res.json({ url: fileUrl, ...extraData });
+  } catch (err: any) {
+    console.error('Error in /upload-file route:', err);
+    res.status(500).json({ error: 'Upload Failed', message: err.message || err });
+  }
 });
 
 // DELETE /converter-file (Clear a converter file from the disk)
@@ -766,12 +745,14 @@ const validateStoreEmailsAndMonth = (body: any) => {
     throw new Error('Please enter a valid Cafe Launch Month & Year in "Month Year" format (e.g., "June 2026").');
   }
 
-  if (body.cafeModel && !CAFE_MODELS.includes(body.cafeModel)) {
-    throw new Error(`Invalid Cafe Model: ${body.cafeModel}. Must be one of: ${CAFE_MODELS.join(', ')}`);
+  const moduleVal = body.cafeModule || body.cafeModel;
+  if (moduleVal && !CAFE_MODELS.includes(moduleVal)) {
+    throw new Error(`Invalid Cafe Module: ${moduleVal}. Must be one of: ${CAFE_MODELS.join(', ')}`);
   }
 
-  if (body.menu && !MENU_OPTIONS.includes(body.menu)) {
-    throw new Error(`Invalid Menu: ${body.menu}. Must be one of: ${MENU_OPTIONS.join(', ')}`);
+  const pricingVal = body.pricingVersion || body.menu;
+  if (pricingVal && !MENU_OPTIONS.includes(pricingVal)) {
+    throw new Error(`Invalid Pricing Version: ${pricingVal}. Must be one of: ${MENU_OPTIONS.join(', ')}`);
   }
 
   if (body.state && !INDIAN_STATES.includes(body.state)) {
@@ -1063,7 +1044,7 @@ function replacePlaceholders(templateText: string, store: any): string {
     .replace(/{city}|\[City\]/gi, store.city || '')
     .replace(/{state}|\[State\]/gi, store.state || '')
     .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
-    .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '')
+    .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
     .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
     .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
 }
@@ -1457,6 +1438,98 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       ...req.body,
     };
 
+    // Synchronize individual document fields with the uploadedDocuments array
+    let currentDocsList: any[] = [];
+    if (updateData.uploadedDocuments) {
+      currentDocsList = typeof updateData.uploadedDocuments === 'string'
+        ? JSON.parse(updateData.uploadedDocuments)
+        : updateData.uploadedDocuments;
+    } else if (currentStore.uploadedDocuments) {
+      currentDocsList = typeof currentStore.uploadedDocuments === 'string'
+        ? JSON.parse(currentStore.uploadedDocuments)
+        : currentStore.uploadedDocuments;
+    }
+
+    if (!Array.isArray(currentDocsList)) {
+      currentDocsList = [];
+    }
+
+    const getValue = (key: string) => updateData.hasOwnProperty(key) ? updateData[key] : (currentStore as any)[key];
+
+    const upsertDoc = (docType: string, category: string, fileUrl: any, extraFields = {}) => {
+      if (!fileUrl) {
+        currentDocsList = currentDocsList.filter(d => d.docType !== docType);
+        return;
+      }
+      const existingIdx = currentDocsList.findIndex(d => d.docType === docType);
+      const fileName = path.basename(fileUrl);
+      const newDoc = {
+        category,
+        docType,
+        fileUrl,
+        fileName: existingIdx >= 0 ? (currentDocsList[existingIdx].fileName || fileName) : fileName,
+        uploadedAt: existingIdx >= 0 ? (currentDocsList[existingIdx].uploadedAt || new Date().toISOString()) : new Date().toISOString(),
+        ...extraFields
+      };
+      if (existingIdx >= 0) {
+        currentDocsList[existingIdx] = { ...currentDocsList[existingIdx], ...newDoc };
+      } else {
+        currentDocsList.push(newDoc);
+      }
+    };
+
+    if (updateData.hasOwnProperty('loiUrl')) {
+      upsertDoc('loi', 'Legal Documents', updateData.loiUrl);
+    }
+    if (updateData.hasOwnProperty('budgetUrl')) {
+      upsertDoc('budget_approval', 'Financial Documents', updateData.budgetUrl);
+    }
+    const leaseUrl = getValue('agreementUrl') || getValue('rentAgreementLink');
+    if (updateData.hasOwnProperty('agreementUrl') || updateData.hasOwnProperty('rentAgreementLink')) {
+      upsertDoc('lease_agreement', 'Legal Documents', leaseUrl, {
+        issuedOn: getValue('rentStartDate') || null,
+        validUntil: getValue('rentExpiry') || null
+      });
+    }
+    if (updateData.hasOwnProperty('fssaiLicense')) {
+      upsertDoc('fssai', 'Legal Documents', updateData.fssaiLicense, {
+        issuedOn: getValue('fssaiStartDate') || null,
+        validUntil: getValue('fssaiExpiry') || null,
+        fssaiNo: getValue('fssaiNo') || ''
+      });
+    }
+    if (updateData.hasOwnProperty('gstCertificateLink')) {
+      upsertDoc('gst_certificate', 'Legal Documents', updateData.gstCertificateLink);
+    }
+    if (updateData.hasOwnProperty('supportingDocs')) {
+      const supporting = updateData.supportingDocs;
+      let urls: string[] = [];
+      if (supporting) {
+        try {
+          urls = typeof supporting === 'string' ? JSON.parse(supporting) : supporting;
+        } catch (e) {
+          if (typeof supporting === 'string') urls = [supporting];
+        }
+      }
+      currentDocsList = currentDocsList.filter(d => d.docType !== 'miscellaneous');
+      if (Array.isArray(urls)) {
+        urls.forEach(url => {
+          if (url) {
+            const fileName = path.basename(url);
+            currentDocsList.push({
+              category: 'Miscellaneous Documents',
+              docType: 'miscellaneous',
+              fileUrl: url,
+              fileName,
+              uploadedAt: new Date().toISOString()
+            });
+          }
+        });
+      }
+    }
+
+    updateData.uploadedDocuments = currentDocsList;
+
     if (updateData.status === 'APPROVED') {
       const approvalStatuses = ['NSO_APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'APPROVED'];
       if (currentStore && approvalStatuses.includes(currentStore.status)) {
@@ -1726,6 +1799,78 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       updateData.approvedBy = null;
     }
 
+    if (updateData.uploadedDocuments) {
+      try {
+        const docsList = typeof updateData.uploadedDocuments === 'string'
+          ? JSON.parse(updateData.uploadedDocuments)
+          : updateData.uploadedDocuments;
+
+        if (Array.isArray(docsList)) {
+          const loi = docsList.find(d => d.docType === 'loi');
+          if (loi) {
+            updateData.loiUrl = loi.fileUrl;
+            updateData.loiFileName = loi.fileName;
+          } else {
+            updateData.loiUrl = null;
+            updateData.loiFileName = null;
+          }
+
+          const budget = docsList.find(d => d.docType === 'budget_approval');
+          if (budget) {
+            updateData.budgetUrl = budget.fileUrl;
+            updateData.budgetFileName = budget.fileName;
+          } else {
+            updateData.budgetUrl = null;
+            updateData.budgetFileName = null;
+          }
+
+          const lease = docsList.find(d => d.docType === 'lease_agreement');
+          if (lease) {
+            updateData.agreementUrl = lease.fileUrl;
+            updateData.agreementFileName = lease.fileName;
+            updateData.rentAgreementLink = lease.fileUrl;
+            updateData.rentStartDate = lease.issuedOn || null;
+            updateData.rentExpiry = lease.validUntil || null;
+          } else {
+            updateData.agreementUrl = null;
+            updateData.agreementFileName = null;
+            updateData.rentAgreementLink = null;
+            updateData.rentStartDate = null;
+            updateData.rentExpiry = null;
+          }
+
+          const fssai = docsList.find(d => d.docType === 'fssai');
+          if (fssai) {
+            updateData.fssaiLicense = fssai.fileUrl;
+            updateData.fssaiStartDate = fssai.issuedOn || null;
+            updateData.fssaiExpiry = fssai.validUntil || null;
+            updateData.fssaiNo = fssai.fssaiNo || null;
+          } else {
+            updateData.fssaiLicense = null;
+            updateData.fssaiStartDate = null;
+            updateData.fssaiExpiry = null;
+            updateData.fssaiNo = null;
+          }
+
+          const gst = docsList.find(d => d.docType === 'gst_certificate');
+          if (gst) {
+            updateData.gstCertificateLink = gst.fileUrl;
+          } else {
+            updateData.gstCertificateLink = null;
+          }
+
+          const miscDocs = docsList.filter(d => d.docType === 'miscellaneous').map(d => d.fileUrl);
+          if (miscDocs.length > 0) {
+            updateData.supportingDocs = JSON.stringify(miscDocs);
+          } else {
+            updateData.supportingDocs = null;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse uploadedDocuments for legacy mapping:', e);
+      }
+    }
+
     // Convert empty strings to null for optional fields to satisfy Prisma type constraints
     for (const key in updateData) {
       if (updateData[key] === '') {
@@ -1787,6 +1932,86 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     delete updateData.cafeManager;
     delete updateData.histories;
     delete updateData.licenses;
+
+    // Compare old uploadedDocuments with new uploadedDocuments to audit log in storageFiles
+    if (updateData.uploadedDocuments) {
+      try {
+        const oldDocs = Array.isArray(currentStore.uploadedDocuments) 
+          ? currentStore.uploadedDocuments 
+          : (typeof currentStore.uploadedDocuments === 'string' ? JSON.parse(currentStore.uploadedDocuments) : []);
+        const newDocs = typeof updateData.uploadedDocuments === 'string'
+          ? JSON.parse(updateData.uploadedDocuments)
+          : updateData.uploadedDocuments;
+
+        if (Array.isArray(oldDocs) && Array.isArray(newDocs)) {
+          // Find newly uploaded files
+          for (const newD of newDocs) {
+            if (newD.fileUrl) {
+              const exists = oldDocs.some(o => o.fileUrl === newD.fileUrl);
+              if (!exists) {
+                await prisma.storageFile.create({
+                  data: {
+                    storeId: id,
+                    cafeCode: currentStore.cafeCode || '',
+                    cafeName: currentStore.cafeName || '',
+                    fileName: newD.fileName || 'Untitled Document',
+                    fileUrl: newD.fileUrl,
+                    docType: newD.docType || 'unknown',
+                    category: newD.category || 'Miscellaneous Documents',
+                    uploadedBy: user.email || 'System',
+                    uploadedAt: newD.uploadedAt || new Date().toISOString(),
+                    status: 'Live'
+                  }
+                });
+              }
+            }
+          }
+
+          // Find deleted files
+          for (const oldD of oldDocs) {
+            if (oldD.fileUrl) {
+              const stillExists = newDocs.some(n => n.fileUrl === oldD.fileUrl);
+              if (!stillExists) {
+                const existingRecords = await prisma.storageFile.findMany({
+                  where: { fileUrl: oldD.fileUrl }
+                });
+                if (existingRecords.length > 0) {
+                  for (const rec of existingRecords) {
+                    await prisma.storageFile.update({
+                      where: { id: rec.id },
+                      data: {
+                        status: 'Deleted',
+                        deletedBy: user.email || 'System',
+                        deletedAt: new Date().toISOString()
+                      }
+                    });
+                  }
+                } else {
+                  await prisma.storageFile.create({
+                    data: {
+                      storeId: id,
+                      cafeCode: currentStore.cafeCode || '',
+                      cafeName: currentStore.cafeName || '',
+                      fileName: oldD.fileName || 'Untitled Document',
+                      fileUrl: oldD.fileUrl,
+                      docType: oldD.docType || 'unknown',
+                      category: oldD.category || 'Miscellaneous Documents',
+                      uploadedBy: oldD.uploadedBy || 'System',
+                      uploadedAt: oldD.uploadedAt || new Date().toISOString(),
+                      status: 'Deleted',
+                      deletedBy: user.email || 'System',
+                      deletedAt: new Date().toISOString()
+                    }
+                  });
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to log document modifications in storageFiles:', err);
+      }
+    }
 
     const store = await prisma.store.update({
       where: { id: id as string },
@@ -1900,7 +2125,7 @@ function getFriendlyFieldName(field: string): string {
   const mapping: Record<string, string> = {
     cafeName: 'Cafe Name',
     cafeCode: 'Cafe Code',
-    cafeModel: 'Cafe Model',
+    cafeModule: 'Cafe Module',
     cafeAddress: 'Cafe Address',
     city: 'City',
     state: 'State',
@@ -1911,7 +2136,7 @@ function getFriendlyFieldName(field: string): string {
     latt: 'Latitude',
     long: 'Longitude',
     cafeOpenTiming: 'Cafe Opening Time',
-    cafeClosingTime: 'Cafe Closing Time',
+    cafeClosingTime: 'Cafe ClosingTime',
     actualClosingTime: 'Actual Closing Time',
     cityHeadEmail: 'City Head Email',
     cityHeadPhone: 'City Head Phone Number',
@@ -1923,10 +2148,14 @@ function getFriendlyFieldName(field: string): string {
     cafeManagerMailId: 'Cafe Manager Email',
     areaManagerEmail: 'Area Manager Email',
     cafeLaunchMonth: 'Launch Month',
-    menu: 'Menu',
+    pricingVersion: 'Pricing Version',
     smokingZone: 'Smoking Zone',
     parkingOption: 'Parking Option',
     wheelchairAccessibility: 'Wheelchair Accessibility',
+    indoorSeatingCount: 'Indoor Seating Count',
+    outdoorSeatingCount: 'Outdoor Seating Count',
+    totalNoOfTables: 'Total No. of Tables',
+    copyMenuFrom: 'Copy Menu From',
     blueTokaiSwiggyRID: 'Blue Tokai Swiggy ID',
     blueTokaiZomatoRID: 'Blue Tokai Zomato ID',
     suchaliSwiggyRID: 'Suchali Swiggy ID',
@@ -2043,14 +2272,16 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
               rowErrors.push("The launch month format is incorrect. Please write it like 'June 2026'.");
             }
 
-            // 4. Cafe model check
-            if (row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
-              rowErrors.push("The cafe model name is not recognized. Please choose a valid model.");
+            // 4. Cafe module check
+            const moduleVal = row.cafeModule || row.cafeModel;
+            if (moduleVal && !CAFE_MODELS.includes(moduleVal)) {
+              rowErrors.push("The cafe module name is not recognized. Please choose a valid option.");
             }
 
-            // 5. Menu option check
-            if (row.menu && !MENU_OPTIONS.includes(row.menu)) {
-              rowErrors.push("The menu type is not recognized. Please choose a valid option.");
+            // 5. Pricing version check
+            const pricingVal = row.pricingVersion || row.menu;
+            if (pricingVal && !MENU_OPTIONS.includes(pricingVal)) {
+              rowErrors.push("The pricing version is not recognized. Please choose a valid option.");
             }
 
             // 6. State check
@@ -2173,14 +2404,16 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
                 rowErrors.push("The launch month format is incorrect. Please write it like 'June 2026'.");
               }
 
-              // 4. Cafe model check
-              if (presentHeaders.includes('cafeModel') && row.cafeModel && !CAFE_MODELS.includes(row.cafeModel)) {
-                rowErrors.push("The cafe model name is not recognized. Please choose a valid model.");
+              // 4. Cafe module check
+              const moduleVal = row.cafeModule || row.cafeModel;
+              if ((presentHeaders.includes('cafeModule') || presentHeaders.includes('cafeModel')) && moduleVal && !CAFE_MODELS.includes(moduleVal)) {
+                rowErrors.push("The cafe module name is not recognized. Please choose a valid option.");
               }
 
-              // 5. Menu option check
-              if (presentHeaders.includes('menu') && row.menu && !MENU_OPTIONS.includes(row.menu)) {
-                rowErrors.push("The menu type is not recognized. Please choose a valid option.");
+              // 5. Pricing version check
+              const pricingVal = row.pricingVersion || row.menu;
+              if ((presentHeaders.includes('pricingVersion') || presentHeaders.includes('menu')) && pricingVal && !MENU_OPTIONS.includes(pricingVal)) {
+                rowErrors.push("The pricing version is not recognized. Please choose a valid option.");
               }
 
               // 6. State check
@@ -2200,7 +2433,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
 
               // 8. Compute non-contact fields modifications
               const NOT_EDITABLE_FIELDS = [
-                'cafeName', 'cafeCode', 'cafeModel', 'zone', 
+                'cafeName', 'cafeCode', 'cafeModule', 'zone', 
                 'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
                 'fssaiLicense', 'gstCertificateLink', 'isLocked', 'brand'
               ];
@@ -2246,6 +2479,16 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
                 if (data.latt) data.latt = parseFloat(data.latt);
                 if (data.long) data.long = parseFloat(data.long);
                 if (data.launchDate) data.launchDate = new Date(data.launchDate);
+                
+                if (data.indoorSeatingCount !== undefined) {
+                  data.indoorSeatingCount = data.indoorSeatingCount ? parseInt(data.indoorSeatingCount, 10) : null;
+                }
+                if (data.outdoorSeatingCount !== undefined) {
+                  data.outdoorSeatingCount = data.outdoorSeatingCount ? parseInt(data.outdoorSeatingCount, 10) : null;
+                }
+                if (data.totalNoOfTables !== undefined) {
+                  data.totalNoOfTables = data.totalNoOfTables ? parseInt(data.totalNoOfTables, 10) : null;
+                }
 
                 delete data.id;
                 delete data.createdAt;
@@ -2253,7 +2496,7 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
 
                 // Remove non-editable fields from update payload
                 const UPDATE_NOT_EDITABLE_FIELDS = [
-                  'cafeName', 'cafeCode', 'cafeModel', 'zone', 
+                  'cafeName', 'cafeCode', 'cafeModule', 'zone', 
                   'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'gstNo', 'fssaiNo', 
                   'fssaiLicense', 'gstCertificateLink'
                 ];
@@ -2797,10 +3040,19 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       }
     });
 
-    // Update mailStatus to 'Sent' in database
+    // Update mailStatus and the specific platform status to 'Sent' in database
+    const updateData: any = { mailStatus: 'Sent' };
+    const brandLower = String(brandParam || '').toLowerCase();
+    if (brandLower === 'zomato_btc') updateData.btZomatoMailStatus = 'Sent';
+    else if (brandLower === 'swiggy_btc') updateData.btSwiggyMailStatus = 'Sent';
+    else if (brandLower === 'zomato_sab') updateData.suchaliZomatoMailStatus = 'Sent';
+    else if (brandLower === 'swiggy_sab') updateData.suchaliSwiggyMailStatus = 'Sent';
+    else if (brandLower === 'zomato_gottea') updateData.gotTeaZomatoMailStatus = 'Sent';
+    else if (brandLower === 'swiggy_gottea') updateData.gotTeaSwiggyMailStatus = 'Sent';
+
     await prisma.store.update({
       where: { id: storeId },
-      data: { mailStatus: 'Sent' }
+      data: updateData
     });
 
     res.json({ message: 'Onboarding email sent successfully.', info });

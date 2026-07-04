@@ -61,7 +61,7 @@ export default function Dashboard() {
     return stores.filter(s => 
       s.isActive !== false && 
       s.isActive !== 'false' && 
-      String(s.cafeModel || '').toLowerCase() !== 'test'
+      String(s.cafeModule || s.cafeModel || '').toLowerCase() !== 'test'
     );
   }, [stores]);
 
@@ -89,7 +89,7 @@ export default function Dashboard() {
   };
 
   const isInventoryStore = (s) => {
-    const model = (s.cafeModel || '').toLowerCase();
+    const model = (s.cafeModule || s.cafeModel || '').toLowerCase();
     const type = (s.storeType || '').toLowerCase();
     return model.includes('inventory') || type.includes('inventory');
   };

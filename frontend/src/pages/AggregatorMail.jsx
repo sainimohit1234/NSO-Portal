@@ -17,7 +17,7 @@ const STATUS_OPTIONS = [
   'In Pipeline',
   'Agreement Signed',
   'Ready for Construction',
-  'Under Development',
+  'Under Construction',
   'Sent to NSO Team for Approval',
   'Approved',
   'On Hold',

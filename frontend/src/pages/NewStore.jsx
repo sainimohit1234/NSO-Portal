@@ -43,7 +43,7 @@ const OptionalBadge = () => (
 const FIELD_LABELS = {
   cafeName: 'Café Name',
   cafeCode: 'Café Code',
-  cafeModel: 'Café Model',
+  cafeModule: 'Café Module',
   cafeAddress: 'Café Address',
   city: 'City',
   state: 'State',
@@ -72,8 +72,12 @@ const DEFAULT_FORM_VALUES = {
   brand: '',
   cafeName: '',
   cafeCode: '',
-  cafeModel: '',
-  menu: '',
+  cafeModule: '',
+  pricingVersion: '',
+  indoorSeatingCount: '',
+  outdoorSeatingCount: '',
+  totalNoOfTables: '',
+  copyMenuFrom: '',
   cafeAddress: '',
   city: '',
   state: '',
@@ -157,6 +161,7 @@ const NewStore = () => {
   const [emailMappings, setEmailMappings] = useState([]);
   const [emailTemplates, setEmailTemplates] = useState({});
   const [draftDialog, setDraftDialog] = useState({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
+  const [allStoresList, setAllStoresList] = useState([]);
   const [pendingSubmitData, setPendingSubmitData] = useState(null);
   const isSavedRef = useRef(false);
   const navigate = useNavigate();
@@ -235,10 +240,12 @@ const NewStore = () => {
       'gstNo', 'gstCertificateLink', 'fssaiLicense', 'fssaiNo', 'fssaiExpiry'
     ],
     'Operations Details': [
-      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate', 'cafeModel'
+      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
     ],
     'Others': [
-      'newPricingCategory', 'newPricingSubCategory', 'cluster', 'menu', 'cafeOpeningHr',
+      'cafeModule', 'pricingVersion', 'indoorSeatingCount', 'outdoorSeatingCount', 'totalNoOfTables', 'copyMenuFrom',
+      'latitude', 'long', 'areaManagerEmail', 'areaManagerPhone', 'cityHeadEmail', 'cityHeadPhone',
+      'newPricingCategory', 'newPricingSubCategory', 'cluster', 'cafeOpeningHr',
       'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'wheelchairAccessibility',
       'petFriendly', 'expectedSalesVal', 'nearbyCafes', 'highlights'
     ],
@@ -266,10 +273,10 @@ const NewStore = () => {
       'gstNo', 'fssaiNo'
     ],
     'Operations Details': [
-      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate', 'cafeModel'
+      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
     ],
     'Others': [
-      'cluster', 'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
+      'cafeModule', 'cluster', 'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
     ],
     'Swiggy / Zomato Integration': []
   };
@@ -314,6 +321,10 @@ const NewStore = () => {
     axios.get('/api/system/email-templates')
       .then(res => setEmailTemplates(res.data || {}))
       .catch(err => console.error('Failed to load email templates', err));
+    // Load all stores for copy-menu dropdown
+    axios.get('/api/stores')
+      .then(res => setAllStoresList(normalizeListResponse(res.data, ['stores', 'data', 'items'])))
+      .catch(err => console.error('Failed to load stores:', err));
   }, []);
 
   // Auto-fill Latt and Long from Latitude (split by comma)
@@ -469,7 +480,7 @@ const NewStore = () => {
     'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId',
     'gstNo',
     'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate',
-    'cafeModel', 'cluster', 'platformType', 'tradingArea',
+    'cafeModule', 'cluster', 'platformType', 'tradingArea',
     'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
   ];
 
@@ -514,8 +525,8 @@ const NewStore = () => {
     if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
       return ['Ready for Construction'];
     }
-    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
-      return ['Under Development'];
+    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT' || norm === 'UNDER CONSTRUCTION') {
+      return ['Under Construction'];
     }
     if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
       return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
@@ -568,7 +579,7 @@ const NewStore = () => {
       .replace(/{city}|\[City\]/gi, data.city || '')
       .replace(/{state}|\[State\]/gi, data.state || '')
       .replace(/{address}|\[Address\]/gi, data.cafeAddress || data.address || '')
-      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, data.cafeModel || '')
+      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, data.cafeModule || data.cafeModel || '')
       .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, data.cafeCode || '')
       .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, data.pinCode || '');
   };
@@ -1414,20 +1425,7 @@ const NewStore = () => {
                         helperText={errors.launchDate?.message} 
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        select 
-                        label="Café Model" 
-                        {...register('cafeModel')} 
-                        error={!!errors.cafeModel} 
-                        helperText={errors.cafeModel?.message} 
-                        value={watch('cafeModel') || ''}
-                      >
-                        <MenuItem value="">— Clear Selection —</MenuItem>
-                        {CAFE_MODELS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                      </TextField>
-                    </Grid>
+
                   </Grid>
                 </CardContent>
               </Card>
@@ -1457,11 +1455,145 @@ const NewStore = () => {
                       <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField fullWidth select label="Menu" {...register('menu')} value={watch('menu') || ''}
-                        SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}>
+                      <TextField 
+                        fullWidth 
+                        select 
+                        label="Café Module" 
+                        {...register('cafeModule')} 
+                        error={!!errors.cafeModule} 
+                        helperText={errors.cafeModule?.message} 
+                        value={watch('cafeModule') || ''}
+                      >
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        {CAFE_MODELS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        select 
+                        label="Pricing Version" 
+                        {...register('pricingVersion')} 
+                        value={watch('pricingVersion') || ''}
+                        SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
+                      >
                         <MenuItem value="">— Clear Selection —</MenuItem>
                         {MENU_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                       </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Indoor Seating Count" 
+                        {...register('indoorSeatingCount', {
+                          onChange: (e) => {
+                            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                          }
+                        })} 
+                        value={watch('indoorSeatingCount') || ''}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Outdoor Seating Count" 
+                        {...register('outdoorSeatingCount', {
+                          onChange: (e) => {
+                            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                          }
+                        })} 
+                        value={watch('outdoorSeatingCount') || ''}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Total No. of Tables" 
+                        {...register('totalNoOfTables', {
+                          onChange: (e) => {
+                            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                          }
+                        })} 
+                        value={watch('totalNoOfTables') || ''}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={allStoresList}
+                        getOptionLabel={(option) => {
+                          if (typeof option === 'string') return option;
+                          return `${option.cafeName || ''} (${option.cafeCode || ''})`;
+                        }}
+                        value={allStoresList.find(s => String(s.id) === String(watch('copyMenuFrom'))) || null}
+                        onChange={(event, newValue) => {
+                          setValue('copyMenuFrom', newValue ? String(newValue.id) : '');
+                        }}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Copy Menu From" placeholder="Search by name or code..." />
+                        )}
+                        filterOptions={(options, state) => {
+                          const query = (state.inputValue || '').toLowerCase().trim();
+                          return options.filter(option => 
+                            String(option.cafeName).toLowerCase().includes(query) ||
+                            String(option.cafeCode).toLowerCase().includes(query)
+                          );
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Latitude (Read-only)" 
+                        value={watch('latt') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Longitude (Read-only)" 
+                        value={watch('long') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Area Manager Mail ID (Read-only)" 
+                        value={watch('areaManagerEmail') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Area Manager Contact Number (Read-only)" 
+                        value={watch('areaManagerPhone') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="City Head Mail ID (Read-only)" 
+                        value={watch('cityHeadEmail') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="City Head Contact Number (Read-only)" 
+                        value={watch('cityHeadPhone') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField fullWidth label="Cafe Opening Hr" placeholder="e.g. 15 hours" {...register('cafeOpeningHr')} />

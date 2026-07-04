@@ -43,8 +43,100 @@ function mapDocumentData(modelName: string, docId: string, data: any) {
       mapped[key] = mapped[key].toDate().toISOString();
     }
   }
-  if (modelName === 'store' && mapped.isActive === undefined) {
-    mapped.isActive = true;
+  if (modelName === 'store') {
+    if (mapped.isActive === undefined) {
+      mapped.isActive = true;
+    }
+    if (mapped.cafeModule === undefined && mapped.cafeModel !== undefined) {
+      mapped.cafeModule = mapped.cafeModel;
+    }
+    if (mapped.pricingVersion === undefined && mapped.menu !== undefined) {
+      mapped.pricingVersion = mapped.menu;
+    }
+    if (mapped.signageApprovalEnabled === undefined) {
+      mapped.signageApprovalEnabled = true;
+    }
+    if (mapped.uploadedDocuments === undefined) {
+      const docsList = [];
+      if (mapped.loiUrl) {
+        docsList.push({
+          category: 'Legal Documents',
+          docType: 'loi',
+          fileUrl: mapped.loiUrl,
+          fileName: mapped.loiFileName || 'Letter of Intent',
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      if (mapped.budgetUrl) {
+        docsList.push({
+          category: 'Financial Documents',
+          docType: 'budget_approval',
+          fileUrl: mapped.budgetUrl,
+          fileName: mapped.budgetFileName || 'Budget Approval',
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      if (mapped.agreementUrl || mapped.rentAgreementLink) {
+        docsList.push({
+          category: 'Legal Documents',
+          docType: 'lease_agreement',
+          fileUrl: mapped.agreementUrl || mapped.rentAgreementLink,
+          fileName: mapped.agreementFileName || 'Lease Agreement',
+          uploadedAt: new Date().toISOString(),
+          issuedOn: mapped.rentStartDate || null,
+          validUntil: mapped.rentExpiry || null
+        });
+      }
+      if (mapped.fssaiLicense) {
+        docsList.push({
+          category: 'Legal Documents',
+          docType: 'fssai',
+          fileUrl: mapped.fssaiLicense,
+          fileName: 'FSSAI License',
+          uploadedAt: new Date().toISOString(),
+          issuedOn: mapped.fssaiStartDate || null,
+          validUntil: mapped.fssaiExpiry || null,
+          fssaiNo: mapped.fssaiNo || ''
+        });
+      }
+      if (mapped.gstCertificateLink) {
+        docsList.push({
+          category: 'Legal Documents',
+          docType: 'gst_certificate',
+          fileUrl: mapped.gstCertificateLink,
+          fileName: 'GST Certificate',
+          uploadedAt: new Date().toISOString()
+        });
+      }
+      if (mapped.supportingDocs) {
+        try {
+          const parsed = JSON.parse(mapped.supportingDocs);
+          if (Array.isArray(parsed)) {
+            parsed.forEach((url, i) => {
+              docsList.push({
+                category: 'Miscellaneous Documents',
+                docType: 'miscellaneous',
+                fileUrl: url,
+                fileName: `Supporting Document ${i + 1}`,
+                uploadedAt: new Date().toISOString()
+              });
+            });
+          }
+        } catch (e) {
+          const parts = mapped.supportingDocs.split(',').map((s) => s.trim()).filter(Boolean);
+          parts.forEach((url, i) => {
+            docsList.push({
+              category: 'Miscellaneous Documents',
+              docType: 'miscellaneous',
+              fileUrl: url,
+              fileName: `Supporting Document ${i + 1}`,
+              uploadedAt: new Date().toISOString()
+            });
+          });
+        }
+      }
+      mapped.uploadedDocuments = JSON.stringify(docsList);
+    }
   }
   return { ...mapped, id: docId };
 }
@@ -269,4 +361,5 @@ export class PrismaClient {
   storeHistory = new MockDelegate('storeHistory');
   license = new MockDelegate('license');
   globalDocument = new MockDelegate('globalDocument');
+  storageFile = new MockDelegate('storageFile');
 }

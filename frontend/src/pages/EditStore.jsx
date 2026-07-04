@@ -91,6 +91,7 @@ export default function EditStore() {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showNsoConfirmDialog, setShowNsoConfirmDialog] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [allStoresList, setAllStoresList] = useState([]);
   const isSavedRef = useRef(false);
   const pendingDataRef = useRef(null);
 
@@ -120,10 +121,12 @@ export default function EditStore() {
       'gstNo', 'gstCertificateLink', 'fssaiLicense', 'fssaiNo', 'fssaiExpiry'
     ],
     'Operations Details': [
-      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate', 'cafeModel'
+      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
     ],
     'Others': [
-      'newPricingCategory', 'newPricingSubCategory', 'cluster', 'menu', 'cafeOpeningHr',
+      'cafeModule', 'pricingVersion', 'indoorSeatingCount', 'outdoorSeatingCount', 'totalNoOfTables', 'copyMenuFrom',
+      'latitude', 'long', 'areaManagerEmail', 'areaManagerPhone', 'cityHeadEmail', 'cityHeadPhone',
+      'newPricingCategory', 'newPricingSubCategory', 'cluster', 'cafeOpeningHr',
       'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'wheelchairAccessibility',
       'petFriendly', 'expectedSalesVal', 'nearbyCafes', 'highlights'
     ],
@@ -151,10 +154,10 @@ export default function EditStore() {
       'gstNo', 'fssaiNo'
     ],
     'Operations Details': [
-      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate', 'cafeModel'
+      'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
     ],
     'Others': [
-      'cluster', 'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
+      'cafeModule', 'cluster', 'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
     ],
     'Swiggy / Zomato Integration': []
   };
@@ -191,6 +194,8 @@ export default function EditStore() {
   const [tempInStoreClosedDate, setTempInStoreClosedDate] = useState('');
   const [tempDeliveryClosedDate, setTempDeliveryClosedDate] = useState('');
   const [closureDialogError, setClosureDialogError] = useState('');
+
+  // Under Development Dialog State
 
   const handleConfirmClosure = () => {
     setClosureDialogError('');
@@ -303,6 +308,7 @@ export default function EditStore() {
       setEmailMappings(mappingsRes.data || []);
       setEmailTemplates(templatesRes.data || {});
       const stores = normalizeListResponse(storesRes.data, ['stores', 'data', 'items']);
+      setAllStoresList(stores);
       const contacts = normalizeListResponse(contactsRes.data, ['contacts', 'data', 'items']);
       const currentStore = stores.find(s => compareStoreIds(s.id, id));
       if (!currentStore) {
@@ -340,6 +346,12 @@ export default function EditStore() {
       const formattedStore = {
         ...currentStore,
         status: formStatus,
+        cafeModule: currentStore.cafeModule || currentStore.cafeModel || '',
+        pricingVersion: currentStore.pricingVersion || currentStore.menu || '',
+        indoorSeatingCount: currentStore.indoorSeatingCount ?? '',
+        outdoorSeatingCount: currentStore.outdoorSeatingCount ?? '',
+        totalNoOfTables: currentStore.totalNoOfTables ?? '',
+        copyMenuFrom: currentStore.copyMenuFrom || '',
         latitude: currentStore.latt !== null && currentStore.long !== null
           ? `${currentStore.latt},${currentStore.long}`
           : (currentStore.latitude || ''),
@@ -553,8 +565,14 @@ export default function EditStore() {
     }
   }
 
-  // If the store is CLOSED, restrict non-Super Admins from editing anything
+  // If the store is CLOSED or READY FOR CONSTRUCTION, restrict editing
   if (store?.status === 'CLOSED' && !isSuperAdmin) {
+    canEditBasicDetails = false;
+    canEditContacts = false;
+    canEditFinance = false;
+  }
+
+  if (store?.status === 'Ready for Construction') {
     canEditBasicDetails = false;
     canEditContacts = false;
     canEditFinance = false;
@@ -644,7 +662,10 @@ export default function EditStore() {
 
   // Human-readable field labels for the change summary
   const FIELD_LABELS = {
-    cafeName: 'Café Name', cafeCode: 'Café Code', cafeModel: 'Café Model',
+    cafeName: 'Café Name', cafeCode: 'Café Code', cafeModule: 'Café Module',
+    pricingVersion: 'Pricing Version', menu: 'Pricing Version',
+    indoorSeatingCount: 'Indoor Seating Count', outdoorSeatingCount: 'Outdoor Seating Count',
+    totalNoOfTables: 'Total No. of Tables', copyMenuFrom: 'Copy Menu From',
     cafeAddress: 'Address', city: 'City', state: 'State', pinCode: 'Pin Code',
     zone: 'Zone', status: 'Status', cafeLocationGoogleLink: 'Google Maps Link',
     latitude: 'Latitude', latt: 'Latt', long: 'Long',
@@ -810,7 +831,7 @@ export default function EditStore() {
     if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
       return ['Ready for Construction'];
     }
-    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
+    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
       return ['Under Development'];
     }
     if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
@@ -864,7 +885,7 @@ export default function EditStore() {
       .replace(/{city}|\[City\]/gi, store.city || '')
       .replace(/{state}|\[State\]/gi, store.state || '')
       .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
-      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '')
+      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
       .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
       .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
   };
@@ -1088,7 +1109,7 @@ export default function EditStore() {
     'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId',
     'gstNo',
     'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate',
-    'cafeModel', 'cluster', 'platformType', 'tradingArea',
+    'cafeModule', 'cluster', 'platformType', 'tradingArea',
     'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
   ];
 
@@ -1159,6 +1180,15 @@ export default function EditStore() {
     }
   }
 
+  if (['Ready for Construction', 'Under Development'].includes(store?.status)) {
+    if (!statusOptions.some(opt => opt.value === 'Ready for Construction')) {
+      statusOptions.push({ value: 'Ready for Construction', label: 'Ready for Construction' });
+    }
+    if (!statusOptions.some(opt => opt.value === 'Under Development')) {
+      statusOptions.push({ value: 'Under Development', label: 'Under Development' });
+    }
+  }
+
   return (
     <Box sx={{ maxWidth: 1600, mx: 'auto', py: 2, px: 1 }}>
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -1216,6 +1246,9 @@ export default function EditStore() {
                     setTempDeliveryClosedDate(watch('deliveryClosedDate') ?? safeGetDateString(store?.deliveryClosedDate) ?? '');
                     setClosureDialogError('');
                     setClosureDialogOpen(true);
+                  } else if (store?.status === 'Ready for Construction' && val === 'Under Development') {
+                    setUcDialogStore(store);
+                    setUcDialogOpen(true);
                   } else {
                     setValue('status', val, { shouldDirty: true });
                     setPrevStatus(val);
@@ -1228,6 +1261,9 @@ export default function EditStore() {
                   (() => {
                     if (store && ['COMPLIANCE_APPROVED', 'LIVE'].includes(store.status)) {
                       return !hasGoLiveAccess;
+                    }
+                    if (store?.status === 'Ready for Construction') {
+                      return !(isSuperAdmin || isAdmin || hasEditStores);
                     }
                     if (!isSuperAdmin && !isAdmin && !canEditBasicDetails) return true;
                     if (store && store.status !== 'INCOMPLETE_INFORMATION' && !isSuperAdmin && !user?.permissions?.includes('APPROVER')) return true;
@@ -2174,21 +2210,6 @@ export default function EditStore() {
                         disabled={!canEditBasicDetails} 
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        select 
-                        label="Café Model" 
-                        {...register('cafeModel')} 
-                        error={!!errors.cafeModel} 
-                        helperText={errors.cafeModel?.message}
-                        disabled={!canEditBasicDetails} 
-                        value={watch('cafeModel') || ''}
-                      >
-                        <MenuItem value="">— Clear Selection —</MenuItem>
-                        {CAFE_MODELS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                      </TextField>
-                    </Grid>
                   </Grid>
                 </CardContent>
               </Card>
@@ -2219,11 +2240,151 @@ export default function EditStore() {
                       <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} disabled={!canEditBasicDetails} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField fullWidth select label="Menu" {...register('menu')} disabled={!canEditBasicDetails} value={watch('menu') || ''}
-                        SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}>
+                      <TextField 
+                        fullWidth 
+                        select 
+                        label="Café Module" 
+                        {...register('cafeModule')} 
+                        error={!!errors.cafeModule} 
+                        helperText={errors.cafeModule?.message} 
+                        disabled={!canEditBasicDetails}
+                        value={watch('cafeModule') || ''}
+                      >
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        {CAFE_MODELS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        select 
+                        label="Pricing Version" 
+                        {...register('pricingVersion')} 
+                        disabled={!canEditBasicDetails}
+                        value={watch('pricingVersion') || ''}
+                        SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
+                      >
                         <MenuItem value="">— Clear Selection —</MenuItem>
                         {MENU_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                       </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Indoor Seating Count" 
+                        {...register('indoorSeatingCount', {
+                          onChange: (e) => {
+                            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                          }
+                        })} 
+                        disabled={!canEditBasicDetails}
+                        value={watch('indoorSeatingCount') || ''}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Outdoor Seating Count" 
+                        {...register('outdoorSeatingCount', {
+                          onChange: (e) => {
+                            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                          }
+                        })} 
+                        disabled={!canEditBasicDetails}
+                        value={watch('outdoorSeatingCount') || ''}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Total No. of Tables" 
+                        {...register('totalNoOfTables', {
+                          onChange: (e) => {
+                            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                          }
+                        })} 
+                        disabled={!canEditBasicDetails}
+                        value={watch('totalNoOfTables') || ''}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={allStoresList}
+                        getOptionLabel={(option) => {
+                          if (typeof option === 'string') return option;
+                          return `${option.cafeName || ''} (${option.cafeCode || ''})`;
+                        }}
+                        disabled={!canEditBasicDetails}
+                        value={allStoresList.find(s => String(s.id) === String(watch('copyMenuFrom'))) || null}
+                        onChange={(event, newValue) => {
+                          setValue('copyMenuFrom', newValue ? String(newValue.id) : '', { shouldDirty: true });
+                        }}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Copy Menu From" placeholder="Search by name or code..." />
+                        )}
+                        filterOptions={(options, state) => {
+                          const query = (state.inputValue || '').toLowerCase().trim();
+                          return options.filter(option => 
+                            String(option.cafeName).toLowerCase().includes(query) ||
+                            String(option.cafeCode).toLowerCase().includes(query)
+                          );
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Latitude (Read-only)" 
+                        value={watch('latt') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Longitude (Read-only)" 
+                        value={watch('long') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Area Manager Mail ID (Read-only)" 
+                        value={watch('areaManagerEmail') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="Area Manager Contact Number (Read-only)" 
+                        value={watch('areaManagerPhone') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="City Head Mail ID (Read-only)" 
+                        value={watch('cityHeadEmail') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField 
+                        fullWidth 
+                        label="City Head Contact Number (Read-only)" 
+                        value={watch('cityHeadPhone') || ''} 
+                        InputProps={{ readOnly: true }} 
+                        sx={{ bgcolor: '#f8fafc' }} 
+                      />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField fullWidth label="Cafe Opening Hr" placeholder="e.g. 15 hours" {...register('cafeOpeningHr')} disabled={!canEditBasicDetails} />
@@ -2709,6 +2870,6 @@ export default function EditStore() {
         </DialogContent>
       </Dialog>
 
-    </Box>
+          </Box>
   );
 }

@@ -36,7 +36,7 @@ import axios from '../utils/api';
 const fieldsGuide = [
   { field: 'cafeName', status: 'Not Editable' },
   { field: 'cafeCode', status: 'Not Editable' },
-  { field: 'cafeModel', status: 'Not Editable' },
+  { field: 'cafeModule', status: 'Not Editable' },
   { field: 'cafeAddress', status: 'Editable' },
   { field: 'city', status: 'Editable' },
   { field: 'state', status: 'Editable' },
