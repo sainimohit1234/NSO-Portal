@@ -306,7 +306,13 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       const budgetDoc = documents.find(d => d.type === 'Budget Approval');
       const agreementDoc = documents.find(d => d.type === 'Lease / Rental Agreement');
       
-      if (loiDoc) { payload.loiUrl = loiDoc.url; payload.loiFileName = loiDoc.fileName; }
+      if (loiDoc) { 
+        payload.loiUrl = loiDoc.url; 
+        payload.loiFileName = loiDoc.fileName; 
+        if (store.status === 'In Pipeline') {
+          payload.status = 'Agreement Signed';
+        }
+      }
       else { payload.loiUrl = null; payload.loiFileName = null; }
 
       if (budgetDoc) { payload.budgetUrl = budgetDoc.url; payload.budgetFileName = budgetDoc.fileName; }
