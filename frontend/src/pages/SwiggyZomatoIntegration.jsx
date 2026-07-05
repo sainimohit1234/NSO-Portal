@@ -92,10 +92,29 @@ export default function SwiggyZomatoIntegration() {
 
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const [searchQuery, setSearchQuery] = useState('');
+  const [emailMappings, setEmailMappings] = useState([]);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [draftDialog, setDraftDialog] = useState({
     open: false, store: null, brandKey: '', brandLabel: '', to: '', cc: '', subject: '', body: ''
   });
+
+  const replacePlaceholders = (templateText, store) => {
+    if (!templateText) return '';
+    const brandLabel = store.brand === 'BLUE_TOKAI_SUCHALI' 
+      ? "Blue Tokai / Suchali's Artisan Bakehouse" 
+      : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
+
+    return templateText
+      .replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '')
+      .replace(/{brandName}|\[Brand Name\]|\[Brand\]/gi, brandLabel)
+      .replace(/{city}|\[City\]/gi, store.city || '')
+      .replace(/{state}|\[State\]/gi, store.state || '')
+      .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
+      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
+      .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
+      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
+  };
 
   const loadData = () => {
     setLoading(true);
@@ -230,13 +249,6 @@ export default function SwiggyZomatoIntegration() {
   const NA_CELL_STYLE = { color: 'text.disabled', bgcolor: 'rgba(0,0,0,0.025)' };
   const MAIL_CELL_STYLE = { bgcolor: 'rgba(240, 253, 244, 0.2)' };
   const RID_CELL_STYLE = { bgcolor: 'rgba(239, 246, 255, 0.2)' };
-
-  const NaBlock = () => (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}>
-      <BlockIcon sx={{ fontSize: 14 }} />
-      <span>N/A</span>
-    </Box>
-  );
 
   return (
     <Box sx={{ width: '100%', px: 2, py: 1 }}>
