@@ -192,9 +192,9 @@ export default function Layout() {
           size="small"
           sx={{
             height: 28,
-            bgcolor: 'rgba(111, 205, 220, 0.14)',
+            bgcolor: 'rgba(10, 49, 77, 0.08)',
             color: 'text.primary',
-            border: '1px solid rgba(63, 174, 191, 0.18)'
+            border: '1px solid rgba(10, 49, 77, 0.15)'
           }}
         />
       </Box>
@@ -209,15 +209,15 @@ export default function Layout() {
                 sx={{
                   alignItems: 'center',
                   borderRadius: '14px',
-                  bgcolor: isActive ? 'rgba(111, 205, 220, 0.17)' : 'transparent',
-                  color: isActive ? 'text.primary' : 'text.secondary',
+                  bgcolor: isActive ? 'rgba(10, 49, 77, 0.12)' : 'transparent',
+                  color: isActive ? 'primary.main' : 'text.secondary',
                   py: 0.95,
                   px: 1.15,
                   border: '1px solid',
-                  borderColor: isActive ? 'rgba(63, 174, 191, 0.18)' : 'transparent',
-                  boxShadow: isActive ? '0 10px 24px rgba(111, 205, 220, 0.12)' : 'none',
+                  borderColor: isActive ? 'rgba(10, 49, 77, 0.15)' : 'transparent',
+                  boxShadow: isActive ? '0 10px 24px rgba(10, 49, 77, 0.08)' : 'none',
                   '&:hover': {
-                    bgcolor: isActive ? 'rgba(111, 205, 220, 0.17)' : 'rgba(255,255,255,0.40)',
+                    bgcolor: isActive ? 'rgba(10, 49, 77, 0.12)' : 'rgba(255,255,255,0.40)',
                     color: 'text.primary',
                     '& .MuiListItemIcon-root': {
                       color: 'text.primary',
@@ -227,7 +227,7 @@ export default function Layout() {
                 }}
               >
                 <ListItemIcon sx={{ 
-                  color: isActive ? 'text.primary' : 'text.secondary', 
+                  color: isActive ? 'primary.main' : 'text.secondary', 
                   minWidth: 32,
                   transition: 'color 0.2s ease'
                 }}>
