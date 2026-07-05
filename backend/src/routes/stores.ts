@@ -172,10 +172,14 @@ const STORE_CSV_HEADERS = [
 ];
 
 const MANDATORY_FIELDS = [
-  'cafeName', 'cafeCode', 'cafeModule', 'cafeAddress', 'city', 'state', 'pinCode', 'zone', 
-  'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
-  'actualClosingTime', 'cityHeadEmail', 'cityHeadPhone', 'platformType', 
-  'tradingArea', 'launchStatus', 'launchDate'
+  'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress',
+  'cafeLocationGoogleLink', 'latitude', 'latt', 'long',
+  'cafeOpenTiming', 'cafeClosingTime', 'actualClosingTime',
+  'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId',
+  'gstNo',
+  'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate',
+  'cafeModule', 'cluster', 'platformType', 'tradingArea',
+  'smokingZone', 'parkingOption', 'expectedSales', 'nearbyCafes'
 ];
 
 const CONTACT_FIELDS = [
