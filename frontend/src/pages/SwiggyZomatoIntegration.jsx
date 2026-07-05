@@ -16,6 +16,99 @@ import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { fetchStoresFromFirestore } from '../services/storeService';
 
+// ─── HTML template parsing and compiling helpers ───────────────────────────────
+const parseTemplateBody = (bodyHtml) => {
+  if (!bodyHtml) return { intro: '', outro: '', tableData: null };
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(bodyHtml, 'text/html');
+  const table = doc.querySelector('table');
+  
+  let intro = '';
+  let outro = '';
+  let tableData = null;
+
+  if (table) {
+    let prev = table.previousSibling;
+    const intros = [];
+    while (prev) {
+      intros.unshift(prev.nodeType === Node.TEXT_NODE ? prev.textContent : (prev.outerHTML || prev.textContent || ''));
+      prev = prev.previousSibling;
+    }
+    intro = intros.join('');
+
+    let next = table.nextSibling;
+    const outros = [];
+    while (next) {
+      outros.push(next.nodeType === Node.TEXT_NODE ? next.textContent : (next.outerHTML || next.textContent || ''));
+      next = next.nextSibling;
+    }
+    outro = outros.join('');
+
+    const headers = [];
+    const theadRow = table.querySelector('thead tr') || table.querySelector('tr');
+    if (theadRow) {
+      const headerCells = theadRow.querySelectorAll('th, td');
+      headerCells.forEach(cell => {
+        headers.push({
+          text: cell.textContent?.trim() || '',
+          bgColor: cell.style.backgroundColor || '',
+          textColor: cell.style.color || ''
+        });
+      });
+    }
+
+    const rows = [];
+    const bodyRows = table.querySelectorAll('tbody tr').length > 0
+      ? table.querySelectorAll('tbody tr')
+      : Array.from(table.querySelectorAll('tr')).slice(1);
+
+    bodyRows.forEach(tr => {
+      const rowCells = [];
+      tr.querySelectorAll('td').forEach(td => {
+        rowCells.push({
+          text: td.textContent?.trim() || '',
+          bgColor: td.style.backgroundColor || '',
+          textColor: td.style.color || ''
+        });
+      });
+      rows.push(rowCells);
+    });
+
+    tableData = { headers, rows };
+  } else {
+    intro = bodyHtml;
+  }
+
+  return { intro, outro, tableData };
+};
+
+const compileVisualToHtml = (intro, outro, table) => {
+  let html = intro || '';
+  if (table) {
+    html += '\n<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">\n';
+    html += '  <thead>\n    <tr style="background-color: #f8fafc;">\n';
+    table.headers.forEach(h => {
+      const bgStyle = h.bgColor ? ` background-color: ${h.bgColor};` : '';
+      const colorStyle = h.textColor ? ` color: ${h.textColor};` : '';
+      html += `      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-weight: bold;${bgStyle}${colorStyle}">${h.text}</th>\n`;
+    });
+    html += '    </tr>\n  </thead>\n';
+    html += '  <tbody>\n';
+    table.rows.forEach(row => {
+      html += '    <tr>\n';
+      row.forEach(cell => {
+        const bgStyle = cell.bgColor ? ` background-color: ${cell.bgColor};` : '';
+        const colorStyle = cell.textColor ? ` color: ${cell.textColor};` : '';
+        html += `      <td style="border: 1px solid #cbd5e1; padding: 8px;${bgStyle}${colorStyle}">${cell.text}</td>\n`;
+      });
+      html += '    </tr>\n';
+    });
+    html += '  </tbody>\n</table>\n';
+  }
+  html += outro || '';
+  return html;
+};
+
 // ─── Brand detection helper ───────────────────────────────────────────────────
 const getBrandType = (brand) => {
   const b = (brand || '').toLowerCase();
@@ -95,26 +188,11 @@ export default function SwiggyZomatoIntegration() {
   const [searchQuery, setSearchQuery] = useState('');
   const [emailMappings, setEmailMappings] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
   const [draftDialog, setDraftDialog] = useState({
-    open: false, store: null, brandKey: '', brandLabel: '', to: '', cc: '', subject: '', body: ''
+    open: false, store: null, brandKey: '', brandLabel: '', to: '', cc: '', subject: '', body: '',
+    intro: '', outro: '', tableData: null
   });
-
-  const replacePlaceholders = (templateText, store) => {
-    if (!templateText) return '';
-    const brandLabel = store.brand === 'BLUE_TOKAI_SUCHALI' 
-      ? "Blue Tokai / Suchali's Artisan Bakehouse" 
-      : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
-
-    return templateText
-      .replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '')
-      .replace(/{brandName}|\[Brand Name\]|\[Brand\]/gi, brandLabel)
-      .replace(/{city}|\[City\]/gi, store.city || '')
-      .replace(/{state}|\[State\]/gi, store.state || '')
-      .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
-      .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
-      .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
-      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
-  };
 
   const loadData = () => {
     setLoading(true);
@@ -222,12 +300,20 @@ export default function SwiggyZomatoIntegration() {
         .replace(/\[User Name\]/gi, user?.name || 'Operations Team');
     };
 
+    const resolvedSubject = replaceText(rawSubject);
+    const resolvedBody = replaceText(rawBody);
+
+    const { intro, outro, tableData: parsedTable } = parseTemplateBody(resolvedBody);
+
     setDraftDialog({
       open: true, store, brandKey, brandLabel,
       to: mapping && Array.isArray(mapping.to) ? mapping.to.join(', ') : '',
       cc: mapping && Array.isArray(mapping.cc) ? mapping.cc.join(', ') : '',
-      subject: replaceText(rawSubject),
-      body: replaceText(rawBody)
+      subject: resolvedSubject,
+      body: resolvedBody,
+      intro,
+      outro,
+      tableData: parsedTable
     });
   };
 
@@ -453,7 +539,84 @@ export default function SwiggyZomatoIntegration() {
             <TextField label="To" fullWidth size="small" value={draftDialog.to} onChange={(e) => setDraftDialog(prev => ({ ...prev, to: e.target.value }))} />
             <TextField label="Cc" fullWidth size="small" value={draftDialog.cc} onChange={(e) => setDraftDialog(prev => ({ ...prev, cc: e.target.value }))} />
             <TextField label="Subject" fullWidth size="small" value={draftDialog.subject} onChange={(e) => setDraftDialog(prev => ({ ...prev, subject: e.target.value }))} />
-            <TextField label="Email Body" fullWidth multiline rows={8} value={draftDialog.body} onChange={(e) => setDraftDialog(prev => ({ ...prev, body: e.target.value }))} />
+            
+            <Typography variant="subtitle2" sx={{ fontWeight: 800, mt: 1 }}>Email Body Customization</Typography>
+            
+            <TextField
+              label="Intro Message"
+              fullWidth
+              multiline
+              rows={3}
+              size="small"
+              value={draftDialog.intro}
+              onChange={(e) => {
+                const newIntro = e.target.value;
+                setDraftDialog(prev => {
+                  const updatedBody = compileVisualToHtml(newIntro, prev.outro, prev.tableData);
+                  return { ...prev, intro: newIntro, body: updatedBody };
+                });
+              }}
+            />
+
+            {draftDialog.tableData && (
+              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', p: 1.5, bgcolor: '#ffffff', overflowX: 'auto' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 'bold' }}>
+                  Cafe Details Table
+                </Typography>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1' }}>
+                  <thead>
+                    <tr>
+                      {draftDialog.tableData.headers.map((h, cIdx) => (
+                        <th key={cIdx} style={{ border: '1px solid #cbd5e1', padding: '8px', backgroundColor: h.bgColor || '#f8fafc', color: h.textColor || '#334155', textAlign: 'left', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                          {h.text}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draftDialog.tableData.rows.map((row, rIdx) => (
+                      <tr key={rIdx}>
+                        {row.map((cell, cIdx) => (
+                          <td key={cIdx} style={{ border: '1px solid #cbd5e1', padding: '8px', backgroundColor: cell.bgColor || '#ffffff', color: cell.textColor || '#333333' }}>
+                            <input
+                              value={cell.text}
+                              onChange={(e) => {
+                                const newVal = e.target.value;
+                                setDraftDialog(prev => {
+                                  const updatedRows = [...prev.tableData.rows];
+                                  updatedRows[rIdx] = [...updatedRows[rIdx]];
+                                  updatedRows[rIdx][cIdx] = { ...updatedRows[rIdx][cIdx], text: newVal };
+                                  const updatedTable = { ...prev.tableData, rows: updatedRows };
+                                  const updatedBody = compileVisualToHtml(prev.intro, prev.outro, updatedTable);
+                                  return { ...prev, tableData: updatedTable, body: updatedBody };
+                                });
+                              }}
+                              style={{ border: 'none', background: 'transparent', width: '100%', fontSize: '0.8rem', outline: 'none', color: 'inherit' }}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Box>
+            )}
+
+            <TextField
+              label="Outro Message"
+              fullWidth
+              multiline
+              rows={3}
+              size="small"
+              value={draftDialog.outro}
+              onChange={(e) => {
+                const newOutro = e.target.value;
+                setDraftDialog(prev => {
+                  const updatedBody = compileVisualToHtml(prev.intro, newOutro, prev.tableData);
+                  return { ...prev, outro: newOutro, body: updatedBody };
+                });
+              }}
+            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>

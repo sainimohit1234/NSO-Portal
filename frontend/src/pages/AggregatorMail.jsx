@@ -1048,7 +1048,25 @@ export default function AggregatorMail() {
                           </Box>
                         )}
 
-                        {editorTab === 'visual' && isTemplateEditing ? (
+                        {!isTemplateEditing ? (
+                          <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', bgcolor: '#ffffff', minHeight: '250px', overflow: 'auto' }}>
+                            <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary' }}>
+                                Email Template Preview (Live Render)
+                              </Typography>
+                            </Box>
+                            <Box sx={{ p: 3 }}>
+                              <div 
+                                dangerouslySetInnerHTML={{ __html: templateBody ? templateBody.replace(/\n/g, '<br />') : '' }} 
+                                style={{
+                                  fontSize: '0.875rem',
+                                  color: '#334155',
+                                  lineHeight: '1.6'
+                                }}
+                              />
+                            </Box>
+                          </Box>
+                        ) : editorTab === 'visual' ? (
                           <Stack spacing={2}>
                             <TextField
                               fullWidth
