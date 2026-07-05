@@ -37,7 +37,8 @@ export default function ExpansionPipeline() {
   const { user } = useAuth();
   const isUser = user?.role === 'USER';
   const isFinance = user?.role === 'FINANCE';
-  const canModify = !isUser && !isFinance;
+  const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'LEGAL', 'FINANCE'];
+  const canModify = allowedRoles.includes(user?.role?.toUpperCase());
 
   const getFileType = (url, fileName) => {
     const name = fileName || url || '';
