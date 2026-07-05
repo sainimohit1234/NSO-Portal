@@ -281,6 +281,14 @@ export default function UpcomingStores() {
   };
 
   // Get unique cities from the upcoming stores list for dynamic filtering
+  const pipelineCount = stores.filter(s => s.status === 'In Pipeline' || s.status === 'IN_PIPELINE' || s.status === 'Pipeline').length;
+  const rfcCount = stores.filter(s => s.status === 'Ready for Construction').length;
+  const ucCount = stores.filter(s => s.status === 'Under Construction').length;
+
+  const handleTileClick = (status) => {
+    setFilters({ ...filters, workflowStatus: status });
+  };
+
   const uniqueCities = Array.from(new Set(stores.map(s => s.city).filter(Boolean))).sort();
 
   return (
@@ -304,13 +312,44 @@ export default function UpcomingStores() {
         </Box>
       </Box>
 
+      {/* Status Summary Tiles */}
+      <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
+        {[
+          { label: 'In Pipeline', count: pipelineCount, status: 'In Pipeline' },
+          { label: 'Ready for Construction', count: rfcCount, status: 'Ready for Construction' },
+          { label: 'Under Construction', count: ucCount, status: 'Under Construction' }
+        ].map(tile => (
+          <Card 
+            key={tile.label} 
+            onClick={() => handleTileClick(tile.status)}
+            sx={{ 
+              flex: 1, 
+              cursor: 'pointer', 
+              border: '2px solid #0A314D', 
+              bgcolor: filters.workflowStatus === tile.status ? 'rgba(10, 49, 77, 0.1)' : '#ffffff',
+              transition: 'all 0.2s',
+              '&:hover': { bgcolor: 'rgba(10, 49, 77, 0.15)' }
+            }}
+          >
+            <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+              <Typography variant="h6" sx={{ color: '#000000', fontWeight: 'bold', fontStyle: 'italic', mb: 1 }}>
+                {tile.label}
+              </Typography>
+              <Typography variant="h4" sx={{ color: '#000000', fontWeight: 'bold', fontStyle: 'italic' }}>
+                {tile.count}
+              </Typography>
+            </CardContent>
+          </Card>
+        ))}
+      </Box>
+
       {/* Filters Card */}
       <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
         <CardContent>
           <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 700 }}>Filter Upcoming Stores</Typography>
           <Grid container spacing={2} alignItems="center">
             {/* Brand Filter */}
-            <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
               <TextField
                 select
                 fullWidth
@@ -343,7 +382,7 @@ export default function UpcomingStores() {
             </Grid>
 
             {/* Search Query Filter */}
-            <Grid size={{ xs: 12, sm: 6, md: 2.6 }}>
+            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -399,6 +438,9 @@ export default function UpcomingStores() {
                 onChange={handleFilterChange}
               >
                 <MenuItem value="">All Statuses</MenuItem>
+                <MenuItem value="In Pipeline">In Pipeline</MenuItem>
+                <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
+                <MenuItem value="Under Construction">Under Construction</MenuItem>
                 <MenuItem value="PENDING_APPROVAL">Sent to NSO Team for Approval</MenuItem>
                 <MenuItem value="APPROVED">Approved</MenuItem>
                 <MenuItem value="ON_HOLD">On Hold</MenuItem>
@@ -413,7 +455,7 @@ export default function UpcomingStores() {
 
             {/* Clear Filters Button */}
             {hasActiveFilters && (
-              <Grid size={{ xs: 12, md: 1 }}>
+              <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                 <Button
                   variant="outlined"
                   color="secondary"
@@ -431,9 +473,9 @@ export default function UpcomingStores() {
 
       {/* Stores List Card */}
       <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden' }}>
-        <TableContainer component={Paper} elevation={0}>
+        <TableContainer component={Paper} elevation={0} sx={{ border: '2px solid #0A314D', borderRadius: '8px' }}>
           <Table>
-            <TableHead>
+            <TableHead sx={{ bgcolor: 'rgba(10, 49, 77, 0.05)', '& th': { borderBottom: '2px solid #0A314D', color: '#000000', fontWeight: 'bold', fontStyle: 'italic' } }}>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Code</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Cafe Name</TableCell>
