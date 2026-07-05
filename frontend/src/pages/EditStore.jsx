@@ -1843,7 +1843,7 @@ export default function EditStore() {
                     </Grid>
                     
                     {/* Zone was moved down */}
-                    <Grid size={{ xs: 12, sm: 5 }}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField 
                         fullWidth 
                         label="Café Location Google Link **" 
@@ -1854,7 +1854,7 @@ export default function EditStore() {
                         disabled={!canEditBasicDetails} 
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 2 }}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField
                         fullWidth
                         label="Lat, Long **"
@@ -1865,7 +1865,7 @@ export default function EditStore() {
                         helperText={errors.latitude?.message || "Latitude, Longitude"}
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 2 }}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField
                         fullWidth
                         label="Latitude **"
