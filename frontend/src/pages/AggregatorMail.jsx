@@ -3,13 +3,15 @@ import {
   Box, Typography, Card, CardContent, Grid, TextField, Button, Stack, 
   Paper, Chip, CardHeader, Divider, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, IconButton, Alert, Dialog, 
-  DialogTitle, DialogContent, DialogActions, MenuItem, useTheme
+  DialogTitle, DialogContent, DialogActions, MenuItem, useTheme,
+  Tabs, Tab
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
+import PaletteIcon from '@mui/icons-material/Palette';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,6 +27,98 @@ const STATUS_OPTIONS = [
   'Closed',
   'Live'
 ];
+
+const parseTemplateBody = (bodyHtml) => {
+  if (!bodyHtml) return { intro: '', outro: '', tableData: null };
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(bodyHtml, 'text/html');
+  const table = doc.querySelector('table');
+  
+  let intro = '';
+  let outro = '';
+  let tableData = null;
+
+  if (table) {
+    let prev = table.previousSibling;
+    const intros = [];
+    while (prev) {
+      intros.unshift(prev.nodeType === Node.TEXT_NODE ? prev.textContent : (prev.outerHTML || prev.textContent || ''));
+      prev = prev.previousSibling;
+    }
+    intro = intros.join('');
+
+    let next = table.nextSibling;
+    const outros = [];
+    while (next) {
+      outros.push(next.nodeType === Node.TEXT_NODE ? next.textContent : (next.outerHTML || next.textContent || ''));
+      next = next.nextSibling;
+    }
+    outro = outros.join('');
+
+    const headers = [];
+    const theadRow = table.querySelector('thead tr') || table.querySelector('tr');
+    if (theadRow) {
+      const headerCells = theadRow.querySelectorAll('th, td');
+      headerCells.forEach(cell => {
+        headers.push({
+          text: cell.textContent?.trim() || '',
+          bgColor: cell.style.backgroundColor || '',
+          textColor: cell.style.color || ''
+        });
+      });
+    }
+
+    const rows = [];
+    const bodyRows = table.querySelectorAll('tbody tr').length > 0
+      ? table.querySelectorAll('tbody tr')
+      : Array.from(table.querySelectorAll('tr')).slice(1);
+
+    bodyRows.forEach(tr => {
+      const rowCells = [];
+      tr.querySelectorAll('td').forEach(td => {
+        rowCells.push({
+          text: td.textContent?.trim() || '',
+          bgColor: td.style.backgroundColor || '',
+          textColor: td.style.color || ''
+        });
+      });
+      rows.push(rowCells);
+    });
+
+    tableData = { headers, rows };
+  } else {
+    intro = bodyHtml;
+  }
+
+  return { intro, outro, tableData };
+};
+
+const compileVisualToHtml = (intro, outro, table) => {
+  let html = intro || '';
+  if (table) {
+    html += '\n<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">\n';
+    html += '  <thead>\n    <tr style="background-color: #f8fafc;">\n';
+    table.headers.forEach(h => {
+      const bgStyle = h.bgColor ? ` background-color: ${h.bgColor};` : '';
+      const colorStyle = h.textColor ? ` color: ${h.textColor};` : '';
+      html += `      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-weight: bold;${bgStyle}${colorStyle}">${h.text}</th>\n`;
+    });
+    html += '    </tr>\n  </thead>\n';
+    html += '  <tbody>\n';
+    table.rows.forEach(row => {
+      html += '    <tr>\n';
+      row.forEach(cell => {
+        const bgStyle = cell.bgColor ? ` background-color: ${cell.bgColor};` : '';
+        const colorStyle = cell.textColor ? ` color: ${cell.textColor};` : '';
+        html += `      <td style="border: 1px solid #cbd5e1; padding: 8px;${bgStyle}${colorStyle}">${cell.text}</td>\n`;
+      });
+      html += '    </tr>\n';
+    });
+    html += '  </tbody>\n</table>\n';
+  }
+  html += outro || '';
+  return html;
+};
 
 export default function AggregatorMail() {
   const { user } = useAuth();
@@ -47,6 +141,94 @@ export default function AggregatorMail() {
   const [templateSubject, setTemplateSubject] = useState('');
   const [templateBody, setTemplateBody] = useState('');
   const [isTemplateEditing, setIsTemplateEditing] = useState(false);
+
+  // Visual Editor states
+  const [editorTab, setEditorTab] = useState('visual');
+  const [introText, setIntroText] = useState('');
+  const [outroText, setOutroText] = useState('');
+  const [tableData, setTableData] = useState(null);
+  const [selectedCell, setSelectedCell] = useState(null);
+
+  const addRow = () => {
+    if (!tableData) return;
+    const newRow = Array(tableData.headers.length).fill(null).map(() => ({ text: '', bgColor: '', textColor: '' }));
+    const updated = {
+      ...tableData,
+      rows: [...tableData.rows, newRow]
+    };
+    setTableData(updated);
+    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
+  };
+
+  const deleteRow = (rowIndex) => {
+    if (!tableData) return;
+    const updatedRows = tableData.rows.filter((_, idx) => idx !== rowIndex);
+    const updated = { ...tableData, rows: updatedRows };
+    setTableData(updated);
+    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
+  };
+
+  const addColumn = () => {
+    if (!tableData) return;
+    const updatedHeaders = [...tableData.headers, { text: `Header ${tableData.headers.length + 1}`, bgColor: '', textColor: '' }];
+    const updatedRows = tableData.rows.map(row => [...row, { text: '', bgColor: '', textColor: '' }]);
+    const updated = { headers: updatedHeaders, rows: updatedRows };
+    setTableData(updated);
+    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
+  };
+
+  const deleteColumn = (colIndex) => {
+    if (!tableData) return;
+    const updatedHeaders = tableData.headers.filter((_, idx) => idx !== colIndex);
+    const updatedRows = tableData.rows.map(row => row.filter((_, idx) => idx !== colIndex));
+    const updated = { headers: updatedHeaders, rows: updatedRows };
+    setTableData(updated);
+    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
+  };
+
+  const updateCellText = (type, rIdx, cIdx, val) => {
+    if (!tableData) return;
+    let updated;
+    if (type === 'header') {
+      const headers = [...tableData.headers];
+      headers[cIdx] = { ...headers[cIdx], text: val };
+      updated = { ...tableData, headers };
+    } else {
+      const rows = [...tableData.rows];
+      rows[rIdx] = [...rows[rIdx]];
+      rows[rIdx][cIdx] = { ...rows[rIdx][cIdx], text: val };
+      updated = { ...tableData, rows };
+    }
+    setTableData(updated);
+    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
+  };
+
+  const updateCellColor = (type, rIdx, cIdx, colorType, colorVal) => {
+    if (!tableData) return;
+    let updated;
+    if (type === 'header') {
+      const headers = [...tableData.headers];
+      headers[cIdx] = { ...headers[cIdx], [colorType]: colorVal };
+      updated = { ...tableData, headers };
+    } else {
+      const rows = [...tableData.rows];
+      rows[rIdx] = [...rows[rIdx]];
+      rows[rIdx][cIdx] = { ...rows[rIdx][cIdx], [colorType]: colorVal };
+      updated = { ...tableData, rows };
+    }
+    setTableData(updated);
+    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
+  };
+
+  const updateIntroText = (val) => {
+    setIntroText(val);
+    setTemplateBody(compileVisualToHtml(val, outroText, tableData));
+  };
+
+  const updateOutroText = (val) => {
+    setOutroText(val);
+    setTemplateBody(compileVisualToHtml(introText, val, tableData));
+  };
 
   // Table creator state & handlers
   const [tableDialogOpen, setTableDialogOpen] = useState(false);
@@ -148,6 +330,9 @@ export default function AggregatorMail() {
     if (!selectedSubCategory) {
       setTemplateSubject('');
       setTemplateBody('');
+      setIntroText('');
+      setOutroText('');
+      setTableData(null);
       return;
     }
     const temp = templates[selectedSubCategory] || {
@@ -156,6 +341,11 @@ export default function AggregatorMail() {
     };
     setTemplateSubject(temp.subject);
     setTemplateBody(temp.body);
+
+    const { intro, outro, tableData: parsedTable } = parseTemplateBody(temp.body);
+    setIntroText(intro);
+    setOutroText(outro);
+    setTableData(parsedTable);
   }, [selectedSubCategory, templates]);
 
   const saveMappingsToBackend = async (updatedList) => {
@@ -811,6 +1001,12 @@ export default function AggregatorMail() {
                                 const temp = templates[selectedSubCategory] || { subject: '', body: '' };
                                 setTemplateSubject(temp.subject);
                                 setTemplateBody(temp.body);
+                              } else {
+                                const { intro, outro, tableData: parsedTable } = parseTemplateBody(templateBody);
+                                setIntroText(intro);
+                                setOutroText(outro);
+                                setTableData(parsedTable);
+                                setEditorTab('visual');
                               }
                               setIsTemplateEditing(!isTemplateEditing);
                             }}
@@ -820,7 +1016,7 @@ export default function AggregatorMail() {
                         )}
                       </Box>
 
-                      <Stack spacing={2}>
+                      <Stack spacing={2} sx={{ mt: 1 }}>
                         <TextField
                           fullWidth
                           size="small"
@@ -831,34 +1027,227 @@ export default function AggregatorMail() {
                         />
 
                         {isTemplateEditing && (
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
-                            <Button
-                              variant="outlined"
-                              size="small"
-                              onClick={() => setTableDialogOpen(true)}
-                              sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 600 }}
+                          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
+                            <Tabs
+                              value={editorTab}
+                              onChange={(_, newValue) => {
+                                if (newValue === 'visual') {
+                                  // Sync code back to visual states
+                                  const { intro, outro, tableData: parsedTable } = parseTemplateBody(templateBody);
+                                  setIntroText(intro);
+                                  setOutroText(outro);
+                                  setTableData(parsedTable);
+                                }
+                                setEditorTab(newValue);
+                              }}
+                              aria-label="editor mode tabs"
                             >
-                              Insert Table
-                            </Button>
+                              <Tab label="Visual Spreadsheet Editor" value="visual" sx={{ textTransform: 'none', fontWeight: 600 }} />
+                              <Tab label="HTML Source Code" value="html" sx={{ textTransform: 'none', fontWeight: 600 }} />
+                            </Tabs>
                           </Box>
                         )}
 
-                        <TextField
-                          ref={bodyRef}
-                          fullWidth
-                          multiline
-                          rows={12}
-                          size="small"
-                          label="Email Body"
-                          value={templateBody}
-                          onChange={(e) => setTemplateBody(e.target.value)}
-                          disabled={!isTemplateEditing}
-                          slotProps={{
-                            input: {
-                              style: { fontFamily: 'monospace', fontSize: '0.875rem' }
-                            }
-                          }}
-                        />
+                        {editorTab === 'visual' && isTemplateEditing ? (
+                          <Stack spacing={2}>
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={4}
+                              size="small"
+                              label="Intro Body Paragraph(s)"
+                              placeholder="Write intro email content here..."
+                              value={introText}
+                              onChange={(e) => updateIntroText(e.target.value)}
+                            />
+
+                            {/* Spreadsheet Visual Table Grid */}
+                            <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: '12px', bgcolor: '#ffffff' }}>
+                              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                                  Email Table Grid Builder
+                                </Typography>
+                                {!tableData ? (
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() => {
+                                      const defaultTable = {
+                                        headers: [
+                                          { text: 'Header 1', bgColor: '#f8fafc', textColor: '#334155' },
+                                          { text: 'Header 2', bgColor: '#f8fafc', textColor: '#334155' }
+                                        ],
+                                        rows: [
+                                          [
+                                            { text: 'Row 1 Col 1', bgColor: '', textColor: '' },
+                                            { text: 'Row 1 Col 2', bgColor: '', textColor: '' }
+                                          ]
+                                        ]
+                                      };
+                                      setTableData(defaultTable);
+                                      setTemplateBody(compileVisualToHtml(introText, outroText, defaultTable));
+                                    }}
+                                    sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 700 }}
+                                  >
+                                    Add Table to Email
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outlined"
+                                    size="small"
+                                    color="error"
+                                    onClick={() => {
+                                      setTableData(null);
+                                      setTemplateBody(compileVisualToHtml(introText, outroText, null));
+                                    }}
+                                    sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 600 }}
+                                  >
+                                    Remove Table
+                                  </Button>
+                                )}
+                              </Stack>
+
+                              {tableData && (
+                                <Box sx={{ width: '100%', overflowX: 'auto', mb: 1 }}>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e2e8f0' }}>
+                                    <thead>
+                                      <tr>
+                                        {tableData.headers.map((h, cIdx) => (
+                                          <th
+                                            key={cIdx}
+                                            style={{
+                                              border: '1px solid #cbd5e1',
+                                              padding: '6px',
+                                              backgroundColor: h.bgColor || '#f8fafc',
+                                              color: h.textColor || '#334155',
+                                              minWidth: '120px'
+                                            }}
+                                          >
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                              <input
+                                                value={h.text}
+                                                onChange={(e) => updateCellText('header', 0, cIdx, e.target.value)}
+                                                style={{
+                                                  border: 'none',
+                                                  background: 'transparent',
+                                                  width: '100%',
+                                                  fontWeight: 'bold',
+                                                  fontSize: '0.825rem',
+                                                  color: h.textColor || '#334155',
+                                                  outline: 'none'
+                                                }}
+                                              />
+                                              <IconButton
+                                                size="small"
+                                                onClick={() => setSelectedCell({ type: 'header', rowIndex: 0, colIndex: cIdx })}
+                                                sx={{ p: 0.25 }}
+                                              >
+                                                <PaletteIcon sx={{ fontSize: 14 }} />
+                                              </IconButton>
+                                              <IconButton
+                                                size="small"
+                                                color="error"
+                                                onClick={() => deleteColumn(cIdx)}
+                                                sx={{ p: 0.25 }}
+                                              >
+                                                <CloseIcon sx={{ fontSize: 14 }} />
+                                              </IconButton>
+                                            </Box>
+                                          </th>
+                                        ))}
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {tableData.rows.map((row, rIdx) => (
+                                        <tr key={rIdx}>
+                                          {row.map((cell, cIdx) => (
+                                            <td
+                                              key={cIdx}
+                                              style={{
+                                                border: '1px solid #cbd5e1',
+                                                padding: '6px',
+                                                backgroundColor: cell.bgColor || '#ffffff',
+                                                color: cell.textColor || '#333333'
+                                              }}
+                                            >
+                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                <input
+                                                  value={cell.text}
+                                                  onChange={(e) => updateCellText('body', rIdx, cIdx, e.target.value)}
+                                                  style={{
+                                                    border: 'none',
+                                                    background: 'transparent',
+                                                    width: '100%',
+                                                    fontSize: '0.825rem',
+                                                    color: cell.textColor || '#333333',
+                                                    outline: 'none'
+                                                  }}
+                                                />
+                                                <IconButton
+                                                  size="small"
+                                                  onClick={() => setSelectedCell({ type: 'body', rowIndex: rIdx, colIndex: cIdx })}
+                                                  sx={{ p: 0.25 }}
+                                                >
+                                                  <PaletteIcon sx={{ fontSize: 14 }} />
+                                                </IconButton>
+                                              </Box>
+                                            </td>
+                                          ))}
+                                          <td style={{ border: 'none', width: '30px', padding: '2px' }}>
+                                            <IconButton
+                                              size="small"
+                                              color="error"
+                                              onClick={() => deleteRow(rIdx)}
+                                            >
+                                              <DeleteIcon sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+
+                                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                                    <Button size="small" variant="text" startIcon={<AddIcon />} onClick={addRow} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
+                                      Add Row
+                                    </Button>
+                                    <Button size="small" variant="text" startIcon={<AddIcon />} onClick={addColumn} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
+                                      Add Column
+                                    </Button>
+                                  </Stack>
+                                </Box>
+                              )}
+                            </Box>
+
+                            <TextField
+                              fullWidth
+                              multiline
+                              rows={4}
+                              size="small"
+                              label="Outro Body Paragraph(s)"
+                              placeholder="Write outro/signature email content here..."
+                              value={outroText}
+                              onChange={(e) => updateOutroText(e.target.value)}
+                            />
+                          </Stack>
+                        ) : (
+                          <TextField
+                            ref={bodyRef}
+                            fullWidth
+                            multiline
+                            rows={15}
+                            size="small"
+                            label="Email Body (HTML/Text)"
+                            value={templateBody}
+                            onChange={(e) => setTemplateBody(e.target.value)}
+                            disabled={!isTemplateEditing}
+                            slotProps={{
+                              input: {
+                                style: { fontFamily: 'monospace', fontSize: '0.875rem' }
+                              }
+                            }}
+                          />
+                        )}
                       </Stack>
 
                       {isTemplateEditing && (
@@ -876,46 +1265,84 @@ export default function AggregatorMail() {
                       )}
                     </Box>
 
-                    {/* Table Creation Dialog */}
-                    <Dialog
-                      open={tableDialogOpen}
-                      onClose={() => setTableDialogOpen(false)}
-                      maxWidth="xs"
-                      fullWidth
-                      PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}
-                    >
-                      <DialogTitle sx={{ fontWeight: 800 }}>Insert HTML Table</DialogTitle>
-                      <DialogContent>
-                        <Stack spacing={2} sx={{ mt: 1.5 }}>
-                          <TextField
-                            label="Number of Columns"
-                            type="number"
-                            size="small"
-                            value={tableCols}
-                            onChange={(e) => setTableCols(Math.max(1, parseInt(e.target.value) || 1))}
-                          />
-                          <TextField
-                            label="Number of Rows"
-                            type="number"
-                            size="small"
-                            value={tableRows}
-                            onChange={(e) => setTableRows(Math.max(1, parseInt(e.target.value) || 1))}
-                          />
+                    {/* Cell Styling Dialog */}
+                    <Dialog open={selectedCell !== null} onClose={() => setSelectedCell(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}>
+                      <DialogTitle sx={{ fontWeight: 800 }}>Cell Color & Styling</DialogTitle>
+                      <DialogContent dividers>
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Cell Background Color</Typography>
+                        <Stack direction="row" spacing={1} sx={{ mb: 3, flexWrap: 'wrap', gap: 1 }}>
+                          {[
+                            { name: 'Default', value: '' },
+                            { name: 'Light Red', value: '#fee2e2' },
+                            { name: 'Light Yellow', value: '#fef3c7' },
+                            { name: 'Light Green', value: '#dcfce7' },
+                            { name: 'Light Blue', value: '#dbeafe' },
+                            { name: 'Light Gray', value: '#f1f5f9' },
+                          ].map(color => (
+                            <Box
+                              key={color.name}
+                              onClick={() => {
+                                if (selectedCell) {
+                                  updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'bgColor', color.value);
+                                }
+                              }}
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: '50%',
+                                bgcolor: color.value || '#ffffff',
+                                border: '2px solid',
+                                borderColor: selectedCell && (selectedCell.type === 'header' 
+                                  ? tableData.headers[selectedCell.colIndex]?.bgColor === color.value
+                                  : tableData.rows[selectedCell.rowIndex]?.[selectedCell.colIndex]?.bgColor === color.value)
+                                    ? 'primary.main' 
+                                    : '#cbd5e1',
+                                cursor: 'pointer',
+                                boxShadow: 'inset 0 0 2px rgba(0,0,0,0.1)'
+                              }}
+                              title={color.name}
+                            />
+                          ))}
+                        </Stack>
+
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Text Color</Typography>
+                        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                          {[
+                            { name: 'Default', value: '' },
+                            { name: 'Red', value: '#dc2626' },
+                            { name: 'Orange', value: '#d97706' },
+                            { name: 'Green', value: '#16a34a' },
+                            { name: 'Blue', value: '#2563eb' },
+                            { name: 'White', value: '#ffffff' },
+                          ].map(color => (
+                            <Box
+                              key={color.name}
+                              onClick={() => {
+                                if (selectedCell) {
+                                  updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'textColor', color.value);
+                                }
+                              }}
+                              sx={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: '50%',
+                                bgcolor: color.value || '#334155',
+                                border: '2px solid',
+                                borderColor: selectedCell && (selectedCell.type === 'header' 
+                                  ? tableData.headers[selectedCell.colIndex]?.textColor === color.value
+                                  : tableData.rows[selectedCell.rowIndex]?.[selectedCell.colIndex]?.textColor === color.value)
+                                    ? 'primary.main' 
+                                    : '#cbd5e1',
+                                cursor: 'pointer'
+                              }}
+                              title={color.name}
+                            />
+                          ))}
                         </Stack>
                       </DialogContent>
-                      <DialogActions sx={{ p: 2 }}>
-                        <Button 
-                          onClick={() => setTableDialogOpen(false)} 
-                          sx={{ textTransform: 'none', fontWeight: 600 }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button 
-                          variant="contained" 
-                          onClick={handleInsertTable}
-                          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
-                        >
-                          Insert
+                      <DialogActions sx={{ p: 1.5 }}>
+                        <Button variant="contained" onClick={() => setSelectedCell(null)} sx={{ borderRadius: '8px', textTransform: 'none' }}>
+                          Apply Styles
                         </Button>
                       </DialogActions>
                     </Dialog>
