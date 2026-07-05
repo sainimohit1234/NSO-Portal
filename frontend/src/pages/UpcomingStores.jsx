@@ -122,10 +122,10 @@ export default function UpcomingStores() {
         status: 'Under Construction',
         isLocked: false,
         isLockedAutoApplied: false,
-        projectStartDate: ucStartDate,
-        projectHandoverDate: ucHandoverDate,
-        tentativeDryLaunchDate: ucDryLaunchDate,
-        launchDate: ucLaunchDate
+        projectStartDate: ucStartDate || null,
+        projectHandoverDate: ucHandoverDate || null,
+        tentativeDryLaunchDate: ucDryLaunchDate || null,
+        launchDate: ucLaunchDate || null
       };
       
       if (ucLaunchMonth) {
@@ -137,7 +137,7 @@ export default function UpcomingStores() {
       setUcDialogStore(null);
       fetchStores();
     } catch (err) {
-      setUcDialogError('Failed to update store.');
+      setUcDialogError(err.response?.data?.error || 'Failed to update store.');
     }
   };
 
