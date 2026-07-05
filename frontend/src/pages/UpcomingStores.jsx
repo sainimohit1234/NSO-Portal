@@ -38,7 +38,7 @@ export default function UpcomingStores() {
     filters.workflowStatus
   );
 
-  useEffect(() => {
+  const fetchStores = () => {
     fetchStoresFromFirestore()
       .then(stores => {
         // Filter: show all stores that are in the setup/onboarding phase (i.e. not yet LIVE or CLOSED) and are active
@@ -72,7 +72,24 @@ export default function UpcomingStores() {
           console.error('Failed to fetch stores:', apiError);
         }
       });
+  };
+
+  useEffect(() => {
+    fetchStores();
   }, []);
+
+  const handleStatusChange = async (storeId, newStatus) => {
+    try {
+      await axios.put(`/api/stores/${storeId}`, { 
+        status: newStatus, 
+        isLocked: false, 
+        isLockedAutoApplied: false 
+      });
+      fetchStores();
+    } catch (err) {
+      console.error('Failed to update status', err);
+    }
+  };
 
   useEffect(() => {
     let result = stores;
