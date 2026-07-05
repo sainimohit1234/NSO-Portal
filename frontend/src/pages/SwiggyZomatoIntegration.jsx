@@ -205,7 +205,7 @@ export default function SwiggyZomatoIntegration() {
   );
 
   return (
-    <Box sx={{ maxWidth: 1600, mx: 'auto', p: 1 }}>
+    <Box sx={{ width: '100%', px: 2, py: 1 }}>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Box>
@@ -254,11 +254,11 @@ export default function SwiggyZomatoIntegration() {
             <Table stickyHeader size="small" sx={{ minWidth: 3200 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 800, width: 60, position: 'sticky', left: 0, zIndex: 12, bgcolor: '#f8fafc' }}>S.No.</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 175, position: 'sticky', left: 60, zIndex: 12, bgcolor: '#faf5ff' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 185, position: 'sticky', left: 235, zIndex: 12, bgcolor: '#faf5ff' }}>Brand</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 105, position: 'sticky', left: 420, zIndex: 12, bgcolor: '#f8fafc' }}>Cafe Code</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 220, position: 'sticky', left: 525, zIndex: 12, bgcolor: '#f8fafc', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50, position: 'sticky', left: 0, zIndex: 12, bgcolor: '#f8fafc' }}>S.No.</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 155, minWidth: 155, maxWidth: 155, position: 'sticky', left: 50, zIndex: 12, bgcolor: '#faf5ff' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 155, minWidth: 155, maxWidth: 155, position: 'sticky', left: 205, zIndex: 12, bgcolor: '#faf5ff' }}>Brand</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 105, minWidth: 105, maxWidth: 105, position: 'sticky', left: 360, zIndex: 12, bgcolor: '#f8fafc' }}>Cafe Code</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 220, minWidth: 220, maxWidth: 220, position: 'sticky', left: 465, zIndex: 12, bgcolor: '#f8fafc', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
                   <TableCell sx={{ fontWeight: 800, width: 280 }}>Address</TableCell>
                   <TableCell sx={{ fontWeight: 800, width: 120 }}>City</TableCell>
                   <TableCell sx={{ fontWeight: 800, width: 120 }}>State</TableCell>
@@ -323,30 +323,30 @@ export default function SwiggyZomatoIntegration() {
                   return (
                     <TableRow key={store.id} hover sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}>
                       {/* S.No. */}
-                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper', fontWeight: 800 }}>{index + 1}</TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper', fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50 }}>{index + 1}</TableCell>
 
                       {/* Status */}
-                      <TableCell sx={{ position: 'sticky', left: 60, zIndex: 2, bgcolor: 'background.paper' }}>
+                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.paper', width: 155, minWidth: 155, maxWidth: 155 }}>
                         <Chip label={integStatus.label} size="small" sx={{
                           bgcolor: integStatus.bg, color: integStatus.color,
                           border: `1px solid ${integStatus.border}`,
                           fontWeight: 700, fontSize: '0.68rem', borderRadius: '6px',
-                          maxWidth: 165, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+                          width: '100%', '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
                         }} />
                       </TableCell>
 
                       {/* Brand */}
-                      <TableCell sx={{ position: 'sticky', left: 235, zIndex: 2, bgcolor: 'background.paper', fontWeight: 600, fontSize: '0.8rem' }}>
+                      <TableCell sx={{ position: 'sticky', left: 205, zIndex: 2, bgcolor: 'background.paper', fontWeight: 600, fontSize: '0.8rem', width: 155, minWidth: 155, maxWidth: 155 }}>
                         {getBrandLabel(store.brand)}
                       </TableCell>
 
                       {/* Cafe Code */}
-                      <TableCell sx={{ position: 'sticky', left: 420, zIndex: 2, bgcolor: 'background.paper', fontWeight: 700 }}>
+                      <TableCell sx={{ position: 'sticky', left: 360, zIndex: 2, bgcolor: 'background.paper', fontWeight: 700, width: 105, minWidth: 105, maxWidth: 105 }}>
                         {store.cafeCode || 'N/A'}
                       </TableCell>
 
                       {/* Cafe Name */}
-                      <TableCell sx={{ position: 'sticky', left: 525, zIndex: 2, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', fontWeight: 800 }}>
+                      <TableCell sx={{ position: 'sticky', left: 465, zIndex: 2, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', fontWeight: 800, width: 220, minWidth: 220, maxWidth: 220 }}>
                         {store.cafeName || 'N/A'}
                       </TableCell>
 
