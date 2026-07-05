@@ -3069,6 +3069,42 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       data: updateData
     });
 
+    // After updating the mail status, check if ALL required emails for this brand are now sent.
+    // If so, record integrationMailSentAt to start the 4-day countdown (only set once).
+    try {
+      const freshStore = await prisma.store.findUnique({ where: { id: storeId } });
+      if (freshStore && !(freshStore as any).integrationMailSentAt) {
+        const storeBrand = ((freshStore as any).brand || '').toLowerCase();
+        let allRequiredEmailsSent = false;
+
+        if (storeBrand.includes('got tea') || storeBrand.includes('gottea')) {
+          allRequiredEmailsSent =
+            (freshStore as any).gotTeaZomatoMailStatus === 'Sent' &&
+            (freshStore as any).gotTeaSwiggyMailStatus === 'Sent';
+        } else if (storeBrand.includes('suchali')) {
+          allRequiredEmailsSent =
+            (freshStore as any).suchaliZomatoMailStatus === 'Sent' &&
+            (freshStore as any).suchaliSwiggyMailStatus === 'Sent';
+        } else {
+          // Blue Tokai (default)
+          allRequiredEmailsSent =
+            (freshStore as any).btZomatoMailStatus === 'Sent' &&
+            (freshStore as any).btSwiggyMailStatus === 'Sent';
+        }
+
+        if (allRequiredEmailsSent) {
+          await prisma.store.update({
+            where: { id: storeId },
+            data: { integrationMailSentAt: new Date().toISOString() } as any
+          });
+        }
+      }
+    } catch (mailSentErr) {
+      // Non-critical — log but don't fail the response
+      console.error('Could not set integrationMailSentAt:', mailSentErr);
+    }
+
+
     res.json({ message: 'Onboarding email sent successfully.', info });
   } catch (error: any) {
     console.error('Error sending onboarding email:', error);
