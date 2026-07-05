@@ -646,6 +646,12 @@ export default function EditStore() {
     canEditFinance = false;
   }
 
+  if (currentStatusVal === 'PENDING_APPROVAL' && !canApprove) {
+    canEditBasicDetails = false;
+    canEditContacts = false;
+    canEditFinance = false;
+  }
+
   const isGoLiveFormValid = () => {
     const currentStatusVal = watch('status');
     if (currentStatusVal === 'LIVE') {
