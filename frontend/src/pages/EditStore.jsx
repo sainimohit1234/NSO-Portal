@@ -640,7 +640,7 @@ export default function EditStore() {
     canEditFinance = false;
   }
 
-  if (currentStatusVal === 'Ready for Construction') {
+  if (currentStatusVal === 'Ready for Construction' || currentStatusVal === 'IN_PIPELINE' || currentStatusVal === 'In Pipeline') {
     canEditBasicDetails = false;
     canEditContacts = false;
     canEditFinance = false;

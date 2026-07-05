@@ -504,17 +504,17 @@ export default function UpcomingStores() {
                   return (
                     <TableRow 
                       key={store.id} 
-                      hover={isStoreEditable} 
-                      onClick={() => isStoreEditable && navigate(`/stores/${store.id}`, { state: { from: '/upcoming-stores' } })}
+                      hover
+                      onClick={() => navigate(`/stores/${store.id}`, { state: { from: '/upcoming-stores' } })}
                       sx={{ 
                         '&:last-child td, &:last-child th': { border: 0 }, 
-                        cursor: isStoreEditable ? 'pointer' : 'default' 
+                        cursor: 'pointer' 
                       }}
                     >
                       <TableCell sx={{ 
                         fontWeight: 600, 
-                        color: isStoreEditable ? 'primary.main' : 'text.primary',
-                        textDecoration: isStoreEditable ? 'underline' : 'none'
+                        color: 'primary.main',
+                        textDecoration: 'underline'
                       }}>
                         {store.cafeCode}
                       </TableCell>
