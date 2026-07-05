@@ -274,9 +274,31 @@ export default function ExpansionPipeline() {
       return;
     }
 
+    // Auto Status Logic
+    let autoStatus = store.status;
+    const hasCode = !!(store.cafeCode && store.cafeCode.trim());
+    const hasLoi = store.documents?.some(d => d.type === 'Letter of Intent (LOI)' && d.url) || !!store.loiUrl;
+
+    if (['In Pipeline', 'Agreement Signed'].includes(autoStatus)) {
+      if (hasCode && hasLoi) {
+        autoStatus = 'Ready for Construction';
+      } else if (!hasCode && hasLoi) {
+        autoStatus = 'Agreement Signed';
+      } else {
+        autoStatus = 'In Pipeline';
+      }
+    }
+    const finalStore = { ...store, status: autoStatus };
+
+    if (!canModify) return;
+    if (!store.cafeName.trim()) {
+      setSnackbar({ open: true, message: 'Café Name is required.', severity: 'warning' });
+      return;
+    }
+
     try {
       setLoading(true);
-      const payload = { ...store };
+      const payload = { ...finalStore };
       // Remove local client-only properties
       delete payload.isTemp;
       const method = store.isTemp ? 'post' : 'put';
@@ -342,8 +364,8 @@ export default function ExpansionPipeline() {
     if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
       return ['Ready for Construction'];
     }
-    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
-      return ['Under Development'];
+    if (norm === 'UNDER_CONSTRUCTION' || norm === 'UNDER CONSTRUCTION') {
+      return ['Under Construction'];
     }
     if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
       return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
@@ -402,10 +424,6 @@ export default function ExpansionPipeline() {
   };
 
   const handleDropdownStatusChange = (store, newStatus) => {
-    if (newStatus === 'Ready for Construction') {
-      handleStatusChangeToReady(store);
-      return;
-    }
 
     const config = getMappedConfigForStatus(newStatus);
     if (config) {
@@ -768,8 +786,8 @@ Operations Team`;
     const isLocked = store.isLocked === true || store.isLocked === 'true';
     if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
       return 'Live';
-    } else if (store.status === 'Under Development') {
-      return 'Under Development';
+    } else if (store.status === 'Under Construction') {
+      return 'Under Construction';
     } else if (store.status === 'Ready for Construction') {
       return 'Ready for Construction';
     } else if (store.status === 'Agreement Signed') {
@@ -781,7 +799,7 @@ Operations Team`;
   const pipelineCount = stores.filter(s => getStoreStatus(s) === 'In Pipeline').length;
   const agreementCount = stores.filter(s => getStoreStatus(s) === 'Agreement Signed').length;
   const constructionCount = stores.filter(s => getStoreStatus(s) === 'Ready for Construction').length;
-  const developmentCount = stores.filter(s => getStoreStatus(s) === 'Under Development').length;
+  const developmentCount = stores.filter(s => getStoreStatus(s) === 'Under Construction').length;
   const totalCount = stores.length;
 
   const filteredStores = selectedStatusFilter
@@ -870,9 +888,9 @@ Operations Team`;
           },
           {
             key: 'development',
-            label: 'Under Development',
+            label: 'Under Construction',
             count: developmentCount,
-            filterValue: 'Under Development',
+            filterValue: 'Under Construction',
             icon: <EngineeringIcon />,
             color: '#8b5cf6'
           }
@@ -1218,8 +1236,8 @@ Operations Team`;
                              let currentStatus = 'In Pipeline';
                            if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
                              currentStatus = 'Live';
-                           } else if (store.status === 'Under Development') {
-                             currentStatus = 'Under Development';
+                           } else if (store.status === 'Under Construction') {
+                             currentStatus = 'Under Construction';
                            } else if (store.status === 'Ready for Construction') {
                              currentStatus = 'Ready for Construction';
                            } else if (store.status === 'Agreement Signed') {
@@ -1243,12 +1261,11 @@ Operations Team`;
                                {((currentStatus === 'In Pipeline' && hasLoi) || currentStatus === 'Agreement Signed') && (
                                  <MenuItem value="Agreement Signed">Agreement Signed</MenuItem>
                                )}
-                               {((hasLoi && (currentStatus === 'In Pipeline' || currentStatus === 'Agreement Signed')) || 
-                                 currentStatus === 'Ready for Construction') && (
+                               {currentStatus === 'Ready for Construction' && (
                                  <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
                                )}
-                               {(currentStatus === 'Ready for Construction' || currentStatus === 'Under Development') && (
-                                 <MenuItem value="Under Development">Under Development</MenuItem>
+                               {(currentStatus === 'Ready for Construction' || currentStatus === 'Under Construction') && (
+                                 <MenuItem value="Under Construction">Under Construction</MenuItem>
                                )}
                                {(isLocked || currentStatus === 'Live') && (
                                  <MenuItem value="Live">Live</MenuItem>

@@ -184,6 +184,70 @@ export default function EditStore() {
     }
   }, [errors]);
 
+  
+  const [ucDialogOpen, setUcDialogOpen] = useState(false);
+  const [ucDialogStore, setUcDialogStore] = useState(null);
+  const [ucStartDate, setUcStartDate] = useState('');
+  const [ucHandoverDate, setUcHandoverDate] = useState('');
+  const [ucDryLaunchDate, setUcDryLaunchDate] = useState('');
+  const [ucLaunchDate, setUcLaunchDate] = useState('');
+  const [ucLaunchMonth, setUcLaunchMonth] = useState('');
+  const [ucDialogError, setUcDialogError] = useState('');
+
+  // Under Construction Handlers
+  const handleUcHandoverChange = (e) => {
+    const val = e.target.value;
+    setUcHandoverDate(val);
+    if (val) {
+      const d = new Date(val);
+      d.setDate(d.getDate() + 3);
+      setUcDryLaunchDate(d.toISOString().split('T')[0]);
+    } else {
+      setUcDryLaunchDate('');
+    }
+  };
+
+  const handleUcLaunchChange = (e) => {
+    const val = e.target.value;
+    setUcLaunchDate(val);
+    if (val) {
+      const d = new Date(val);
+      const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const month = months[d.getMonth()];
+      const year = d.getFullYear();
+      setUcLaunchMonth(month + ' ' + year);
+    } else {
+      setUcLaunchMonth('');
+    }
+  };
+
+  const handleConfirmUc = () => {
+    if (!ucHandoverDate || !ucLaunchDate) {
+      setUcDialogError('Project Handover Date and Launch Date are mandatory.');
+      return;
+    }
+    setUcDialogError('');
+    setValue('projectStartDate', ucStartDate, { shouldDirty: true });
+    setValue('projectHandoverDate', ucHandoverDate, { shouldDirty: true });
+    setValue('tentativeDryLaunchDate', ucDryLaunchDate, { shouldDirty: true });
+    setValue('launchDate', ucLaunchDate, { shouldDirty: true });
+    if (ucLaunchMonth) {
+      const [m, y] = ucLaunchMonth.split(' ');
+      setValue('launchMonth', m, { shouldDirty: true });
+      setValue('launchYear', y, { shouldDirty: true });
+    }
+    setValue('status', 'Under Construction', { shouldDirty: true });
+    setPrevStatus('Under Construction');
+    setUcDialogOpen(false);
+  };
+
+  const handleCancelUc = () => {
+    setUcDialogOpen(false);
+    setUcDialogError('');
+    // reset status back to previous
+    setValue('status', 'Ready for Construction', { shouldDirty: false });
+  };
+
   const [closureDialogOpen, setClosureDialogOpen] = useState(false);
   const [emailMappings, setEmailMappings] = useState([]);
   const [emailTemplates, setEmailTemplates] = useState({});
@@ -195,7 +259,7 @@ export default function EditStore() {
   const [tempDeliveryClosedDate, setTempDeliveryClosedDate] = useState('');
   const [closureDialogError, setClosureDialogError] = useState('');
 
-  // Under Development Dialog State
+  // Under Construction Dialog State
 
   const handleConfirmClosure = () => {
     setClosureDialogError('');
@@ -831,8 +895,8 @@ export default function EditStore() {
     if (norm === 'READY_FOR_CONSTRUCTION' || norm === 'READY FOR CONSTRUCTION') {
       return ['Ready for Construction'];
     }
-    if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT' || norm === 'UNDER DEVELOPMENT') {
-      return ['Under Development'];
+    if (norm === 'UNDER_CONSTRUCTION' || norm === 'UNDER CONSTRUCTION' || norm === 'UNDER CONSTRUCTION') {
+      return ['Under Construction'];
     }
     if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
       return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
@@ -1180,12 +1244,12 @@ export default function EditStore() {
     }
   }
 
-  if (['Ready for Construction', 'Under Development'].includes(store?.status)) {
+  if (['Ready for Construction', 'Under Construction'].includes(store?.status)) {
     if (!statusOptions.some(opt => opt.value === 'Ready for Construction')) {
       statusOptions.push({ value: 'Ready for Construction', label: 'Ready for Construction' });
     }
-    if (!statusOptions.some(opt => opt.value === 'Under Development')) {
-      statusOptions.push({ value: 'Under Development', label: 'Under Development' });
+    if (!statusOptions.some(opt => opt.value === 'Under Construction')) {
+      statusOptions.push({ value: 'Under Construction', label: 'Under Construction' });
     }
   }
 
@@ -1246,7 +1310,7 @@ export default function EditStore() {
                     setTempDeliveryClosedDate(watch('deliveryClosedDate') ?? safeGetDateString(store?.deliveryClosedDate) ?? '');
                     setClosureDialogError('');
                     setClosureDialogOpen(true);
-                  } else if (store?.status === 'Ready for Construction' && val === 'Under Development') {
+                  } else if (store?.status === 'Ready for Construction' && val === 'Under Construction') {
                     setUcDialogStore(store);
                     setUcDialogOpen(true);
                   } else {
@@ -2672,6 +2736,53 @@ export default function EditStore() {
           </Button>
           <Button onClick={() => blocker.proceed()} variant="outlined" color="error" sx={{ borderRadius: '8px', fontWeight: 700 }}>
             Discard changes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      
+      {/* Dialog: Under Construction Operation Details */}
+      <Dialog
+        open={ucDialogOpen}
+        onClose={handleCancelUc}
+        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 400 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, pb: 1, color: 'text.primary', borderBottom: '1px solid', borderColor: 'divider' }}>
+          Operation Details
+        </DialogTitle>
+        <DialogContent sx={{ py: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {ucDialogError && (
+            <Alert severity="error" sx={{ borderRadius: '8px' }}>
+              {ucDialogError}
+            </Alert>
+          )}
+          <TextField
+            fullWidth type="date" label="Project Start Date" InputLabelProps={{ shrink: true }}
+            value={ucStartDate} onChange={(e) => setUcStartDate(e.target.value)}
+          />
+          <TextField
+            fullWidth type="date" label="Project Handover Date *" InputLabelProps={{ shrink: true }}
+            value={ucHandoverDate} onChange={handleUcHandoverChange} required
+          />
+          <TextField
+            fullWidth type="date" label="Tentative Dry Launch Date" InputLabelProps={{ shrink: true }}
+            value={ucDryLaunchDate} onChange={(e) => setUcDryLaunchDate(e.target.value)}
+          />
+          <TextField
+            fullWidth type="date" label="Launch Date *" InputLabelProps={{ shrink: true }}
+            value={ucLaunchDate} onChange={handleUcLaunchChange} required
+          />
+          <TextField
+            fullWidth label="Cafe Launch Month & Year" InputProps={{ readOnly: true }}
+            value={ucLaunchMonth}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Button onClick={handleCancelUc} color="inherit" sx={{ fontWeight: 600, borderRadius: '8px' }}>
+            Cancel
+          </Button>
+          <Button onClick={handleConfirmUc} variant="contained" color="primary" sx={{ fontWeight: 700, borderRadius: '8px', px: 3, boxShadow: 2 }}>
+            Save & Continue
           </Button>
         </DialogActions>
       </Dialog>

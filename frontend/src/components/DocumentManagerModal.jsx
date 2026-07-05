@@ -309,8 +309,13 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       if (loiDoc) { 
         payload.loiUrl = loiDoc.url; 
         payload.loiFileName = loiDoc.fileName; 
-        if (store.status === 'In Pipeline') {
-          payload.status = 'Agreement Signed';
+        if (store.status === 'In Pipeline' || store.status === 'Agreement Signed') {
+          const hasCode = !!(store.cafeCode && store.cafeCode.trim());
+          if (hasCode) {
+            payload.status = 'Ready for Construction';
+          } else {
+            payload.status = 'Agreement Signed';
+          }
         }
       }
       else { payload.loiUrl = null; payload.loiFileName = null; }

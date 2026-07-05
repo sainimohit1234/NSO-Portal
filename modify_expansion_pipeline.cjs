@@ -1,58 +1,65 @@
 const fs = require('fs');
+const path = require('path');
 
-let content = fs.readFileSync('frontend/src/pages/ExpansionPipeline.jsx', 'utf8');
+const filePath = path.join(__dirname, 'frontend', 'src', 'pages', 'ExpansionPipeline.jsx');
+let content = fs.readFileSync(filePath, 'utf8');
 
-// 1. Add import
-if (!content.includes('import DocumentManagerModal')) {
-  content = content.replace(
-    /import \{[\s\S]*?\} from '@mui\/material';/,
-    match => match + "\nimport DocumentManagerModal from '../components/DocumentManagerModal';"
-  );
-}
+// Replace Under Development with Under Construction
+content = content.replace(/Under Development/g, 'Under Construction');
+content = content.replace(/UNDER_DEVELOPMENT/g, 'UNDER_CONSTRUCTION');
+content = content.replace(/UNDER DEVELOPMENT/g, 'UNDER CONSTRUCTION');
 
-// 2. Modify columns in TableHead
-const oldColsRegex = /<TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>LEGAL DOCUMENTS<\/TableCell>[\s\S]*?<TableCell sx={{ fontWeight: 800, width: 220, textAlign: 'center' }}>MISCELLANEOUS DOCUMENTS<\/TableCell>/;
-content = content.replace(oldColsRegex, `<TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>Upload Documents</TableCell>`);
-
-// 3. Modify columns in TableRow
-const oldRowColsRegex = /\{\/\* LEGAL DOCUMENTS \*\/\}\n\s*<TableCell align="center">[\s\S]*?\{\/\* MISCELLANEOUS DOCUMENTS \*\/\}\n\s*<TableCell align="center">[\s\S]*?<\/TableCell>/;
-
-const newRowCol = `                      {/* UPLOAD DOCUMENTS */}
-                      <TableCell align="center">
-                        <Button 
-                          variant="contained" 
-                          size="small"
-                          startIcon={<CloudUploadIcon />}
-                          onClick={() => setUploadStore(store)}
-                          sx={{ borderRadius: '8px', fontWeight: 600, fontSize: '0.75rem', whiteSpace: 'nowrap', textTransform: 'none' }}
-                        >
-                          Upload Documents
-                        </Button>
-                      </TableCell>`;
-content = content.replace(oldRowColsRegex, newRowCol);
-
-// 4. Modify logic that depends on flat fields (loiUrl) in the Status Select
-// Find: hasLoi = !!store.loiUrl;
-// Change to check both flat field and the new documents array
+// Remove manual selection of Ready for Construction
 content = content.replace(
-  /const hasLoi = !!store\.loiUrl;/,
-  `const hasLoi = !!store.loiUrl || (store.documents && store.documents.some(d => d.type === 'Letter of Intent (LOI)' && d.url));`
+  /\{\(\(hasLoi && \(currentStatus === 'In Pipeline' \|\| currentStatus === 'Agreement Signed'\)\) \|\|\s*currentStatus === 'Ready for Construction'\) && \(\s*<MenuItem value="Ready for Construction">Ready for Construction<\/MenuItem>\s*\)\}/g,
+  `{currentStatus === 'Ready for Construction' && (
+                                 <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
+                               )}`
 );
 
-// 5. Replace the old inline Dialog with DocumentManagerModal
-const oldDialogRegex = /\{\/\* Upload Documents Dialog \*\/\}\n\s*<Dialog[\s\S]*?<\/Dialog>/;
-const newDialog = `      {/* Upload Documents Modal */}
-      <DocumentManagerModal 
-         open={!!uploadStore} 
-         store={uploadStore}
-         canModify={canModify}
-         onClose={() => setUploadStore(null)}
-         setSnackbar={setSnackbar}
-         onSave={(payload) => {
-            setStores(prev => prev.map(s => s.id === uploadStore.id ? { ...s, ...payload } : s));
-         }}
-      />`;
-content = content.replace(oldDialogRegex, newDialog);
+// We should also remove the old confirmation dialog logic call for Ready for Construction.
+content = content.replace(
+`  const handleDropdownStatusChange = (store, newStatus) => {
+    if (newStatus === 'Ready for Construction') {
+      handleStatusChangeToReady(store);
+      return;
+    }`,
+`  const handleDropdownStatusChange = (store, newStatus) => {`
+);
 
-fs.writeFileSync('frontend/src/pages/ExpansionPipeline.jsx', content);
-console.log('Done replacement.');
+// Auto-update logic in handleSaveRow
+const handleSaveRowStr = `  const handleSaveRow = async (store) => {`;
+if (content.includes(handleSaveRowStr)) {
+  const newLogic = `  const handleSaveRow = async (store) => {
+    if (!canModify) return;
+    if (!store.cafeName.trim()) {
+      setSnackbar({ open: true, message: 'Café Name is required.', severity: 'warning' });
+      return;
+    }
+
+    // Auto Status Logic
+    let autoStatus = store.status;
+    const hasCode = !!(store.cafeCode && store.cafeCode.trim());
+    const hasLoi = store.documents?.some(d => d.type === 'Letter of Intent (LOI)' && d.url) || !!store.loiUrl;
+
+    if (['In Pipeline', 'Agreement Signed'].includes(autoStatus)) {
+      if (hasCode && hasLoi) {
+        autoStatus = 'Ready for Construction';
+      } else if (!hasCode && hasLoi) {
+        autoStatus = 'Agreement Signed';
+      } else {
+        autoStatus = 'In Pipeline';
+      }
+    }
+    const finalStore = { ...store, status: autoStatus };
+`;
+  content = content.replace(handleSaveRowStr, newLogic);
+  
+  content = content.replace(/try \{\s*setLoading\(true\);\s*const payload = \{ \.\.\.store \};/, 
+  `try {
+      setLoading(true);
+      const payload = { ...finalStore };`);
+}
+
+fs.writeFileSync(filePath, content, 'utf8');
+console.log('Modified ExpansionPipeline.jsx successfully');
