@@ -48,6 +48,58 @@ export default function AggregatorMail() {
   const [templateBody, setTemplateBody] = useState('');
   const [isTemplateEditing, setIsTemplateEditing] = useState(false);
 
+  // Table creator state & handlers
+  const [tableDialogOpen, setTableDialogOpen] = useState(false);
+  const [tableCols, setTableCols] = useState(3);
+  const [tableRows, setTableRows] = useState(3);
+  const bodyRef = React.useRef(null);
+
+  const handleInsertTable = () => {
+    let tableHtml = '\n<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">\n';
+    
+    // Header row
+    tableHtml += '  <thead>\n    <tr style="background-color: #f8fafc;">\n';
+    for (let c = 1; c <= tableCols; c++) {
+      tableHtml += `      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-weight: bold; color: #334155;">Header ${c}</th>\n`;
+    }
+    tableHtml += '    </tr>\n  </thead>\n';
+
+    // Body rows
+    tableHtml += '  <tbody>\n';
+    for (let r = 1; r <= tableRows; r++) {
+      tableHtml += '    <tr>\n';
+      for (let c = 1; c <= tableCols; c++) {
+        tableHtml += `      <td style="border: 1px solid #cbd5e1; padding: 8px; color: #333333;">Row ${r} Col ${c}</td>\n`;
+      }
+      tableHtml += '    </tr>\n';
+    }
+    tableHtml += '  </tbody>\n</table>\n';
+
+    // Insert at cursor position if possible
+    const input = bodyRef.current;
+    if (input) {
+      const textarea = input.querySelector('textarea');
+      if (textarea) {
+        const startPos = textarea.selectionStart;
+        const endPos = textarea.selectionEnd;
+        const currentText = textarea.value;
+        const newText = currentText.substring(0, startPos) + tableHtml + currentText.substring(endPos);
+        setTemplateBody(newText);
+        
+        setTimeout(() => {
+          textarea.focus();
+          textarea.selectionStart = textarea.selectionEnd = startPos + tableHtml.length;
+        }, 0);
+      } else {
+        setTemplateBody(prev => prev + tableHtml);
+      }
+    } else {
+      setTemplateBody(prev => prev + tableHtml);
+    }
+
+    setTableDialogOpen(false);
+  };
+
   // New mapping form state
   const [newCategory, setNewCategory] = useState('');
   const [newSubCategory, setNewSubCategory] = useState('');
@@ -778,15 +830,34 @@ export default function AggregatorMail() {
                           disabled={!isTemplateEditing}
                         />
 
+                        {isTemplateEditing && (
+                          <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              onClick={() => setTableDialogOpen(true)}
+                              sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 600 }}
+                            >
+                              Insert Table
+                            </Button>
+                          </Box>
+                        )}
+
                         <TextField
+                          ref={bodyRef}
                           fullWidth
                           multiline
-                          rows={10}
+                          rows={12}
                           size="small"
                           label="Email Body"
                           value={templateBody}
                           onChange={(e) => setTemplateBody(e.target.value)}
                           disabled={!isTemplateEditing}
+                          slotProps={{
+                            input: {
+                              style: { fontFamily: 'monospace', fontSize: '0.875rem' }
+                            }
+                          }}
                         />
                       </Stack>
 
@@ -804,6 +875,50 @@ export default function AggregatorMail() {
                         </Box>
                       )}
                     </Box>
+
+                    {/* Table Creation Dialog */}
+                    <Dialog
+                      open={tableDialogOpen}
+                      onClose={() => setTableDialogOpen(false)}
+                      maxWidth="xs"
+                      fullWidth
+                      PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}
+                    >
+                      <DialogTitle sx={{ fontWeight: 800 }}>Insert HTML Table</DialogTitle>
+                      <DialogContent>
+                        <Stack spacing={2} sx={{ mt: 1.5 }}>
+                          <TextField
+                            label="Number of Columns"
+                            type="number"
+                            size="small"
+                            value={tableCols}
+                            onChange={(e) => setTableCols(Math.max(1, parseInt(e.target.value) || 1))}
+                          />
+                          <TextField
+                            label="Number of Rows"
+                            type="number"
+                            size="small"
+                            value={tableRows}
+                            onChange={(e) => setTableRows(Math.max(1, parseInt(e.target.value) || 1))}
+                          />
+                        </Stack>
+                      </DialogContent>
+                      <DialogActions sx={{ p: 2 }}>
+                        <Button 
+                          onClick={() => setTableDialogOpen(false)} 
+                          sx={{ textTransform: 'none', fontWeight: 600 }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button 
+                          variant="contained" 
+                          onClick={handleInsertTable}
+                          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                        >
+                          Insert
+                        </Button>
+                      </DialogActions>
+                    </Dialog>
                   </>
                 ) : (
                   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8, border: '1px dashed', borderColor: 'divider', borderRadius: '12px' }}>

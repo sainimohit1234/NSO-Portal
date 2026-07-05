@@ -8,6 +8,19 @@ import { firebaseAdmin, getActiveBucket } from '../lib/firebase-admin';
 import { Storage } from '@google-cloud/storage';
 const busboy = require('busboy');
 
+function formatMailBody(body: string) {
+  if (body.includes('<table') || body.includes('<tr') || body.includes('<p') || body.includes('<div') || body.includes('<br')) {
+    return {
+      text: body.replace(/<[^>]*>/g, ''), // strip html tags for text fallback
+      html: body
+    };
+  }
+  return {
+    text: body,
+    html: `<div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333333;">${body.replace(/\n/g, '<br>')}</div>`
+  };
+}
+
 const parseMultipart = (req: any, writeToDisk: boolean = false): Promise<{ fields: any; file: any }> => {
   return new Promise((resolve, reject) => {
     try {
@@ -1099,12 +1112,14 @@ async function checkAndSendStatusEmail(store: any, newStatus: string) {
       }
     });
 
+    const formatted = formatMailBody(finalBody);
     const mailOptions: any = {
       from: smtpConfig.smtpUser,
       to: toEmails,
       cc: ccEmails.length > 0 ? ccEmails : undefined,
       subject: finalSubject,
-      text: finalBody
+      text: formatted.text,
+      html: formatted.html
     };
 
     console.log(`[Status Email] Triggering status email for "${store.cafeName}" status update to "${newStatus}"`);
@@ -3150,12 +3165,14 @@ router.post('/:id/send-status-email', authenticateToken, async (req: any, res) =
     const parsedTo = typeof to === 'string' ? to.split(',').map((e: string) => e.trim()).filter(Boolean) : to;
     const parsedCc = typeof cc === 'string' ? cc.split(',').map((e: string) => e.trim()).filter(Boolean) : cc;
 
+    const formatted = formatMailBody(body);
     const mailOptions: any = {
       from: smtpConfig.smtpUser,
       to: parsedTo,
       cc: parsedCc && parsedCc.length > 0 ? parsedCc : undefined,
       subject: subject,
-      text: body
+      text: formatted.text,
+      html: formatted.html
     };
 
     let info;
@@ -3222,12 +3239,14 @@ router.post('/:id/send-store-code-email', authenticateToken, async (req: any, re
       }
     });
 
+    const formatted = formatMailBody(body || '');
     const mailOptions = {
       from: '"NSM Operations" <analytics@bluetokaicoffee.com>',
       to: to || '',
       cc: cc || '',
       subject: subject || `New Store Code Creation Request | ${store.cafeName}`,
-      text: body || ''
+      text: formatted.text,
+      html: formatted.html
     };
 
     let info;
