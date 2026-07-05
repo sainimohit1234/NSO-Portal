@@ -328,6 +328,7 @@ export default function EditStore() {
   const isViewOnly = user?.role === 'USER';  // User Access Profile — view only
   const canApprove = isSuperAdmin || user?.permissions?.includes('APPROVER');
   const hasGoLiveAccess = user?.permissions?.includes('GO_LIVE') || isSuperAdmin;
+  const hasUpcomingEditor = isSuperAdmin || isAdmin || user?.permissions?.includes('EDITOR');
 
   // Auto-revert status if any details are changed during Approval stage
   const dirtyFields = formState.dirtyFields;
@@ -1249,7 +1250,11 @@ export default function EditStore() {
       statusOptions.push({ value: 'Ready for Construction', label: 'Ready for Construction' });
     }
     if (!statusOptions.some(opt => opt.value === 'Under Construction')) {
-      statusOptions.push({ value: 'Under Construction', label: 'Under Construction' });
+      statusOptions.push({ 
+        value: 'Under Construction', 
+        label: 'Under Construction',
+        disabled: store?.status === 'Ready for Construction' && !hasUpcomingEditor
+      });
     }
   }
 
