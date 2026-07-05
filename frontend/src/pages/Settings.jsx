@@ -26,6 +26,7 @@ const PERM_MODULES = [
   { key: 'dashboard', label: 'Dashboard' },
   { key: 'all_stores', label: 'All Stores' },
   { key: 'expansion_pipeline', label: 'Expansion Pipeline' },
+  { key: 'all_upcoming_stores', label: 'All Upcoming Stores' },
   { key: 'nso_approval', label: 'NSO Approval' },
   { key: 'swiggy_zomato', label: 'Swiggy / Zomato Integration' },
   { key: 'email_directory', label: 'Email Directory' },
@@ -44,6 +45,10 @@ const MODULE_SUB_PERMS = {
   ],
   expansion_pipeline: [
     { key: 'VIEWER', label: 'Viewer' }
+  ],
+  all_upcoming_stores: [
+    { key: 'VIEWER', label: 'Viewer' },
+    { key: 'EDITOR', label: 'Editor' }
   ],
   nso_approval: [
     { key: 'APPROVER', label: 'Approver' }
