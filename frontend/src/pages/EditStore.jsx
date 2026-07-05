@@ -1243,7 +1243,7 @@ export default function EditStore() {
             { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable }
           ];
 
-  const statusOptions = [...baseOptions];
+  let statusOptions = [...baseOptions];
   if (!isSuperAdmin && store?.status === 'CLOSED') {
     if (!statusOptions.some(opt => opt.value === 'CLOSED')) {
       statusOptions.push({ value: 'CLOSED', label: 'Closed' });
@@ -1261,6 +1261,10 @@ export default function EditStore() {
         disabled: store?.status === 'Ready for Construction' && !hasUpcomingEditor
       });
     }
+  }
+
+  if (store?.status === 'Under Construction') {
+    statusOptions = statusOptions.filter(opt => !['INCOMPLETE_INFORMATION', 'Ready for Construction', 'PENDING_APPROVAL'].includes(opt.value));
   }
 
   return (
