@@ -423,58 +423,84 @@ export default function UpcomingStores() {
                         {formatDateString(store.tentativeDryLaunchDate)}
                       </TableCell>
                       <TableCell>
-                        <Chip 
-                          icon={
-                            store.status === 'LIVE' || store.status === 'COMPLIANCE_APPROVED' ? (
-                              <Box 
-                                sx={{ 
-                                  width: 6, 
-                                  height: 6, 
-                                  borderRadius: '50%', 
-                                  bgcolor: store.status === 'LIVE' ? '#22c55e' : '#f97316',
-                                  boxShadow: `0 0 6px ${store.status === 'LIVE' ? '#22c55e' : '#f97316'}`,
-                                  ml: '4px !important',
-                                  mr: '-2px !important',
-                                  animation: 'pulse 1.8s infinite ease-in-out',
-                                  '@keyframes pulse': {
-                                    '0%': {
-                                      transform: 'scale(0.85)',
-                                      boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(249, 115, 22, 0.7)'}`
-                                    },
-                                    '70%': {
-                                      transform: 'scale(1.15)',
-                                      boxShadow: `0 0 0 5px ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
-                                    },
-                                    '100%': {
-                                      transform: 'scale(0.85)',
-                                      boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
+                        {store.status === 'Ready for Construction' ? (
+                          <Select
+                            value="Ready for Construction"
+                            size="small"
+                            disabled={!hasUpcomingEditor}
+                            onChange={(e) => {
+                              if (e.target.value === 'Under Construction') {
+                                handleStatusChange(store.id, 'Under Construction');
+                              }
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                            sx={{
+                              fontSize: '0.75rem',
+                              fontWeight: 700,
+                              height: 30,
+                              borderRadius: '6px',
+                              minWidth: 190,
+                              bgcolor: '#f1f5f9',
+                              '& .MuiSelect-select': { py: 0.5 }
+                            }}
+                          >
+                            <MenuItem value="Ready for Construction" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>Ready for Construction</MenuItem>
+                            <MenuItem value="Under Construction" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>Under Construction</MenuItem>
+                          </Select>
+                        ) : (
+                          <Chip 
+                            icon={
+                              store.status === 'LIVE' || store.status === 'COMPLIANCE_APPROVED' ? (
+                                <Box 
+                                  sx={{ 
+                                    width: 6, 
+                                    height: 6, 
+                                    borderRadius: '50%', 
+                                    bgcolor: store.status === 'LIVE' ? '#22c55e' : '#f97316',
+                                    boxShadow: `0 0 6px ${store.status === 'LIVE' ? '#22c55e' : '#f97316'}`,
+                                    ml: '4px !important',
+                                    mr: '-2px !important',
+                                    animation: 'pulse 1.8s infinite ease-in-out',
+                                    '@keyframes pulse': {
+                                      '0%': {
+                                        transform: 'scale(0.85)',
+                                        boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(249, 115, 22, 0.7)'}`
+                                      },
+                                      '70%': {
+                                        transform: 'scale(1.15)',
+                                        boxShadow: `0 0 0 5px ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
+                                      },
+                                      '100%': {
+                                        transform: 'scale(0.85)',
+                                        boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
+                                      }
                                     }
-                                  }
-                                }} 
-                              />
-                            ) : undefined
-                          }
-                          label={
-                            store.status === 'PENDING_APPROVAL' ? 'SENT TO NSO TEAM FOR APPROVAL' : 
-                            store.status === 'INCOMPLETE_INFORMATION' ? 'INCOMPLETE INFORMATION' : 
-                            store.status === 'ON_HOLD' ? 'ON HOLD' : 
-                            (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'AWAITING COMPLIANCE' : 
-                            (store.status ? store.status.replace(/_/g, ' ') : '')
-                          }
-                          size="small" 
-                          sx={{ 
-                            fontWeight: 700, 
-                            fontSize: '0.725rem',
-                            bgcolor: badgeStyle.bgcolor,
-                            color: badgeStyle.color,
-                            border: '1px solid',
-                            borderColor: badgeStyle.borderColor,
-                            borderRadius: '6px',
-                            px: 0.5,
-                            width: 190,
-                            justifyContent: 'center'
-                          }} 
-                        />
+                                  }} 
+                                />
+                              ) : undefined
+                            }
+                            label={
+                              store.status === 'PENDING_APPROVAL' ? 'SENT TO NSO TEAM FOR APPROVAL' : 
+                              store.status === 'INCOMPLETE_INFORMATION' ? 'INCOMPLETE INFORMATION' : 
+                              store.status === 'ON_HOLD' ? 'ON HOLD' : 
+                              (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'AWAITING COMPLIANCE' : 
+                              (store.status ? store.status.replace(/_/g, ' ') : '')
+                            }
+                            size="small" 
+                            sx={{ 
+                              fontWeight: 700, 
+                              fontSize: '0.725rem',
+                              bgcolor: badgeStyle.bgcolor,
+                              color: badgeStyle.color,
+                              border: '1px solid',
+                              borderColor: badgeStyle.borderColor,
+                              borderRadius: '6px',
+                              px: 0.5,
+                              width: 190,
+                              justifyContent: 'center'
+                            }} 
+                          />
+                        )}
                       </TableCell>
                       <TableCell sx={{ fontSize: '0.825rem', color: 'text.secondary' }}>
                         {store.approvedBy ? (
