@@ -581,15 +581,18 @@ export default function EditStore() {
   };
 
   // Determine what is editable
+  // Determine what is editable
   // Once the store is locked, no one can make changes to the branch fields.
-  const isLocked = store?.isLocked;
+  const currentStatusVal = watch('status');
+  // Unlock locally if the user is transitioning it to Under Construction
+  const isLocked = store?.isLocked && currentStatusVal !== 'Under Construction';
   const isApprovedStatus = store && ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
   
   const hasEditStores = user?.permissions?.includes('EDIT_STORES');
   const hasEditContacts = isSuperAdmin || user?.permissions?.includes('EDIT_CONTACTS');
   
   // Go-Live Configuration card visibility and editability
-  const isGoLiveVisible = watch('status') === 'LIVE';
+  const isGoLiveVisible = currentStatusVal === 'LIVE';
   const canEditGoLive = store && hasGoLiveAccess && (!isLocked || isSuperAdmin) && (store?.status !== 'CLOSED' || isSuperAdmin);
 
   const instLiveWatched = watch('inStoreLive');
@@ -631,13 +634,13 @@ export default function EditStore() {
   }
 
   // If the store is CLOSED or READY FOR CONSTRUCTION, restrict editing
-  if (store?.status === 'CLOSED' && !isSuperAdmin) {
+  if (currentStatusVal === 'CLOSED' && !isSuperAdmin) {
     canEditBasicDetails = false;
     canEditContacts = false;
     canEditFinance = false;
   }
 
-  if (store?.status === 'Ready for Construction') {
+  if (currentStatusVal === 'Ready for Construction') {
     canEditBasicDetails = false;
     canEditContacts = false;
     canEditFinance = false;
@@ -1092,7 +1095,8 @@ export default function EditStore() {
         expectedSales: data.expectedSalesVal
           ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
           : null,
-        ...(data.status === 'REJECTED' ? { mailStatus: '' } : {})
+        ...(data.status === 'REJECTED' ? { mailStatus: '' } : {}),
+        ...(data.status === 'Under Construction' ? { isLocked: false, isLockedAutoApplied: false } : {})
       };
       delete payload.cafeLaunchYear;
       delete payload.expectedSalesVal;
@@ -1129,7 +1133,8 @@ export default function EditStore() {
         expectedSales: data.expectedSalesVal
           ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
           : null,
-        ...(data.status === 'REJECTED' ? { mailStatus: '' } : {})
+        ...(data.status === 'REJECTED' ? { mailStatus: '' } : {}),
+        ...(data.status === 'Under Construction' ? { isLocked: false, isLockedAutoApplied: false } : {})
       };
       delete payload.cafeLaunchYear;
       delete payload.expectedSalesVal;
