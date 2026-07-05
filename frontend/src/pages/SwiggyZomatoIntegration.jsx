@@ -92,9 +92,7 @@ export default function SwiggyZomatoIntegration() {
 
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [emailMappings, setEmailMappings] = useState([]);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
   const [draftDialog, setDraftDialog] = useState({
     open: false, store: null, brandKey: '', brandLabel: '', to: '', cc: '', subject: '', body: ''
   });
@@ -164,17 +162,53 @@ export default function SwiggyZomatoIntegration() {
     }
   };
 
-  const handleOpenDraftDialog = (store, brandKey, brandLabel, mappingId) => {
+  const handleOpenDraftDialog = async (store, brandKey, brandLabel, mappingId) => {
     const isZomato = brandKey.toLowerCase().includes('zomato');
     const mapping = emailMappings.find(m => m.id === mappingId);
+
+    let rawSubject = isZomato ? `Zomato Onboarding Request | [Store Name]` : `Swiggy Onboarding Request | [Store Name]`;
+    let rawBody = isZomato
+      ? `Hi Team,\n\nThis is regarding our new cafe onboarding on Zomato.\n\nPlease find below the cafe details and the attached onboarding form. Kindly initiate the process.\n\nThanks & Regards,\n[User Name]`
+      : `Hi Team,\n\nThis is regarding our new cafe onboarding.\n\nPlease find below the details and initiate the process for the same.\n\nThanks & Regards,\n[User Name]`;
+
+    try {
+      const templatesRes = await axios.get('/api/system/email-templates');
+      const templates = templatesRes.data || {};
+      if (mapping && mapping.subCategory) {
+        const matchedKey = Object.keys(templates).find(k => k.toLowerCase() === mapping.subCategory.toLowerCase());
+        if (matchedKey && templates[matchedKey]) {
+          rawSubject = templates[matchedKey].subject || rawSubject;
+          rawBody = templates[matchedKey].body || rawBody;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load email templates, falling back to default:', err);
+    }
+
+    const brandLabelPretty = store.brand === 'BLUE_TOKAI_SUCHALI' 
+      ? "Blue Tokai / Suchali's Artisan Bakehouse" 
+      : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
+
+    const replaceText = (txt) => {
+      if (!txt) return '';
+      return txt
+        .replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '')
+        .replace(/{brandName}|\[Brand Name\]|\[Brand\]/gi, brandLabelPretty)
+        .replace(/{city}|\[City\]/gi, store.city || '')
+        .replace(/{state}|\[State\]/gi, store.state || '')
+        .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
+        .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
+        .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
+        .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '')
+        .replace(/\[User Name\]/gi, user?.name || 'Operations Team');
+    };
+
     setDraftDialog({
       open: true, store, brandKey, brandLabel,
       to: mapping && Array.isArray(mapping.to) ? mapping.to.join(', ') : '',
       cc: mapping && Array.isArray(mapping.cc) ? mapping.cc.join(', ') : '',
-      subject: isZomato ? `Zomato Onboarding Request | ${store.cafeName || ''}` : `Swiggy Onboarding Request | ${store.cafeName || ''}`,
-      body: isZomato
-        ? `Hi Team,\n\nThis is regarding our new cafe onboarding on Zomato.\n\nPlease find below the cafe details and the attached onboarding form. Kindly initiate the process.\n\nThanks & Regards,\n${user?.name || 'Operations Team'}`
-        : `Hi Team,\n\nThis is regarding our new cafe onboarding.\n\nPlease find below the details and initiate the process for the same.\n\nThanks & Regards,\n${user?.name || 'Operations Team'}`
+      subject: replaceText(rawSubject),
+      body: replaceText(rawBody)
     });
   };
 
