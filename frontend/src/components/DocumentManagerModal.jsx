@@ -243,6 +243,14 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       }
       return d;
     }));
+    
+    setPreviewDoc(prev => {
+      if (prev && prev.id === id) {
+        return { ...prev, metadata: { ...prev.metadata, [field]: value } };
+      }
+      return prev;
+    });
+
     setHasUnsavedChanges(true);
   };
 
