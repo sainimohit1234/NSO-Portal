@@ -625,12 +625,12 @@ export default function UpcomingStores() {
       <Dialog
         open={ucDialogOpen}
         onClose={handleCancelUc}
-        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 400 } }}
+        PaperProps={{ sx: { borderRadius: '16px', bgcolor: 'background.paper', minWidth: 600 } }}
       >
         <DialogTitle sx={{ fontWeight: 800, pb: 1, color: 'text.primary', borderBottom: '1px solid', borderColor: 'divider' }}>
           Operation Details
         </DialogTitle>
-        <DialogContent sx={{ py: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <DialogContent sx={{ py: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
           {ucDialogError && (
             <Alert severity="error" sx={{ borderRadius: '8px' }}>
               {ucDialogError}
@@ -640,22 +640,26 @@ export default function UpcomingStores() {
             fullWidth type="date" label="Project Start Date" InputLabelProps={{ shrink: true }}
             value={ucStartDate} onChange={(e) => setUcStartDate(e.target.value)}
           />
-          <TextField
-            fullWidth type="date" label="Project Handover Date *" InputLabelProps={{ shrink: true }}
-            value={ucHandoverDate} onChange={handleUcHandoverChange} required
-          />
-          <TextField
-            fullWidth type="date" label="Tentative Dry Launch Date" InputLabelProps={{ shrink: true }}
-            value={ucDryLaunchDate} onChange={(e) => setUcDryLaunchDate(e.target.value)}
-          />
-          <TextField
-            fullWidth type="date" label="Launch Date *" InputLabelProps={{ shrink: true }}
-            value={ucLaunchDate} onChange={handleUcLaunchChange} required
-          />
-          <TextField
-            fullWidth label="Cafe Launch Month & Year" InputProps={{ readOnly: true }}
-            value={ucLaunchMonth}
-          />
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              fullWidth type="date" label="Project Handover Date *" InputLabelProps={{ shrink: true }}
+              value={ucHandoverDate} onChange={handleUcHandoverChange} required
+            />
+            <TextField
+              fullWidth type="date" label="Tentative Dry Launch Date" InputLabelProps={{ shrink: true }}
+              value={ucDryLaunchDate} onChange={(e) => setUcDryLaunchDate(e.target.value)}
+            />
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <TextField
+              fullWidth type="date" label="Launch Date *" InputLabelProps={{ shrink: true }}
+              value={ucLaunchDate} onChange={handleUcLaunchChange} required
+            />
+            <TextField
+              fullWidth label="Cafe Launch Month & Year" InputProps={{ readOnly: true }}
+              value={ucLaunchMonth}
+            />
+          </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2, pt: 0, borderTop: '1px solid', borderColor: 'divider' }}>
           <Button onClick={handleCancelUc} color="inherit" sx={{ fontWeight: 600, borderRadius: '8px' }}>
