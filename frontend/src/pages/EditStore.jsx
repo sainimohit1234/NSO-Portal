@@ -444,6 +444,22 @@ export default function EditStore() {
           formattedStore.cafeLaunchYear = parts[1];  // e.g. "2026"
         }
       }
+
+      // Sync metadata from Document array back into flat form fields
+      if (Array.isArray(currentStore.documents)) {
+        const fssaiDoc = currentStore.documents.find(d => d.type === 'FSSAI License');
+        if (fssaiDoc) {
+          if (fssaiDoc.url) formattedStore.fssaiLicense = fssaiDoc.url;
+          if (fssaiDoc.metadata?.fssaiNumber) formattedStore.fssaiNo = fssaiDoc.metadata.fssaiNumber;
+          if (fssaiDoc.metadata?.validUntil) formattedStore.fssaiExpiry = safeGetDateString(fssaiDoc.metadata.validUntil);
+        }
+
+        const leaseDoc = currentStore.documents.find(d => d.type === 'Lease / Rental Agreement');
+        if (leaseDoc) {
+          if (leaseDoc.metadata?.validUntil) formattedStore.rentExpiry = safeGetDateString(leaseDoc.metadata.validUntil);
+        }
+      }
+
       reset(formattedStore);
     }).catch(err => {
       setErrorMsg('Failed to load store details.');
