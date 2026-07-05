@@ -1196,7 +1196,8 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
   const { status } = req.body;
   const requestUser = (req as any).user;
   
-  const targetStatus = status === 'APPROVED' ? 'NSO_APPROVED' : status;
+  // Compliance stage removed: APPROVED goes directly (no longer routes through NSO_APPROVED)
+  const targetStatus = status;
 
   try {
     const store = await prisma.store.findUnique({
@@ -1239,7 +1240,16 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
       }
     }
 
-    if (targetStatus === 'NSO_APPROVED') {
+    if (targetStatus === 'NSO_APPROVED' || targetStatus === 'APPROVED') {
+      // Auto-populate legacy launchStatus field if missing to avoid blocking approvals
+      if (!store.launchStatus || String(store.launchStatus).trim() === '') {
+        await prisma.store.update({
+          where: { id: storeId },
+          data: { launchStatus: 'Newly Launched' }
+        });
+        (store as any).launchStatus = 'Newly Launched';
+      }
+
       const missingFields: string[] = [];
       for (const field of MANDATORY_FIELDS) {
         const value = (store as any)[field];

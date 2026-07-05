@@ -247,7 +247,7 @@ export default function Approvals() {
       setRemarksError(false);
       setRemarksDialogOpen(true);
     } else {
-      handleAction(store, newStatus === 'APPROVED' ? 'NSO_APPROVED' : newStatus);
+      handleAction(store, newStatus);
     }
   };
 
@@ -483,7 +483,7 @@ export default function Approvals() {
                               ) : undefined
                             }
                             label={
-                              store.status === 'NSO_APPROVED' || store.status === 'APPROVED' ? 'Awaiting Compliance'
+                              store.status === 'NSO_APPROVED' || store.status === 'APPROVED' ? 'Approved'
                               : store.status === 'COMPLIANCE_APPROVED' ? 'Compliance Approved'
                               : store.status === 'INCOMPLETE_INFORMATION' ? 'Incomplete Information'
                               : store.status === 'PENDING_APPROVAL' ? 'Approval Pending'

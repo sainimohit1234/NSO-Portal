@@ -48,11 +48,11 @@ export default function SwiggyZomatoIntegration() {
       axios.get('/api/system/email-mappings')
     ])
       .then(([fetchedStores, mappingsRes]) => {
-        // Only show active stores which are Compliance Approved
+        // Show stores that are Approved (compliance stage removed) or Compliance Approved
         const filtered = fetchedStores.filter(s =>
           s.isActive !== false &&
           s.isActive !== 'false' &&
-          (s.status === 'COMPLIANCE_APPROVED' || s.status === 'COMPLIANCE APPROVED')
+          (s.status === 'APPROVED' || s.status === 'NSO_APPROVED' || s.status === 'COMPLIANCE_APPROVED' || s.status === 'COMPLIANCE APPROVED')
         );
         
         // Sort stores alphabetically by name
@@ -192,7 +192,7 @@ export default function SwiggyZomatoIntegration() {
             Swiggy / Zomato Integration
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Manage onboarding triggers, platforms communications, and restaurant ID records for Compliance Approved cafes.
+            Manage onboarding triggers, platforms communications, and restaurant ID records for Approved cafes.
           </Typography>
         </Box>
         <Button
@@ -271,7 +271,7 @@ export default function SwiggyZomatoIntegration() {
                 ) : filteredStores.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={21} align="center" sx={{ py: 8, color: 'text.secondary', fontStyle: 'italic' }}>
-                      {searchQuery ? 'No compliance approved stores found matching search query.' : 'No compliance approved stores available.'}
+                      {searchQuery ? 'No approved stores found matching search query.' : 'No approved stores available.'}
                     </TableCell>
                   </TableRow>
                 ) : (

@@ -7,6 +7,8 @@ import fs from 'fs';
 import * as functions from 'firebase-functions/v2';
 import { firebaseAdmin, getActiveBucket } from './lib/firebase-admin';
 
+// v2 - Updated MANDATORY_FIELDS: removed launchStatus
+
 // Globally prioritize IPv4 over IPv6 for dns resolution to avoid outbound connection failures
 dns.setDefaultResultOrder('ipv4first');
 
