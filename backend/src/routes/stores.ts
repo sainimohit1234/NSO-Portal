@@ -1569,7 +1569,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
 
     // Enforce lock status modifications: only SUPER_ADMIN can change the lock status of a store.
     if (req.body.isLocked !== undefined && req.body.isLocked !== currentStore.isLocked) {
-      if (user.role !== 'SUPER_ADMIN') {
+      if (user.role !== 'SUPER_ADMIN' && req.body.status !== 'Under Construction') {
         return res.status(403).json({ error: 'Access denied: Only Super Admin can change the lock status of a store.' });
       }
       updateData.isLockedAutoApplied = true;
