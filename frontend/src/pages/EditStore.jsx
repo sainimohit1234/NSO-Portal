@@ -1842,23 +1842,8 @@ export default function EditStore() {
                       />
                     </Grid>
                     
-                    <Grid size={{ xs: 12, sm: 2 }}>
-                      <TextField 
-                        fullWidth 
-                        select 
-                        label="Zone **" 
-                        {...register('zone', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
-                        error={!!errors.zone}
-                        value={watch('zone') || ''}
-                        disabled={!canEditBasicDetails}
-                      >
-                        <MenuItem value="">— Clear Selection —</MenuItem>
-                        {ZONES.map(z => (
-                          <MenuItem key={z} value={z}>{z}</MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
+                    {/* Zone was moved down */}
+                    <Grid size={{ xs: 12, sm: 5 }}>
                       <TextField 
                         fullWidth 
                         label="Café Location Google Link **" 
@@ -1907,9 +1892,27 @@ export default function EditStore() {
                       />
                     </Grid>
    
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <TextField 
+                        select 
+                        fullWidth 
+                        label="Zone **" 
+                        {...register('zone', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        error={!!errors.zone}
+                        value={watch('zone') || ''}
+                        disabled={!canEditBasicDetails}
+                      >
+                        <MenuItem value="">— Clear Selection —</MenuItem>
+                        {ZONES.map(z => (
+                          <MenuItem key={z} value={z}>{z}</MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField 
                         fullWidth 
+                        type="time"
+                        InputLabelProps={{ shrink: true }}
                         label="Café Opening Time **" 
                         {...register('cafeOpenTiming', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
                         error={!!errors.cafeOpenTiming}
@@ -1917,9 +1920,11 @@ export default function EditStore() {
                         disabled={!canEditBasicDetails} 
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField 
                         fullWidth 
+                        type="time"
+                        InputLabelProps={{ shrink: true }}
                         label="Café Closing Time **" 
                         {...register('cafeClosingTime', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
                         error={!!errors.cafeClosingTime}
@@ -1927,9 +1932,11 @@ export default function EditStore() {
                         disabled={!canEditBasicDetails} 
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
+                    <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField 
                         fullWidth 
+                        type="time"
+                        InputLabelProps={{ shrink: true }}
                         label="Actual Closing Time **" 
                         {...register('actualClosingTime', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
                         error={!!errors.actualClosingTime}
