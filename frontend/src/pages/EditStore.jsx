@@ -1264,7 +1264,7 @@ export default function EditStore() {
   }
 
   if (store?.status === 'Under Construction') {
-    statusOptions = statusOptions.filter(opt => !['INCOMPLETE_INFORMATION', 'Ready for Construction', 'PENDING_APPROVAL'].includes(opt.value));
+    statusOptions = statusOptions.filter(opt => !['INCOMPLETE_INFORMATION', 'Ready for Construction'].includes(opt.value));
   }
 
   return (
