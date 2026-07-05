@@ -1265,7 +1265,7 @@ Operations Team`;
                                {currentStatus === 'Ready for Construction' && (
                                  <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
                                )}
-                               {(currentStatus === 'Ready for Construction' || currentStatus === 'Under Construction') && (
+                               {currentStatus === 'Under Construction' && (
                                  <MenuItem value="Under Construction">Under Construction</MenuItem>
                                )}
                                {(isLocked || currentStatus === 'Live') && (
