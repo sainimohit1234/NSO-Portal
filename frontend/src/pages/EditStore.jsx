@@ -1265,6 +1265,11 @@ export default function EditStore() {
 
   if (store?.status === 'Under Construction') {
     statusOptions = statusOptions.filter(opt => !['INCOMPLETE_INFORMATION', 'Ready for Construction'].includes(opt.value));
+    const pendingOptIndex = statusOptions.findIndex(opt => opt.value === 'PENDING_APPROVAL');
+    if (pendingOptIndex !== -1) {
+      const pendingOpt = statusOptions.splice(pendingOptIndex, 1)[0];
+      statusOptions.push(pendingOpt);
+    }
   }
 
   return (
