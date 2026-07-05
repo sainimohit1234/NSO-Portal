@@ -17,6 +17,7 @@ export default function UpcomingStores() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isUser = user?.role === 'USER';
+  const hasUpcomingEditor = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.permissions?.includes('EDITOR');
 
   const [stores, setStores] = useState([]);
   const [filteredStores, setFilteredStores] = useState([]);
@@ -370,7 +371,7 @@ export default function UpcomingStores() {
                 filteredStores.map((store) => {
                   const badgeStyle = getStatusChipStyle(store.status);
                   const isStoreApproved = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
-                  const isStoreEditable = true;
+                  const isStoreEditable = store.status !== 'Ready for Construction';
                   
                   return (
                     <TableRow 
