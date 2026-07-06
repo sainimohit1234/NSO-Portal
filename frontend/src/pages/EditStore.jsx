@@ -1545,7 +1545,7 @@ export default function EditStore() {
             sx={{ 
               mb: 4, 
               borderRadius: '12px',
-              '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
+              '& .MuiAlert-message': { fontWeight: 700 }
             }}
           >
             {errorMsg}
@@ -1568,7 +1568,7 @@ export default function EditStore() {
             sx={{ 
               mb: 4, 
               borderRadius: '12px',
-              '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
+              '& .MuiAlert-message': { fontWeight: 700 }
             }}
           >
             To enable the <strong>"Sent to NSO Team for Approval"</strong> action, please complete all mandatory fields:{' '}
@@ -1586,7 +1586,7 @@ export default function EditStore() {
             sx={{ 
               mb: 4, 
               borderRadius: '12px',
-              '& .MuiAlert-message': { fontWeight: 700, color: '#000000' }
+              '& .MuiAlert-message': { fontWeight: 700 }
             }}
           >
             <strong>Launch Date</strong> is required to select the <strong>"Approved"</strong> status.
