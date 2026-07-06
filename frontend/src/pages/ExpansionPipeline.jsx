@@ -893,16 +893,16 @@ export default function ExpansionPipeline() {
                   </Box>
                   <Box 
                     sx={{
-                      bgcolor: isActive ? tile.color : `${tile.color}12`,
+                      bgcolor: isActive ? '#38bdf8' : 'rgba(56, 189, 248, 0.16)',
                       p: 1.25,
                       borderRadius: 3.5,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: isActive ? '#fff' : tile.color,
-                      border: `1px solid ${tile.color}20`,
+                      color: isActive ? '#0B0F19' : '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
                       transition: 'all 0.3s ease',
-                      boxShadow: isActive ? `0 4px 10px ${tile.color}40` : 'none'
+                      boxShadow: isActive ? '0 4px 12px rgba(56, 189, 248, 0.35)' : 'none'
                     }}
                   >
                     {React.cloneElement(tile.icon, { sx: { fontSize: 24 } })}

@@ -418,15 +418,15 @@ export default function UpcomingStores() {
                   </Box>
                   <Box 
                     sx={{
-                      bgcolor: isActive ? tile.color : `${tile.color}12`,
+                      bgcolor: isActive ? '#38bdf8' : 'rgba(56, 189, 248, 0.16)',
                       p: 1.25,
                       borderRadius: 3.5,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: isActive ? '#ffffff' : tile.color,
-                      border: `1px solid ${tile.color}20`,
-                      boxShadow: isActive ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.45)',
+                      color: isActive ? '#0B0F19' : '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      boxShadow: isActive ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.1)',
                       transition: 'all 0.2s ease'
                     }}
                   >
