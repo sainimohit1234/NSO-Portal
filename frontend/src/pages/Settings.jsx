@@ -1244,7 +1244,7 @@ export default function Settings() {
                                   justifyContent: 'space-between', 
                                   alignItems: 'center',
                                   p: 1.5,
-                                  bgcolor: '#fff',
+                                  bgcolor: 'background.default',
                                   borderRadius: '10px',
                                   border: '1px solid',
                                   borderColor: 'divider',

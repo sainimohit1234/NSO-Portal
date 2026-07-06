@@ -1092,7 +1092,7 @@ export default function AggregatorMail() {
                             />
 
                             {/* Spreadsheet Visual Table Grid */}
-                            <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: '12px', bgcolor: '#ffffff' }}>
+                            <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: '12px', bgcolor: 'background.paper' }}>
                               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
                                   Email Table Grid Builder
