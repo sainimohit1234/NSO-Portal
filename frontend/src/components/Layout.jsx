@@ -49,7 +49,7 @@ import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import suchaliLogo from '../assets/suchali_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
 
-const drawerWidth = 228;
+const drawerWidth = 260;
 const glassPanelSx = {
   background: 'linear-gradient(180deg, rgba(18, 24, 36, 0.82) 0%, rgba(11, 15, 25, 0.68) 100%)',
   backdropFilter: 'blur(22px)',
