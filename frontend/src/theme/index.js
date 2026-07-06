@@ -1,64 +1,63 @@
 import { alpha, createTheme, responsiveFontSizes } from '@mui/material/styles';
 
-const primaryMain = '#0A314D'; // Blue Tokai Navy
-const primaryDark = '#061E33';
-const primaryLight = '#174A73';
-const primaryDeep = '#041524';
-const surfaceBorder = alpha('#000000', 0.08);
-const paperSurface = '#FFFFFF';
-const defaultBg = '#F4F6F8';
-const lightShadow = '0 4px 20px rgba(0, 0, 0, 0.04)';
-const hoverShadow = '0 8px 24px rgba(10, 49, 77, 0.1)';
+const primaryMain = '#38bdf8'; // Electric sky blue (bright Navy for dark theme)
+const primaryDark = '#0284c7';
+const primaryLight = '#7dd3fc';
+const primaryDeep = '#0f172a'; // Deep slate
+const surfaceBorder = 'rgba(255, 255, 255, 0.08)';
+const paperSurface = '#121824'; // Premium slate card background
+const defaultBg = '#0B0F19'; // Deep Space Dark Navy
+const hoverShadow = '0 12px 30px rgba(0, 0, 0, 0.25)';
 
 const baseTheme = createTheme({
   palette: {
-    mode: 'light',
+    mode: 'dark',
     primary: {
       main: primaryMain,
       light: primaryLight,
       dark: primaryDark,
-      contrastText: '#FFFFFF'
+      contrastText: '#0f172a'
     },
     secondary: {
-      main: '#8b6cf0',
-      light: '#efe9ff',
-      dark: '#6a4dd9',
-      contrastText: '#ffffff'
+      main: '#c084fc',
+      light: '#f3e8ff',
+      dark: '#a855f7',
+      contrastText: '#0f172a'
     },
     background: {
       default: defaultBg,
       paper: paperSurface
     },
     text: {
-      primary: '#1E293B',
-      secondary: '#475569',
-      disabled: '#94A3B8'
+      primary: '#F8FAFC',
+      secondary: '#94A3B8',
+      disabled: '#64748B'
     },
     divider: surfaceBorder,
     success: {
-      main: '#10B981',
-      light: '#D1FAE5',
+      main: '#34d399',
+      light: 'rgba(52, 211, 153, 0.15)',
       dark: '#059669'
     },
     warning: {
-      main: '#F59E0B',
-      light: '#FEF3C7',
-      dark: '#D97706'
+      main: '#fbbf24',
+      light: 'rgba(251, 191, 36, 0.15)',
+      dark: '#d97706'
     },
     error: {
-      main: '#EF4444',
-      light: '#FEE2E2',
-      dark: '#DC2626'
+      main: '#f87171',
+      light: 'rgba(248, 113, 113, 0.15)',
+      dark: '#dc2626'
     },
     info: {
-      main: '#3B82F6',
-      light: '#DBEAFE',
-      dark: '#2563EB'
+      main: '#60a5fa',
+      light: 'rgba(96, 165, 250, 0.15)',
+      dark: '#2563eb'
     },
     action: {
-      hover: alpha(primaryMain, 0.04),
-      selected: alpha(primaryMain, 0.08),
-      focus: alpha(primaryMain, 0.12)
+      hover: 'rgba(255, 255, 255, 0.04)',
+      selected: 'rgba(255, 255, 255, 0.08)',
+      focus: 'rgba(255, 255, 255, 0.12)'
     }
   },
   typography: {
@@ -83,7 +82,7 @@ const baseTheme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         ':root': {
-          colorScheme: 'light'
+          colorScheme: 'dark'
         },
         html: {
           WebkitFontSmoothing: 'antialiased',
@@ -91,18 +90,18 @@ const baseTheme = createTheme({
         },
         body: {
           minHeight: '100vh',
-          color: '#1E293B',
+          color: '#F8FAFC',
           backgroundColor: defaultBg,
           backgroundAttachment: 'fixed',
-          scrollbarColor: `${alpha('#0A314D', 0.25)} ${alpha('#000000', 0.05)}`,
+          scrollbarColor: `${alpha('#38bdf8', 0.25)} ${alpha('#000000', 0.15)}`,
           '&::-webkit-scrollbar': { width: 10, height: 10 },
-          '&::-webkit-scrollbar-track': { background: alpha('#000000', 0.05) },
+          '&::-webkit-scrollbar-track': { background: alpha('#000000', 0.15) },
           '&::-webkit-scrollbar-thumb': {
-            background: alpha('#0A314D', 0.2),
+            background: alpha('#38bdf8', 0.2),
             borderRadius: 999
           },
           '&::-webkit-scrollbar-thumb:hover': {
-            background: alpha('#0A314D', 0.4)
+            background: alpha('#38bdf8', 0.4)
           }
         },
         '#root': {
@@ -125,7 +124,7 @@ const baseTheme = createTheme({
         },
         containedPrimary: {
           background: primaryMain,
-          color: '#FFFFFF'
+          color: '#0f172a'
         },
         outlinedPrimary: {
           borderColor: alpha(primaryMain, 0.4),
@@ -133,7 +132,7 @@ const baseTheme = createTheme({
           backgroundColor: 'transparent',
           '&:hover': {
             borderColor: primaryMain,
-            backgroundColor: alpha(primaryMain, 0.04)
+            backgroundColor: alpha(primaryMain, 0.08)
           }
         }
       }
@@ -142,13 +141,13 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 20,
-          border: `1px solid ${alpha('#0A314D', 0.08)}`,
-          boxShadow: '0 8px 30px rgba(10, 49, 77, 0.02), 0 1px 3px rgba(10, 49, 77, 0.01)',
+          border: `1px solid ${surfaceBorder}`,
+          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.15)',
           background: paperSurface,
           backgroundImage: 'none',
           transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
           '&:hover': {
-            boxShadow: '0 12px 38px rgba(10, 49, 77, 0.08)'
+            boxShadow: '0 12px 38px rgba(0, 0, 0, 0.25)'
           }
         }
       }
@@ -158,7 +157,7 @@ const baseTheme = createTheme({
         root: {
           backgroundImage: 'none',
           backgroundColor: paperSurface,
-          boxShadow: lightShadow
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
         }
       }
     },
@@ -176,16 +175,16 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          backgroundColor: '#FFFFFF',
+          backgroundColor: '#1e293b',
           minHeight: 42,
           fontSize: '0.84rem',
           fontWeight: 600,
           '& .MuiOutlinedInput-notchedOutline': {
-            borderColor: alpha('#1E293B', 0.2),
+            borderColor: 'rgba(255, 255, 255, 0.12)',
             borderWidth: '1.5px'
           },
           '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: alpha('#1E293B', 0.4),
+            borderColor: 'rgba(255, 255, 255, 0.24)',
             borderWidth: '1.5px'
           },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
@@ -194,11 +193,11 @@ const baseTheme = createTheme({
             boxShadow: `0 0 0 4px ${alpha(primaryMain, 0.15)}`
           },
           '&.Mui-disabled': {
-            backgroundColor: '#F8FAFC',
-            color: alpha('#1E293B', 0.5),
-            WebkitTextFillColor: alpha('#1E293B', 0.5),
+            backgroundColor: '#0f172a',
+            color: 'rgba(248, 250, 252, 0.4)',
+            WebkitTextFillColor: 'rgba(248, 250, 252, 0.4)',
             '& .MuiOutlinedInput-notchedOutline': {
-              borderColor: alpha('#1E293B', 0.1),
+              borderColor: 'rgba(255, 255, 255, 0.06)',
               borderWidth: '1.5px'
             }
           }
@@ -230,9 +229,9 @@ const baseTheme = createTheme({
           marginBottom: 6,
           fontWeight: 700,
           fontSize: '0.8rem',
-          color: '#475569',
+          color: '#94a3b8',
           '&.Mui-disabled': {
-            color: alpha('#475569', 0.5)
+            color: 'rgba(148, 163, 184, 0.5)'
           },
           '&.Mui-focused': {
             color: primaryMain
@@ -246,7 +245,7 @@ const baseTheme = createTheme({
           borderRadius: 14,
           border: `1px solid ${surfaceBorder}`,
           background: paperSurface,
-          boxShadow: '0 12px 36px rgba(0,0,0,0.08)'
+          boxShadow: '0 12px 36px rgba(0,0,0,0.25)'
         }
       }
     },
@@ -255,12 +254,12 @@ const baseTheme = createTheme({
         root: {
           borderRadius: 12,
           margin: '4px 8px',
-          color: '#1E293B',
+          color: '#F8FAFC',
           '&:hover': {
-            backgroundColor: alpha(primaryMain, 0.06)
+            backgroundColor: 'rgba(255, 255, 255, 0.05)'
           },
           '&.Mui-selected': {
-            backgroundColor: alpha(primaryMain, 0.1),
+            backgroundColor: alpha(primaryMain, 0.15),
             color: primaryMain,
             fontWeight: 700
           }
@@ -270,10 +269,10 @@ const baseTheme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          color: '#1E293B',
-          backgroundColor: '#FFFFFF',
+          color: '#F8FAFC',
+          backgroundColor: '#111827',
           borderBottom: `1px solid ${surfaceBorder}`,
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.02)',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
         }
       }
     },
@@ -281,8 +280,8 @@ const baseTheme = createTheme({
       styleOverrides: {
         paper: {
           borderRight: `1px solid ${surfaceBorder}`,
-          backgroundColor: '#FFFFFF',
-          color: '#1E293B'
+          backgroundColor: '#111827',
+          color: '#F8FAFC'
         }
       }
     },
@@ -290,13 +289,13 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiTableCell-root': {
-            backgroundColor: '#F8FAFC',
-            color: '#475569',
+            backgroundColor: '#1e293b',
+            color: '#94a3b8',
             fontWeight: 800,
             textTransform: 'uppercase',
             fontSize: '0.7rem',
             letterSpacing: '0.08em',
-            borderBottom: `2px solid ${alpha(primaryMain, 0.15)}`
+            borderBottom: `2px solid ${alpha(primaryMain, 0.3)}`
           }
         }
       }
@@ -304,12 +303,12 @@ const baseTheme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: `1px solid ${alpha(primaryMain, 0.05)}`,
+          borderBottom: `1px solid rgba(255, 255, 255, 0.06)`,
           paddingTop: 12,
           paddingBottom: 12,
           fontSize: '0.82rem',
           fontWeight: 600,
-          color: '#1E293B'
+          color: '#F8FAFC'
         }
       }
     },
@@ -318,7 +317,7 @@ const baseTheme = createTheme({
         root: {
           transition: 'background-color 150ms ease',
           '&:hover': {
-            backgroundColor: alpha(primaryMain, 0.035)
+            backgroundColor: 'rgba(255, 255, 255, 0.02)'
           }
         }
       }
@@ -355,24 +354,24 @@ const baseTheme = createTheme({
           }
         },
         standardSuccess: {
-          backgroundColor: '#F0FDF4',
-          color: '#166534',
-          border: '1px solid #BBF7D0'
+          backgroundColor: 'rgba(52, 211, 153, 0.12)',
+          color: '#34d399',
+          border: '1px solid rgba(52, 211, 153, 0.25)'
         },
         standardError: {
-          backgroundColor: '#FEF2F2',
-          color: '#991B1B',
-          border: '1px solid #FECACA'
+          backgroundColor: 'rgba(248, 113, 113, 0.12)',
+          color: '#f87171',
+          border: '1px solid rgba(248, 113, 113, 0.25)'
         },
         standardWarning: {
-          backgroundColor: '#FFFBEB',
-          color: '#92400E',
-          border: '1px solid #FDE68A'
+          backgroundColor: 'rgba(251, 191, 36, 0.12)',
+          color: '#fbbf24',
+          border: '1px solid rgba(251, 191, 36, 0.25)'
         },
         standardInfo: {
-          backgroundColor: '#EFF6FF',
-          color: '#1E40AF',
-          border: '1px solid #BFDBFE'
+          backgroundColor: 'rgba(96, 165, 250, 0.12)',
+          color: '#60a5fa',
+          border: '1px solid rgba(96, 165, 250, 0.25)'
         }
       }
     },
@@ -380,9 +379,9 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 12,
-          color: '#64748B',
+          color: '#94a3b8',
           '&:hover': {
-            backgroundColor: alpha(primaryMain, 0.06),
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
             color: primaryMain
           }
         }
@@ -401,14 +400,14 @@ const baseTheme = createTheme({
           borderRadius: 14,
           margin: '4px 8px',
           '&.Mui-selected': {
-            backgroundColor: alpha(primaryMain, 0.08),
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
             color: primaryMain,
             '& .MuiListItemIcon-root': {
               color: primaryMain
             }
           },
           '&:hover': {
-            backgroundColor: alpha(primaryMain, 0.04)
+            backgroundColor: 'rgba(255, 255, 255, 0.03)'
           }
         }
       }
@@ -417,7 +416,7 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           minWidth: 36,
-          color: '#64748B'
+          color: '#94a3b8'
         }
       }
     },
@@ -436,7 +435,7 @@ const baseTheme = createTheme({
           borderRadius: 18,
           border: `1px solid ${surfaceBorder}`,
           background: paperSurface,
-          boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
+          boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
         }
       }
     }
