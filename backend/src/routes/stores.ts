@@ -1853,13 +1853,13 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     }
 
     // Capture approvedBy and approvedAt when transitioning to approved status, or clear it if transitioning out
-    const approvalStatuses = ['APPROVED', 'NSO_APPROVED'];
-    if (approvalStatuses.includes(updateData.status)) {
-      if (!currentStore?.approvedBy || !approvalStatuses.includes(currentStore?.status)) {
+    const nsoApprovalStatuses = ['APPROVED', 'NSO_APPROVED'];
+    if (nsoApprovalStatuses.includes(updateData.status)) {
+      if (!currentStore?.approvedBy || !nsoApprovalStatuses.includes(currentStore?.status)) {
         updateData.approvedBy = user?.name || user?.email || 'Unknown';
         updateData.approvedAt = new Date().toISOString();
       }
-    } else if (updateData.status && !approvalStatuses.includes(updateData.status)) {
+    } else if (updateData.status && !nsoApprovalStatuses.includes(updateData.status)) {
       updateData.approvedBy = null;
       updateData.approvedAt = null;
     }
@@ -1870,7 +1870,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
         updateData.sentToNsoBy = user?.name || user?.email || 'Unknown';
         updateData.sentToNsoAt = new Date().toISOString();
       }
-    } else if (updateData.status && !['PENDING_APPROVAL', ...approvalStatuses, 'COMPLIANCE_APPROVED', 'LIVE'].includes(updateData.status)) {
+    } else if (updateData.status && !['PENDING_APPROVAL', ...nsoApprovalStatuses, 'COMPLIANCE_APPROVED', 'LIVE'].includes(updateData.status)) {
       updateData.sentToNsoBy = null;
       updateData.sentToNsoAt = null;
     }

@@ -1229,6 +1229,7 @@ Operations Team`;
                             '&:hover': { bgcolor: 'info.main', color: 'primary.contrastText' }
                           }} 
                         />
+                      </TableCell>
                                  {/* Status */}
                       <TableCell>
                         {(() => {
