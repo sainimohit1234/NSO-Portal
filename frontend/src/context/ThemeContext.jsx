@@ -24,6 +24,24 @@ const lightThemeDefaults = {
   primary: '#0A314D'
 };
 
+const systemDayThemeDefaults = {
+  text: '#334155', // Slate 700
+  border: 'rgba(0, 0, 0, 0.12)',
+  header: '#f59e0b', // Amber 500 (Sunny daytime)
+  background: '#fdfbf7', // Warm off-white
+  paper: '#ffffff',
+  primary: '#d97706' // Amber 600
+};
+
+const systemNightThemeDefaults = {
+  text: '#e0e7ff', // Indigo 100
+  border: 'rgba(255, 255, 255, 0.1)',
+  header: '#172554', // Blue 950
+  background: '#0f172a', // Slate 900
+  paper: '#1e1b4b', // Indigo 900
+  primary: '#818cf8' // Indigo 400
+};
+
 export const CustomThemeProvider = ({ children }) => {
   const [themeMode, setThemeModeState] = useState(() => {
     return localStorage.getItem('themeMode') || 'dark';
@@ -63,27 +81,28 @@ export const CustomThemeProvider = ({ children }) => {
   }, [themeMode]);
 
   const activeTheme = useMemo(() => {
-    let effectiveThemeMode = themeMode;
-    if (themeMode === 'system') {
-      effectiveThemeMode = systemThemeValue;
-    }
-
-    const isDark = effectiveThemeMode === 'dark';
-    const isLight = effectiveThemeMode === 'light';
-
-    // Determine color variables
-    let text = darkThemeDefaults.text;
-    let border = darkThemeDefaults.border;
-    let headerBg = darkThemeDefaults.header;
-    let bgDefault = darkThemeDefaults.background;
-    let bgPaper = darkThemeDefaults.paper;
-    let primaryMain = darkThemeDefaults.primary;
+    let text, border, headerBg, bgDefault, bgPaper, primaryMain;
     let primaryDark = '#0284c7';
     let primaryLight = '#7dd3fc';
     let textSecondary = '#94A3B8';
     let paletteMode = 'dark';
 
-    if (isLight) {
+    if (themeMode === 'system') {
+      const isDaytime = systemThemeValue === 'light';
+      const defaults = isDaytime ? systemDayThemeDefaults : systemNightThemeDefaults;
+      
+      text = defaults.text;
+      border = defaults.border;
+      headerBg = defaults.header;
+      bgDefault = defaults.background;
+      bgPaper = defaults.paper;
+      primaryMain = defaults.primary;
+      
+      primaryDark = isDaytime ? '#b45309' : '#4f46e5';
+      primaryLight = isDaytime ? '#fcd34d' : '#c7d2fe';
+      textSecondary = isDaytime ? '#64748b' : '#a5b4fc';
+      paletteMode = isDaytime ? 'light' : 'dark';
+    } else if (themeMode === 'light') {
       text = lightThemeDefaults.text;
       border = lightThemeDefaults.border;
       headerBg = lightThemeDefaults.header;
@@ -99,13 +118,24 @@ export const CustomThemeProvider = ({ children }) => {
       border = customColors.border || darkThemeDefaults.border;
       headerBg = customColors.header || darkThemeDefaults.header;
       bgDefault = customColors.background || darkThemeDefaults.background;
-      bgPaper = customColors.background || darkThemeDefaults.paper; // Use background as card surface to keep it consistent
+      bgPaper = customColors.background || darkThemeDefaults.paper; 
       primaryMain = customColors.primary || darkThemeDefaults.primary;
       primaryDark = alpha(primaryMain, 0.8);
       primaryLight = alpha(primaryMain, 0.4);
       textSecondary = alpha(text, 0.65);
-      paletteMode = 'dark'; // Fallback mode
+      paletteMode = 'dark';
+    } else {
+      // Default Dark Theme
+      text = darkThemeDefaults.text;
+      border = darkThemeDefaults.border;
+      headerBg = darkThemeDefaults.header;
+      bgDefault = darkThemeDefaults.background;
+      bgPaper = darkThemeDefaults.paper;
+      primaryMain = darkThemeDefaults.primary;
+      paletteMode = 'dark';
     }
+
+    const isLight = paletteMode === 'light';
 
     const hoverShadow = '0 12px 30px rgba(0, 0, 0, 0.25)';
 
