@@ -413,16 +413,15 @@ export default function Approvals() {
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider', width: 50 }}>S.No.</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Code</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Location</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Workflow Status</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>On Hold Remarks</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>City</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Approved By</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
                     {stores.length === 0 ? "No stores pending approval. You're all caught up!" : "No stores match your search."}
                   </TableCell>
                 </TableRow>
@@ -518,9 +517,7 @@ export default function Approvals() {
                           </TextField>
                         )}
                       </TableCell>
-                      <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.875rem' }}>
-                        {store.status === 'ON_HOLD' ? (store.remarks || '—') : ''}
-                      </TableCell>
+
                       <TableCell sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
                         {store.approvedBy ? (
                           <Box>
