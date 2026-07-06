@@ -1916,7 +1916,6 @@ export default function EditStore() {
                         error={!!errors.latt}
                         helperText={errors.latt?.message || "Auto-filled"}
                         disabled={!canEditBasicDetails}
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 3 }}>
@@ -1929,7 +1928,6 @@ export default function EditStore() {
                         error={!!errors.long}
                         helperText={errors.long?.message || "Auto-filled"}
                         disabled={!canEditBasicDetails}
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
                       />
                     </Grid>
    
