@@ -180,25 +180,25 @@ const baseTheme = createTheme({
           fontSize: '0.84rem',
           fontWeight: 600,
           '& .MuiOutlinedInput-notchedOutline': {
-            borderColor: 'rgba(255, 255, 255, 0.12)',
-            borderWidth: '1.5px'
+            borderColor: 'rgba(255, 255, 255, 0.07)',
+            borderWidth: '1px'
           },
           '&:hover .MuiOutlinedInput-notchedOutline': {
-            borderColor: 'rgba(255, 255, 255, 0.24)',
-            borderWidth: '1.5px'
+            borderColor: 'rgba(255, 255, 255, 0.14)',
+            borderWidth: '1px'
           },
           '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-            borderColor: primaryMain,
-            borderWidth: '2px',
-            boxShadow: `0 0 0 4px ${alpha(primaryMain, 0.15)}`
+            borderColor: alpha(primaryMain, 0.55),
+            borderWidth: '1px',
+            boxShadow: 'none'
           },
           '&.Mui-disabled': {
             backgroundColor: '#0f172a',
             color: 'rgba(248, 250, 252, 0.4)',
             WebkitTextFillColor: 'rgba(248, 250, 252, 0.4)',
             '& .MuiOutlinedInput-notchedOutline': {
-              borderColor: 'rgba(255, 255, 255, 0.06)',
-              borderWidth: '1.5px'
+              borderColor: 'rgba(255, 255, 255, 0.04)',
+              borderWidth: '1px'
             }
           }
         },
