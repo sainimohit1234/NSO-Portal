@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -44,6 +44,8 @@ import ViewWeekIcon from '@mui/icons-material/ViewWeek';
 import SyncIcon from '@mui/icons-material/Sync';
 import CloudQueueIcon from '@mui/icons-material/CloudQueue';
 import Chip from '@mui/material/Chip';
+import PaletteIcon from '@mui/icons-material/Palette';
+import { useThemeMode } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import suchaliLogo from '../assets/suchali_logo.png';
@@ -59,6 +61,48 @@ const glassPanelSx = {
 };
 
 export default function Layout() {
+  const { themeMode, setThemeMode, customColors, setCustomColors } = useThemeMode();
+  const [themeAnchorEl, setThemeAnchorEl] = useState(null);
+  const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
+
+  // Custom theme color editor local state
+  const [customBg, setCustomBg] = useState(customColors?.background || '#0B0F19');
+  const [customHeader, setCustomHeader] = useState(customColors?.header || '#111827');
+  const [customText, setCustomText] = useState(customColors?.text || '#F8FAFC');
+  const [customBorder, setCustomBorder] = useState(customColors?.border || '#1e293b');
+  const [customPrimary, setCustomPrimary] = useState(customColors?.primary || '#38bdf8');
+
+  // Sync state when customColors changes
+  useEffect(() => {
+    if (customColors) {
+      setCustomBg(customColors.background || '#0B0F19');
+      setCustomHeader(customColors.header || '#111827');
+      setCustomText(customColors.text || '#F8FAFC');
+      setCustomBorder(customColors.border || '#1e293b');
+      setCustomPrimary(customColors.primary || '#38bdf8');
+    }
+  }, [customColors]);
+
+  const handleThemeClick = (event) => {
+    setThemeAnchorEl(event.currentTarget);
+  };
+
+  const handleThemeClose = () => {
+    setThemeAnchorEl(null);
+  };
+
+  const handleSaveCustomTheme = () => {
+    setCustomColors({
+      background: customBg,
+      header: customHeader,
+      text: customText,
+      border: customBorder,
+      primary: customPrimary
+    });
+    setThemeMode('custom');
+    setCustomizeDialogOpen(false);
+  };
+
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
   const navigate = useNavigate();
@@ -304,6 +348,14 @@ export default function Layout() {
               {currentPage}
             </Typography>
           </Box>
+          <IconButton 
+            size="medium" 
+            onClick={handleThemeClick}
+            sx={{ mr: 1, color: 'text.secondary', border: '1px solid rgba(63, 174, 191, 0.12)', bgcolor: 'action.hover' }}
+            title="Theme Options"
+          >
+            <PaletteIcon sx={{ fontSize: 18 }} />
+          </IconButton>
           <IconButton size="medium" sx={{ mr: 1, color: 'text.secondary', border: '1px solid rgba(63, 174, 191, 0.12)', bgcolor: 'rgba(255,255,255,0.35)' }}>
             <NotificationsActive sx={{ fontSize: 18 }} />
           </IconButton>
@@ -479,6 +531,137 @@ export default function Layout() {
             </Button>
           </DialogActions>
         </form>
+      </Dialog>
+
+      {/* Theme Menu Dropdown */}
+      <Menu
+        anchorEl={themeAnchorEl}
+        open={Boolean(themeAnchorEl)}
+        onClose={handleThemeClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        sx={{ mt: 1 }}
+      >
+        <MenuItem 
+          onClick={() => { setThemeMode('dark'); handleThemeClose(); }} 
+          selected={themeMode === 'dark'} 
+          sx={{ fontWeight: 600, minWidth: 165 }}
+        >
+          Dark Theme
+        </MenuItem>
+        <MenuItem 
+          onClick={() => { setThemeMode('light'); handleThemeClose(); }} 
+          selected={themeMode === 'light'} 
+          sx={{ fontWeight: 600 }}
+        >
+          Light Theme
+        </MenuItem>
+        <MenuItem 
+          onClick={() => { setCustomizeDialogOpen(true); handleThemeClose(); }} 
+          selected={themeMode === 'custom'} 
+          sx={{ fontWeight: 600 }}
+        >
+          Customize Theme
+        </MenuItem>
+      </Menu>
+
+      {/* Customize Theme Dialog */}
+      <Dialog 
+        open={customizeDialogOpen} 
+        onClose={() => setCustomizeDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: '24px', p: 1.25 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Customize Theme Colors</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Select your preferred colors to dynamically customize your dashboard appearance.
+          </Typography>
+          
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 2 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Background Color</Typography>
+                <Typography variant="caption" color="text.secondary">Main background and page container</Typography>
+              </Box>
+              <input 
+                type="color" 
+                value={customBg} 
+                onChange={(e) => setCustomBg(e.target.value)} 
+                style={{ width: 48, height: 38, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, cursor: 'pointer', backgroundColor: 'transparent' }} 
+              />
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 2 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Header & Sidebar Color</Typography>
+                <Typography variant="caption" color="text.secondary">Appbar header and sidebar menu background</Typography>
+              </Box>
+              <input 
+                type="color" 
+                value={customHeader} 
+                onChange={(e) => setCustomHeader(e.target.value)} 
+                style={{ width: 48, height: 38, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, cursor: 'pointer', backgroundColor: 'transparent' }} 
+              />
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 2 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Text Color</Typography>
+                <Typography variant="caption" color="text.secondary">Primary labels and body descriptions</Typography>
+              </Box>
+              <input 
+                type="color" 
+                value={customText} 
+                onChange={(e) => setCustomText(e.target.value)} 
+                style={{ width: 48, height: 38, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, cursor: 'pointer', backgroundColor: 'transparent' }} 
+              />
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 2 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Border Color</Typography>
+                <Typography variant="caption" color="text.secondary">Dividers, input outlines, and card borders</Typography>
+              </Box>
+              <input 
+                type="color" 
+                value={customBorder} 
+                onChange={(e) => setCustomBorder(e.target.value)} 
+                style={{ width: 48, height: 38, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, cursor: 'pointer', backgroundColor: 'transparent' }} 
+              />
+            </Box>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 2 }}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Primary Brand Color</Typography>
+                <Typography variant="caption" color="text.secondary">Buttons, active states, highlights</Typography>
+              </Box>
+              <input 
+                type="color" 
+                value={customPrimary} 
+                onChange={(e) => setCustomPrimary(e.target.value)} 
+                style={{ width: 48, height: 38, border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, cursor: 'pointer', backgroundColor: 'transparent' }} 
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCustomizeDialogOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveCustomTheme} variant="contained" color="primary" sx={{ fontWeight: 700, borderRadius: '8px' }}>
+            Apply Custom Colors
+          </Button>
+        </DialogActions>
       </Dialog>
     </Box>
   );
