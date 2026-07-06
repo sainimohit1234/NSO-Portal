@@ -1030,7 +1030,21 @@ export default function ExpansionPipeline() {
                           onChange={(e) => handleFieldChange(store.id, 'cafeCode', e.target.value)}
                           fullWidth
                           slotProps={{ htmlInput: { style: { fontSize: '0.85rem', fontWeight: 800 } } }}
-                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', fontWeight: 800 } }}
+                          sx={{ 
+                            '& .MuiOutlinedInput-root': { 
+                              borderRadius: '8px', 
+                              fontWeight: 800,
+                              '& .MuiOutlinedInput-notchedOutline': {
+                                border: 'none'
+                              },
+                              '&:hover .MuiOutlinedInput-notchedOutline': {
+                                border: 'none'
+                              },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                border: 'none'
+                              }
+                            } 
+                          }}
                         />
                       </TableCell>
 
