@@ -48,9 +48,28 @@ export const CustomThemeProvider = ({ children }) => {
     localStorage.setItem('customColors', JSON.stringify(colors));
   };
 
+  const [systemThemeValue, setSystemThemeValue] = useState(() => {
+    const hour = new Date().getHours();
+    return (hour >= 6 && hour < 18) ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    if (themeMode !== 'system') return;
+    const interval = setInterval(() => {
+      const hour = new Date().getHours();
+      setSystemThemeValue((hour >= 6 && hour < 18) ? 'light' : 'dark');
+    }, 60000); // Check every minute
+    return () => clearInterval(interval);
+  }, [themeMode]);
+
   const activeTheme = useMemo(() => {
-    const isDark = themeMode === 'dark';
-    const isLight = themeMode === 'light';
+    let effectiveThemeMode = themeMode;
+    if (themeMode === 'system') {
+      effectiveThemeMode = systemThemeValue;
+    }
+
+    const isDark = effectiveThemeMode === 'dark';
+    const isLight = effectiveThemeMode === 'light';
 
     // Determine color variables
     let text = darkThemeDefaults.text;

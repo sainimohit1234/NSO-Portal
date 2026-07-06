@@ -575,6 +575,13 @@ export default function Layout() {
         >
           Light Theme
         </MenuItem>
+        <MenuItem 
+          onClick={() => { setThemeMode('system'); handleThemeClose(); }} 
+          selected={themeMode === 'system'} 
+          sx={{ fontWeight: 600 }}
+        >
+          System Theme (Auto)
+        </MenuItem>
       </Menu>
 
     </Box>
