@@ -5,8 +5,8 @@ const primaryDark = '#0284c7';
 const primaryLight = '#7dd3fc';
 const primaryDeep = '#0f172a'; // Deep slate
 const surfaceBorder = 'rgba(255, 255, 255, 0.08)';
-const paperSurface = '#121824'; // Premium slate card background
-const defaultBg = '#0B0F19'; // Deep Space Dark Navy
+const paperSurface = '#1C2438'; // Lightened slate card background
+const defaultBg = '#141C2E'; // Lightened Deep Navy
 const hoverShadow = '0 12px 30px rgba(0, 0, 0, 0.25)';
 
 const baseTheme = createTheme({
@@ -193,7 +193,7 @@ const baseTheme = createTheme({
             boxShadow: 'none'
           },
           '&.Mui-disabled': {
-            backgroundColor: '#0f172a',
+            backgroundColor: '#141C2E',
             color: 'rgba(248, 250, 252, 0.4)',
             WebkitTextFillColor: 'rgba(248, 250, 252, 0.4)',
             '& .MuiOutlinedInput-notchedOutline': {
@@ -270,7 +270,7 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           color: '#F8FAFC',
-          backgroundColor: '#111827',
+          backgroundColor: '#1A2438',
           borderBottom: `1px solid ${surfaceBorder}`,
           boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
         }
@@ -280,7 +280,7 @@ const baseTheme = createTheme({
       styleOverrides: {
         paper: {
           borderRight: `1px solid ${surfaceBorder}`,
-          backgroundColor: '#111827',
+          backgroundColor: '#1A2438',
           color: '#F8FAFC'
         }
       }
@@ -289,7 +289,7 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiTableCell-root': {
-            backgroundColor: '#1e293b',
+            backgroundColor: '#243347',
             color: '#94a3b8',
             fontWeight: 800,
             textTransform: 'uppercase',
