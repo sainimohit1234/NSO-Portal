@@ -918,7 +918,13 @@ export default function ExpansionPipeline() {
 
       {/* Pipeline Table */}
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', overflow: 'hidden' }}>
-        <TableContainer sx={{ maxHeight: '78vh', overflowX: 'auto' }}>
+        <TableContainer sx={{ 
+          maxHeight: '78vh', 
+          overflowX: 'auto',
+          '& .MuiOutlinedInput-notchedOutline': { border: 'none' },
+          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 'none' },
+          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 'none' },
+        }}>
           <Table stickyHeader sx={{ minWidth: 2500, tableLayout: 'fixed', '& .MuiTableCell-root': { px: 1, py: 1.25 } }}>
                         <TableHead>
               {/* 
@@ -1030,21 +1036,7 @@ export default function ExpansionPipeline() {
                           onChange={(e) => handleFieldChange(store.id, 'cafeCode', e.target.value)}
                           fullWidth
                           slotProps={{ htmlInput: { style: { fontSize: '0.85rem', fontWeight: 800 } } }}
-                          sx={{ 
-                            '& .MuiOutlinedInput-root': { 
-                              borderRadius: '8px', 
-                              fontWeight: 800,
-                              '& .MuiOutlinedInput-notchedOutline': {
-                                border: 'none'
-                              },
-                              '&:hover .MuiOutlinedInput-notchedOutline': {
-                                border: 'none'
-                              },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                border: 'none'
-                              }
-                            } 
-                          }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px', fontWeight: 800 } }}
                         />
                       </TableCell>
 
