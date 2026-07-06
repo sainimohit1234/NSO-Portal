@@ -668,6 +668,13 @@ export default function EditStore() {
     canEditFinance = false;
   }
 
+  // If the store has been approved, force all edit permissions to false (view-only for everyone)
+  if (isApprovedStatus) {
+    canEditBasicDetails = false;
+    canEditContacts = false;
+    canEditFinance = false;
+  }
+
   const isGoLiveFormValid = () => {
     const currentStatusVal = watch('status');
     if (currentStatusVal === 'LIVE') {
@@ -1247,7 +1254,7 @@ export default function EditStore() {
   const baseOptions = isSuperAdmin 
     ? [
         { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
-        { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable },
+        { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable },
         { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled },
         { value: 'ON_HOLD', label: 'On Hold' },
         { value: 'COMPLIANCE_APPROVED', label: 'Compliance Approved' },
@@ -1262,7 +1269,7 @@ export default function EditStore() {
       : isNsoFlow 
         ? [
             { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
-            { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable },
+            { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable },
             ...(canApprove ? [
               { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled },
               { value: 'ON_HOLD', label: 'On Hold' }
@@ -1320,10 +1327,10 @@ export default function EditStore() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
             <Box>
               <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-                {isViewOnly ? `Store Details: ${store.cafeName}` : `Modify Existing Store: ${store.cafeName}`}
+                {isViewOnly || isApprovedStatus ? `Store Details: ${store.cafeName}` : `Modify Existing Store: ${store.cafeName}`}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Update store information based on your access level.
+                {isApprovedStatus ? 'This store has been approved and is read-only.' : 'Update store information based on your access level.'}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -1370,6 +1377,7 @@ export default function EditStore() {
                 value={watch('status') || ''}
                 disabled={
                   isViewOnly || 
+                  isApprovedStatus ||
                   (store && store.isLocked && !isSuperAdmin) || 
                   (() => {
                     if (store && ['COMPLIANCE_APPROVED', 'LIVE'].includes(store.status)) {
@@ -2656,7 +2664,7 @@ export default function EditStore() {
           <Grid size={12}>
             <Card sx={{ bgcolor: 'background.paper', border: 'none' }}>
               <CardContent sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                {!isViewOnly && (
+                {!isViewOnly && !isApprovedStatus && (
                   <Button 
                     variant="contained" 
                     size="large" 

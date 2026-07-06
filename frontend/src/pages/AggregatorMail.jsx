@@ -28,6 +28,15 @@ const STATUS_OPTIONS = [
   'Live'
 ];
 
+const htmlToTextMessage = (html) => {
+  if (!html) return '';
+  let txt = html.replace(/<br\s*\/?>/gi, '\n');
+  txt = txt.replace(/<\/p>|<\/div>/gi, '\n');
+  txt = txt.replace(/<[^>]*>/g, '');
+  const tempDoc = new DOMParser().parseFromString(txt, 'text/html');
+  return tempDoc.body.textContent || tempDoc.body.innerText || txt;
+};
+
 const parseTemplateBody = (bodyHtml) => {
   if (!bodyHtml) return { intro: '', outro: '', tableData: null };
   const parser = new DOMParser();
@@ -45,7 +54,7 @@ const parseTemplateBody = (bodyHtml) => {
       intros.unshift(prev.nodeType === Node.TEXT_NODE ? prev.textContent : (prev.outerHTML || prev.textContent || ''));
       prev = prev.previousSibling;
     }
-    intro = intros.join('');
+    intro = htmlToTextMessage(intros.join(''));
 
     let next = table.nextSibling;
     const outros = [];
@@ -53,7 +62,7 @@ const parseTemplateBody = (bodyHtml) => {
       outros.push(next.nodeType === Node.TEXT_NODE ? next.textContent : (next.outerHTML || next.textContent || ''));
       next = next.nextSibling;
     }
-    outro = outros.join('');
+    outro = htmlToTextMessage(outros.join(''));
 
     const headers = [];
     const theadRow = table.querySelector('thead tr') || table.querySelector('tr');
@@ -87,36 +96,39 @@ const parseTemplateBody = (bodyHtml) => {
 
     tableData = { headers, rows };
   } else {
-    intro = bodyHtml;
+    intro = htmlToTextMessage(bodyHtml);
   }
 
-  return { intro, outro, tableData };
+  return { intro: intro.trim(), outro: outro.trim(), tableData };
 };
 
 const compileVisualToHtml = (intro, outro, table) => {
-  let html = intro || '';
+  const formattedIntro = (intro || '').replace(/\n/g, '<br />');
+  const formattedOutro = (outro || '').replace(/\n/g, '<br />');
+  
+  let html = formattedIntro;
   if (table) {
-    html += '\n<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">\n';
-    html += '  <thead>\n    <tr style="background-color: #f8fafc;">\n';
+    html += '<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">';
+    html += '<thead><tr style="background-color: #f8fafc;">';
     table.headers.forEach(h => {
       const bgStyle = h.bgColor ? ` background-color: ${h.bgColor};` : '';
       const colorStyle = h.textColor ? ` color: ${h.textColor};` : '';
-      html += `      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-weight: bold;${bgStyle}${colorStyle}">${h.text}</th>\n`;
+      html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-weight: bold;${bgStyle}${colorStyle}">${h.text}</th>`;
     });
-    html += '    </tr>\n  </thead>\n';
-    html += '  <tbody>\n';
+    html += '</tr></thead>';
+    html += '<tbody>';
     table.rows.forEach(row => {
-      html += '    <tr>\n';
+      html += '<tr>';
       row.forEach(cell => {
         const bgStyle = cell.bgColor ? ` background-color: ${cell.bgColor};` : '';
         const colorStyle = cell.textColor ? ` color: ${cell.textColor};` : '';
-        html += `      <td style="border: 1px solid #cbd5e1; padding: 8px;${bgStyle}${colorStyle}">${cell.text}</td>\n`;
+        html += `<td style="border: 1px solid #cbd5e1; padding: 8px;${bgStyle}${colorStyle}">${cell.text}</td>`;
       });
-      html += '    </tr>\n';
+      html += '</tr>';
     });
-    html += '  </tbody>\n</table>\n';
+    html += '</tbody></table>';
   }
-  html += outro || '';
+  html += formattedOutro;
   return html;
 };
 
@@ -1057,7 +1069,7 @@ export default function AggregatorMail() {
                             </Box>
                             <Box sx={{ p: 3 }}>
                               <div 
-                                dangerouslySetInnerHTML={{ __html: templateBody ? templateBody.replace(/\n/g, '<br />') : '' }} 
+                                dangerouslySetInnerHTML={{ __html: templateBody || '' }} 
                                 style={{
                                   fontSize: '0.875rem',
                                   color: '#334155',

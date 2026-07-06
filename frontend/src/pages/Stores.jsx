@@ -765,10 +765,10 @@ Store Operations Portal`;
                             ) : undefined
                           }
                           label={
-                            store.status === 'PENDING_APPROVAL' ? 'SENT TO NSO TEAM FOR APPROVAL' : 
+                            store.status === 'PENDING_APPROVAL' ? 'APPROVAL PENDING' : 
                             store.status === 'INCOMPLETE_INFORMATION' ? 'INCOMPLETE INFORMATION' : 
                             store.status === 'ON_HOLD' ? 'ON HOLD' : 
-                            (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'AWAITING COMPLIANCE' : 
+                            (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'APPROVED' : 
                             (store.status ? store.status.replace(/_/g, ' ') : '')
                           }
                           size="small" 

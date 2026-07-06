@@ -485,13 +485,14 @@ export default function UpcomingStores() {
                 <TableCell sx={{ fontWeight: 700 }}>Handover Date</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Dry Launch Date</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Workflow Status</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Sent to NSO Team for Approval By</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Approved By</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No upcoming stores found.
                   </TableCell>
                 </TableRow>
@@ -615,10 +616,10 @@ export default function UpcomingStores() {
                               ) : undefined
                             }
                             label={
-                              store.status === 'PENDING_APPROVAL' ? 'SENT TO NSO TEAM FOR APPROVAL' : 
+                              store.status === 'PENDING_APPROVAL' ? 'APPROVAL PENDING' : 
                               store.status === 'INCOMPLETE_INFORMATION' ? 'INCOMPLETE INFORMATION' : 
                               store.status === 'ON_HOLD' ? 'ON HOLD' : 
-                              (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'AWAITING COMPLIANCE' : 
+                              (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'APPROVED' : 
                               (store.status ? store.status.replace(/_/g, ' ') : '')
                             }
                             size="small" 
@@ -638,13 +639,46 @@ export default function UpcomingStores() {
                         )}
                       </TableCell>
                       <TableCell sx={{ fontSize: '0.825rem', color: 'text.secondary' }}>
+                        {store.sentToNsoBy ? (
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.825rem' }}>
+                              {store.sentToNsoBy}
+                            </Typography>
+                            {store.sentToNsoAt && (
+                              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem' }}>
+                                {new Date(store.sentToNsoAt).toLocaleString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.825rem', color: 'text.secondary' }}>
                         {store.approvedBy ? (
                           <Box>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.825rem' }}>
                               {store.approvedBy}
                             </Typography>
+                            {store.approvedAt && (
+                              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem' }}>
+                                {new Date(store.approvedAt).toLocaleString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
+                              </Typography>
+                            )}
                             {store.complianceApprovedBy && store.complianceApprovedBy !== store.approvedBy && (
-                              <Typography variant="caption" sx={{ color: 'success.main', display: 'block' }}>
+                              <Typography variant="caption" sx={{ color: 'success.main', display: 'block', mt: 0.5 }}>
                                 Compliance: {store.complianceApprovedBy}
                               </Typography>
                             )}

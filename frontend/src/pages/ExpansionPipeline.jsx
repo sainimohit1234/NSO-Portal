@@ -777,7 +777,7 @@ Operations Team`;
   const getStatusLabel = (status) => {
     if (status === 'INCOMPLETE_INFORMATION') return 'Incomplete';
     if (status === 'PENDING_APPROVAL') return 'Pending Approval';
-    if (status === 'APPROVED' || status === 'NSO_APPROVED') return 'Awaiting Compliance';
+    if (status === 'APPROVED' || status === 'NSO_APPROVED') return 'Approved';
     if (status === 'COMPLIANCE_APPROVED') return 'Ready for Launch';
     if (status === 'ON_HOLD') return 'On Hold';
     return status;
@@ -1045,7 +1045,8 @@ Operations Team`;
               ) : (
                 filteredStores.map((store, index) => {
                   const hasLoi = !!store.loiUrl;
-                  const isLocked = store.isLocked === true || store.isLocked === 'true';
+                  const isApprovedStatus = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+                  const isLocked = store.isLocked === true || store.isLocked === 'true' || isApprovedStatus;
                   const rowEditable = canModify && !isLocked && (store.isTemp || editingStoreIds.has(store.id));
 
                   return (
@@ -1228,31 +1229,31 @@ Operations Team`;
                             '&:hover': { bgcolor: 'info.main', color: 'primary.contrastText' }
                           }} 
                         />
-                      </TableCell>
-
-                      {/* Status */}
+                                 {/* Status */}
                       <TableCell>
                         {(() => {
-                          const isLocked = store.isLocked === true || store.isLocked === 'true';
-                             let currentStatus = 'In Pipeline';
-                           if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
-                             currentStatus = 'Live';
-                           } else if (store.status === 'Under Construction') {
-                             currentStatus = 'Under Construction';
-                           } else if (store.status === 'Ready for Construction') {
-                             currentStatus = 'Ready for Construction';
-                           } else if (store.status === 'Agreement Signed') {
-                             currentStatus = 'Agreement Signed';
-                           }
+                          const isApprovedStatus = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+                          const isLocked = store.isLocked === true || store.isLocked === 'true' || isApprovedStatus;
+                          let currentStatus = 'In Pipeline';
+                          if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
+                            currentStatus = 'Live';
+                          } else if (store.status === 'Under Construction') {
+                            currentStatus = 'Under Construction';
+                          } else if (store.status === 'Ready for Construction') {
+                            currentStatus = 'Ready for Construction';
+                          } else if (store.status === 'Agreement Signed') {
+                            currentStatus = 'Agreement Signed';
+                          }
  
-                           return (
-                             <Select
-                               value={currentStatus}
-                               size="small"
-                               onChange={(e) => {
-                                  const newStatus = e.target.value;
-                                  handleDropdownStatusChange(store, newStatus);
-                                }}
+                          return (
+                            <Select
+                              value={currentStatus}
+                              size="small"
+                              disabled={isLocked}
+                              onChange={(e) => {
+                                 const newStatus = e.target.value;
+                                 handleDropdownStatusChange(store, newStatus);
+                              }}
                                fullWidth
                                sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                              >
@@ -1515,7 +1516,7 @@ Operations Team`;
           open={!!uploadModalConfig} 
           store={uploadModalConfig.store}
           activeCategory={uploadModalConfig.category}
-          canModify={canModify}
+          canModify={canModify && !(uploadModalConfig.store.isLocked === true || uploadModalConfig.store.isLocked === 'true' || ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(uploadModalConfig.store.status))}
           onClose={() => setUploadModalConfig(null)}
           setSnackbar={setSnackbar}
           onSave={(payload) => {

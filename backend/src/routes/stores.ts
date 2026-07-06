@@ -1302,10 +1302,23 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
     const approvalStatuses = ['NSO_APPROVED', 'APPROVED'];
     if (approvalStatuses.includes(targetStatus) && requestUser?.name) {
       updateData.approvedBy = requestUser.name;
+      updateData.approvedAt = new Date().toISOString();
     }
     // Clear approvedBy on rejection
     if (targetStatus === 'REJECTED') {
       updateData.approvedBy = null;
+      updateData.approvedAt = null;
+    }
+
+    // Capture sentToNsoBy and sentToNsoAt when transitioning to PENDING_APPROVAL
+    if (targetStatus === 'PENDING_APPROVAL') {
+      if (store.status !== 'PENDING_APPROVAL') {
+        updateData.sentToNsoBy = requestUser?.name || requestUser?.email || 'Unknown';
+        updateData.sentToNsoAt = new Date().toISOString();
+      }
+    } else if (targetStatus && !['PENDING_APPROVAL', ...approvalStatuses, 'COMPLIANCE_APPROVED', 'LIVE'].includes(targetStatus)) {
+      updateData.sentToNsoBy = null;
+      updateData.sentToNsoAt = null;
     }
 
     if (targetStatus === 'LIVE') {
@@ -1428,6 +1441,27 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     });
     if (!currentStore) {
       return res.status(404).json({ error: 'Store not found' });
+    }
+
+    const approvalStatuses = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'];
+    if (approvalStatuses.includes(currentStore.status)) {
+      const allowedKeys = ['status', 'isLocked', 'mailStatus', 'uploadedDocuments', 'blueTokaiSwiggyRID', 'blueTokaiZomatoRID', 'suchaliSwiggyRID', 'suchaliZomatoRID', 'gotTeaSwiggyRID', 'gotTeaZomatoRID'];
+      const attemptedChanges = Object.keys(req.body).filter(key => {
+        if (allowedKeys.includes(key)) return false;
+        let reqVal = req.body[key];
+        let currentVal = (currentStore as any)[key];
+        
+        if (reqVal === undefined || reqVal === null) reqVal = '';
+        if (currentVal === undefined || currentVal === null) currentVal = '';
+        
+        return String(reqVal).trim() !== String(currentVal).trim();
+      });
+
+      if (attemptedChanges.length > 0) {
+        return res.status(403).json({ 
+          error: 'Access denied: This store is approved and is in read-only view.' 
+        });
+      }
     }
 
     const wasPendingApproval = currentStore.status === 'PENDING_APPROVAL';
@@ -1818,14 +1852,27 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       return res.status(403).json({ error: 'Brand cannot be changed. Only Super Admin can modify the brand of an existing store.' });
     }
 
-    // Capture approvedBy when transitioning to approved status, or clear it if transitioning out
+    // Capture approvedBy and approvedAt when transitioning to approved status, or clear it if transitioning out
     const approvalStatuses = ['APPROVED', 'NSO_APPROVED'];
     if (approvalStatuses.includes(updateData.status)) {
       if (!currentStore?.approvedBy || !approvalStatuses.includes(currentStore?.status)) {
         updateData.approvedBy = user?.name || user?.email || 'Unknown';
+        updateData.approvedAt = new Date().toISOString();
       }
     } else if (updateData.status && !approvalStatuses.includes(updateData.status)) {
       updateData.approvedBy = null;
+      updateData.approvedAt = null;
+    }
+
+    // Capture sentToNsoBy and sentToNsoAt when transitioning to PENDING_APPROVAL
+    if (updateData.status === 'PENDING_APPROVAL') {
+      if (currentStore?.status !== 'PENDING_APPROVAL') {
+        updateData.sentToNsoBy = user?.name || user?.email || 'Unknown';
+        updateData.sentToNsoAt = new Date().toISOString();
+      }
+    } else if (updateData.status && !['PENDING_APPROVAL', ...approvalStatuses, 'COMPLIANCE_APPROVED', 'LIVE'].includes(updateData.status)) {
+      updateData.sentToNsoBy = null;
+      updateData.sentToNsoAt = null;
     }
 
     if (updateData.uploadedDocuments) {
@@ -2890,99 +2937,119 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
     const isZomato = normalizedBrand.startsWith('zomato');
 
     let attachments: any[] = [];
-    let htmlBody = '';
+    let htmlBody = body || '';
 
-    if (isZomato) {
-      // Zomato Onboarding Flow
-      let brandName = "Blue Tokai Coffee Roasters";
-      if (normalizedBrand.includes("suchali")) {
-        brandName = "Suchali's Artisan Bakehouse";
-      } else if (normalizedBrand.includes("got_tea") || normalizedBrand.includes("gottea")) {
-        brandName = "Got Tea";
+    // If body contains text but no HTML tags, format it for email clients
+    if (htmlBody && !/<\/?[a-z][\s\S]*>/i.test(htmlBody)) {
+      htmlBody = `<div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333; white-space: pre-wrap;">${htmlBody}</div>`;
+    }
+
+    if (!htmlBody) {
+      if (isZomato) {
+        // Zomato Onboarding Flow (Fallback)
+        let brandName = "Blue Tokai Coffee Roasters";
+        if (normalizedBrand.includes("suchali")) {
+          brandName = "Suchali's Artisan Bakehouse";
+        } else if (normalizedBrand.includes("got_tea") || normalizedBrand.includes("gottea")) {
+          brandName = "Got Tea";
+        }
+
+        const completeAddress = [
+          store.cafeAddress || store.address,
+          store.city,
+          store.state,
+          store.pinCode
+        ].filter(Boolean).join(', ');
+
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        const dateStr = `${dd}-${mm}-${yyyy}`;
+
+        htmlBody = `
+          <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px;">
+            <h2 style="color: #c92c3b; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Zomato Onboarding Request</h2>
+            <p>Hi Team,</p>
+            <p>This is regarding our new cafe onboarding on Zomato.</p>
+            <p>Please find below the cafe details and the attached onboarding form. Kindly initiate the process.</p>
+            
+            <h3 style="color: #334155; margin-top: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Cafe Details</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; width: 30%; background-color: #f8fafc;">Cafe Name</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeName || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Cafe Code</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeCode || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Brand</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${brandName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Address</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${completeAddress || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">GST Number</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.gstNo || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">FSSAI Number</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.fssaiNo || 'N/A'}</td>
+              </tr>
+            </table>
+
+            <h3 style="color: #334155; margin-top: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Zomato OB Form Summary</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; width: 30%; background-color: #f8fafc;">Effective Date</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${dateStr}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Restaurant Name</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${brandName}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Legal Entity Address</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${completeAddress}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Locality</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeName || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Signed At</td>
+                <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${dateStr}</td>
+              </tr>
+            </table>
+
+            <p style="margin-top: 30px;">Thanks & Regards,</p>
+            <p><strong>${req.user?.name || 'Operations Team'}</strong></p>
+          </div>
+        `;
+      } else {
+        // Swiggy Onboarding Flow (Fallback)
+        const wsData = buildSwiggyTemplateData(store, brandParam || '');
+        htmlBody = `
+          <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333;">
+            <p>Hi Team,</p>
+            <p>This is regarding our new cafe onboarding.</p>
+            <p>Please find below the details and initiate the process for the same.</p>
+            
+            ${buildHtmlTable(wsData)}
+            
+            <p style="margin-top: 30px;">Thanks & Regards,</p>
+            <p><strong>${req.user?.name || 'Operations Team'}</strong></p>
+          </div>
+        `;
       }
+    }
 
-      const completeAddress = [
-        store.cafeAddress || store.address,
-        store.city,
-        store.state,
-        store.pinCode
-      ].filter(Boolean).join(', ');
-
-      // Format current date as DD-MM-YYYY
-      const today = new Date();
-      const dd = String(today.getDate()).padStart(2, '0');
-      const mm = String(today.getMonth() + 1).padStart(2, '0');
-      const yyyy = today.getFullYear();
-      const dateStr = `${dd}-${mm}-${yyyy}`;
-
-      attachments = [];
-
-      htmlBody = `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #e2e8f0; padding: 24px; border-radius: 12px;">
-          <h2 style="color: #c92c3b; margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Zomato Onboarding Request</h2>
-          <p>Hi Team,</p>
-          <p>This is regarding our new cafe onboarding on Zomato.</p>
-          <p>Please find below the cafe details and the attached onboarding form. Kindly initiate the process.</p>
-          
-          <h3 style="color: #334155; margin-top: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Cafe Details</h3>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; width: 30%; background-color: #f8fafc;">Cafe Name</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeName || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Cafe Code</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeCode || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Brand</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${brandName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Address</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${completeAddress || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">GST Number</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.gstNo || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">FSSAI Number</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.fssaiNo || 'N/A'}</td>
-            </tr>
-          </table>
-
-          <h3 style="color: #334155; margin-top: 24px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">Zomato OB Form Summary</h3>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; width: 30%; background-color: #f8fafc;">Effective Date</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${dateStr}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Restaurant Name</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${brandName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Legal Entity Address</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${completeAddress}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Locality</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${store.cafeName || 'N/A'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">Signed At</td>
-              <td style="padding: 8px 12px; border: 1px solid #cbd5e1;">${dateStr}</td>
-            </tr>
-          </table>
-
-          <p style="margin-top: 30px;">Thanks & Regards,</p>
-          <p><strong>${req.user?.name || 'Operations Team'}</strong></p>
-        </div>
-      `;
-
-    } else {
-      // Swiggy Onboarding Flow
+    if (!isZomato) {
+      // Swiggy Onboarding Flow (Attachment Generation)
       const wsData = buildSwiggyTemplateData(store, brandParam || '');
       const ws = XLSX.utils.aoa_to_sheet(wsData);
       ws['!cols'] = [
@@ -3004,19 +3071,6 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
         filename: `Swiggy_${restaurantName}_Onboarding_Template_${store.cafeCode}.xlsx`,
         content: excelBuffer
       }];
-
-      htmlBody = `
-        <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #333;">
-          <p>Hi Team,</p>
-          <p>This is regarding our new cafe onboarding.</p>
-          <p>Please find below the details and initiate the process for the same.</p>
-          
-          ${buildHtmlTable(wsData)}
-          
-          <p style="margin-top: 30px;">Thanks & Regards,</p>
-          <p><strong>${req.user?.name || 'Operations Team'}</strong></p>
-        </div>
-      `;
     }
 
     const smtpConfig = await getSMTPConfig();
@@ -3035,7 +3089,7 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       to: to || '',
       cc: cc || '',
       subject: subject || (isZomato ? `Zomato Onboarding Request | ${store.cafeName}` : `Swiggy Onboarding Request | ${store.cafeName}`),
-      text: body || '',
+      text: body ? body.replace(/<[^>]*>/g, '') : '',
       html: htmlBody,
       attachments
     };
