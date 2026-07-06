@@ -415,14 +415,13 @@ export default function Approvals() {
                 <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Workflow Status</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>On Hold Remarks</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Sent to NSO Team for Approval By</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Approved By</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
                     {stores.length === 0 ? "No stores pending approval. You're all caught up!" : "No stores match your search."}
                   </TableCell>
                 </TableRow>
@@ -519,27 +518,6 @@ export default function Approvals() {
                       </TableCell>
                       <TableCell sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.875rem' }}>
                         {store.status === 'ON_HOLD' ? (store.remarks || '—') : ''}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-                        {store.sentToNsoBy ? (
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.825rem' }}>
-                              {store.sentToNsoBy}
-                            </Typography>
-                            {store.sentToNsoAt && (
-                              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem' }}>
-                                {new Date(store.sentToNsoAt).toLocaleString('en-IN', {
-                                  day: '2-digit',
-                                  month: 'short',
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  hour12: true
-                                })}
-                              </Typography>
-                            )}
-                          </Box>
-                        ) : '—'}
                       </TableCell>
                       <TableCell sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
                         {store.approvedBy ? (
