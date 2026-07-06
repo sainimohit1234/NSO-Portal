@@ -349,7 +349,7 @@ export default function SwiggyZomatoIntegration() {
   const RID_CELL_STYLE = { bgcolor: 'rgba(239, 246, 255, 0.2)' };
 
   return (
-    <Box sx={{ width: '100%', px: 2, py: 1 }}>
+    <Box sx={{ width: '100%', px: 0, py: 1 }}>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Box>
@@ -394,15 +394,15 @@ export default function SwiggyZomatoIntegration() {
       {/* Main Table */}
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-          <TableContainer component={Paper} sx={{ maxHeight: 700, borderRadius: '16px', boxShadow: 'none', overflow: 'auto' }}>
+          <TableContainer component={Paper} sx={{ maxHeight: '80vh', borderRadius: '16px', boxShadow: 'none', overflow: 'auto' }}>
             <Table stickyHeader size="small" sx={{ minWidth: 3200 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50, position: 'sticky', left: 0, zIndex: 12, bgcolor: '#f8fafc' }}>S.No.</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 155, minWidth: 155, maxWidth: 155, position: 'sticky', left: 50, zIndex: 12, bgcolor: '#faf5ff' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 155, minWidth: 155, maxWidth: 155, position: 'sticky', left: 205, zIndex: 12, bgcolor: '#faf5ff' }}>Brand</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 105, minWidth: 105, maxWidth: 105, position: 'sticky', left: 360, zIndex: 12, bgcolor: '#f8fafc' }}>Cafe Code</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 220, minWidth: 220, maxWidth: 220, position: 'sticky', left: 465, zIndex: 12, bgcolor: '#f8fafc', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50, position: 'sticky', left: 0, zIndex: 12, bgcolor: 'background.paper' }}>S.No.</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 155, minWidth: 155, maxWidth: 155, position: 'sticky', left: 50, zIndex: 12, bgcolor: 'background.paper' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 155, minWidth: 155, maxWidth: 155, position: 'sticky', left: 205, zIndex: 12, bgcolor: 'background.paper' }}>Brand</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 105, minWidth: 105, maxWidth: 105, position: 'sticky', left: 360, zIndex: 12, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 220, minWidth: 220, maxWidth: 220, position: 'sticky', left: 465, zIndex: 12, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
                   <TableCell sx={{ fontWeight: 800, width: 280 }}>Address</TableCell>
                   <TableCell sx={{ fontWeight: 800, width: 120 }}>City</TableCell>
                   <TableCell sx={{ fontWeight: 800, width: 120 }}>State</TableCell>
