@@ -24,6 +24,7 @@ import {
   TextField,
   Alert,
   alpha,
+  useTheme,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import Dashboard from '@mui/icons-material/Dashboard';
@@ -52,16 +53,28 @@ import suchaliLogo from '../assets/suchali_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
 
 const drawerWidth = 260;
-const glassPanelSx = {
-  background: 'linear-gradient(180deg, rgba(18, 24, 36, 0.82) 0%, rgba(11, 15, 25, 0.68) 100%)',
-  backdropFilter: 'blur(22px)',
-  WebkitBackdropFilter: 'blur(22px)',
-  borderRight: '1px solid rgba(255, 255, 255, 0.06)',
-  boxShadow: '0 16px 34px rgba(0, 0, 0, 0.25)'
-};
 
 export default function Layout() {
+  const theme = useTheme();
   const { themeMode, setThemeMode, customColors, setCustomColors } = useThemeMode();
+  const isLight = themeMode === 'light';
+
+  const glassPanelSx = {
+    background: isLight 
+      ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(244, 246, 248, 0.88) 100%)'
+      : themeMode === 'custom'
+        ? `linear-gradient(180deg, ${alpha(customColors?.header || '#111827', 0.85)} 0%, ${alpha(customColors?.background || '#0B0F19', 0.75)} 100%)`
+        : 'linear-gradient(180deg, rgba(18, 24, 36, 0.82) 0%, rgba(11, 15, 25, 0.68) 100%)',
+    backdropFilter: 'blur(22px)',
+    WebkitBackdropFilter: 'blur(22px)',
+    borderRight: isLight 
+      ? '1px solid rgba(0, 0, 0, 0.08)' 
+      : '1px solid rgba(255, 255, 255, 0.06)',
+    boxShadow: isLight 
+      ? '0 16px 34px rgba(10, 49, 77, 0.05)' 
+      : '0 16px 34px rgba(0, 0, 0, 0.25)'
+  };
+
   const [themeAnchorEl, setThemeAnchorEl] = useState(null);
   const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
 
@@ -237,9 +250,9 @@ export default function Layout() {
           size="small"
           sx={{
             height: 28,
-            bgcolor: 'rgba(56, 189, 248, 0.1)',
-            color: '#38bdf8',
-            border: '1px solid rgba(56, 189, 248, 0.25)'
+            bgcolor: alpha(theme.palette.primary.main, 0.1),
+            color: theme.palette.primary.main,
+            border: `1px solid ${alpha(theme.palette.primary.main, 0.25)}`
           }}
         />
       </Box>
@@ -254,15 +267,15 @@ export default function Layout() {
                 sx={{
                   alignItems: 'center',
                   borderRadius: '14px',
-                  bgcolor: isActive ? alpha(item.color, 0.08) : 'transparent',
+                  bgcolor: isActive ? alpha(item.color, 0.12) : 'transparent',
                   color: isActive ? 'text.primary' : 'text.secondary',
                   py: 0.75,
                   px: 1.15,
                   border: '1px solid',
-                  borderColor: isActive ? alpha(item.color, 0.15) : 'transparent',
+                  borderColor: isActive ? alpha(item.color, 0.25) : 'transparent',
                   boxShadow: isActive ? `0 6px 20px ${alpha(item.color, 0.05)}` : 'none',
                   '&:hover': {
-                    bgcolor: isActive ? alpha(item.color, 0.08) : 'rgba(255,255,255,0.40)',
+                    bgcolor: isActive ? alpha(item.color, 0.16) : isLight ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.03)',
                     color: 'text.primary',
                     '& .sidebar-icon-badge': {
                       transform: 'scale(1.15) rotate(3deg)',
@@ -351,12 +364,12 @@ export default function Layout() {
           <IconButton 
             size="medium" 
             onClick={handleThemeClick}
-            sx={{ mr: 1, color: 'text.secondary', border: '1px solid rgba(63, 174, 191, 0.12)', bgcolor: 'action.hover' }}
+            sx={{ mr: 1, color: 'text.secondary', border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}
             title="Theme Options"
           >
             <PaletteIcon sx={{ fontSize: 18 }} />
           </IconButton>
-          <IconButton size="medium" sx={{ mr: 1, color: 'text.secondary', border: '1px solid rgba(63, 174, 191, 0.12)', bgcolor: 'rgba(255,255,255,0.35)' }}>
+          <IconButton size="medium" sx={{ mr: 1, color: 'text.secondary', border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
             <NotificationsActive sx={{ fontSize: 18 }} />
           </IconButton>
           <IconButton
@@ -448,7 +461,7 @@ export default function Layout() {
           width: '500px',
           height: '500px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0) 70%)',
+          background: `radial-gradient(circle, ${isLight ? 'rgba(99, 102, 241, 0.015)' : 'rgba(99, 102, 241, 0.08)'} 0%, rgba(99, 102, 241, 0) 70%)`,
           filter: 'blur(50px)',
           pointerEvents: 'none',
           zIndex: 0
@@ -460,7 +473,7 @@ export default function Layout() {
           width: '500px',
           height: '500px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, rgba(139, 92, 246, 0) 70%)',
+          background: `radial-gradient(circle, ${isLight ? 'rgba(139, 92, 246, 0.01)' : 'rgba(139, 92, 246, 0.06)'} 0%, rgba(139, 92, 246, 0) 70%)`,
           filter: 'blur(50px)',
           pointerEvents: 'none',
           zIndex: 0
