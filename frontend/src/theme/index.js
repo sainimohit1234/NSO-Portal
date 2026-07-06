@@ -142,10 +142,14 @@ const baseTheme = createTheme({
       styleOverrides: {
         root: {
           borderRadius: 20,
-          border: `1px solid ${surfaceBorder}`,
-          boxShadow: lightShadow,
+          border: `1px solid ${alpha('#0A314D', 0.08)}`,
+          boxShadow: '0 8px 30px rgba(10, 49, 77, 0.02), 0 1px 3px rgba(10, 49, 77, 0.01)',
           background: paperSurface,
-          backgroundImage: 'none'
+          backgroundImage: 'none',
+          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+          '&:hover': {
+            boxShadow: '0 12px 38px rgba(10, 49, 77, 0.08)'
+          }
         }
       }
     },
@@ -290,9 +294,9 @@ const baseTheme = createTheme({
             color: '#475569',
             fontWeight: 800,
             textTransform: 'uppercase',
-            fontSize: '0.72rem',
-            letterSpacing: '0.06em',
-            borderBottom: `2px solid ${alpha(primaryMain, 0.2)}`
+            fontSize: '0.7rem',
+            letterSpacing: '0.08em',
+            borderBottom: `2px solid ${alpha(primaryMain, 0.15)}`
           }
         }
       }
@@ -300,10 +304,10 @@ const baseTheme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: `1px solid ${surfaceBorder}`,
-          paddingTop: 14,
-          paddingBottom: 14,
-          fontSize: '0.85rem',
+          borderBottom: `1px solid ${alpha(primaryMain, 0.05)}`,
+          paddingTop: 12,
+          paddingBottom: 12,
+          fontSize: '0.82rem',
           fontWeight: 600,
           color: '#1E293B'
         }
@@ -312,8 +316,9 @@ const baseTheme = createTheme({
     MuiTableRow: {
       styleOverrides: {
         root: {
+          transition: 'background-color 150ms ease',
           '&:hover': {
-            backgroundColor: alpha(primaryMain, 0.02)
+            backgroundColor: alpha(primaryMain, 0.035)
           }
         }
       }

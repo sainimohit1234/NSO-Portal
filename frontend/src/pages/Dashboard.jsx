@@ -323,14 +323,25 @@ export default function Dashboard() {
           <Box key={idx}>
             <Card sx={{ 
               bgcolor: 'background.paper',
-              transition: 'all 0.2s ease',
               height: '100%',
-              '&:hover': { 
-                transform: 'translateY(-3px)',
-                boxShadow: '0 18px 32px rgba(15,23,42,0.07)'
+              position: 'relative',
+              overflow: 'hidden',
+              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 16px 36px rgba(10, 49, 77, 0.08)'
+              },
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 4,
+                bgcolor: stat.color
               }
             }}>
-              <CardContent sx={{ p: 2 }}>
+              <CardContent sx={{ p: 2, pt: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
                   <Box sx={{ minWidth: 0 }}>
                     <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700, mb: 0.65, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.66rem' }}>

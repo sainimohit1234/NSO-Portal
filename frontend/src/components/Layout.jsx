@@ -23,6 +23,7 @@ import {
   Button,
   TextField,
   Alert,
+  alpha,
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import Dashboard from '@mui/icons-material/Dashboard';
@@ -128,21 +129,21 @@ export default function Layout() {
   };
 
   const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
-    { text: 'All Stores', icon: <Store />, path: '/stores', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
-    { text: 'Expansion Pipeline', icon: <ViewWeekIcon />, path: '/expansion-pipeline', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
-    { text: 'New Store Creation', icon: <AddCircleOutlined />, path: '/stores/new', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
-    { text: 'All Upcoming Stores', icon: <CalendarTodayIcon />, path: '/upcoming-stores', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
-    { text: 'NSO Approval', icon: <AssignmentTurnedIn />, path: '/approvals', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+    { text: 'Dashboard', icon: <Dashboard />, path: '/', color: '#3b82f6', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
+    { text: 'All Stores', icon: <Store />, path: '/stores', color: '#10b981', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
+    { text: 'Expansion Pipeline', icon: <ViewWeekIcon />, path: '/expansion-pipeline', color: '#8b5cf6', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'USER', 'FINANCE'] },
+    { text: 'New Store Creation', icon: <AddCircleOutlined />, path: '/stores/new', color: '#ec4899', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+    { text: 'All Upcoming Stores', icon: <CalendarTodayIcon />, path: '/upcoming-stores', color: '#f59e0b', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+    { text: 'NSO Approval', icon: <AssignmentTurnedIn />, path: '/approvals', color: '#06b6d4', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
 
-    { text: 'Swiggy / Zomato Integration', icon: <SyncIcon />, path: '/swiggy-zomato', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
-    { text: 'Email Directory', icon: <MailOutlineIcon />, path: '/aggregator-mail', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
-    { text: 'Bulk Action', icon: <LayersIcon />, path: '/bulk-action', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
-    { text: 'Settings', icon: <Settings />, path: '/settings', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
-    { text: 'Images and Other Docs', icon: <PhotoLibraryIcon />, path: '/images-docs', roles: ['SUPER_ADMIN'] },
-    { text: 'Store Control Center', icon: <TuneIcon />, path: '/delete-branches', roles: ['SUPER_ADMIN'] },
-    { text: 'Contact Details', icon: <ContactsIcon />, path: '/contacts', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
-    { text: 'User Registrations', icon: <HowToRegIcon />, path: '/user-registrations', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { text: 'Swiggy / Zomato Integration', icon: <SyncIcon />, path: '/swiggy-zomato', color: '#f43f5e', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
+    { text: 'Email Directory', icon: <MailOutlineIcon />, path: '/aggregator-mail', color: '#14b8a6', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
+    { text: 'Bulk Action', icon: <LayersIcon />, path: '/bulk-action', color: '#6366f1', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
+    { text: 'Settings', icon: <Settings />, path: '/settings', color: '#64748b', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
+    { text: 'Images and Other Docs', icon: <PhotoLibraryIcon />, path: '/images-docs', color: '#a855f7', roles: ['SUPER_ADMIN'] },
+    { text: 'Store Control Center', icon: <TuneIcon />, path: '/delete-branches', color: '#ef4444', roles: ['SUPER_ADMIN'] },
+    { text: 'Contact Details', icon: <ContactsIcon />, path: '/contacts', color: '#22c55e', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
+    { text: 'User Registrations', icon: <HowToRegIcon />, path: '/user-registrations', color: '#d97706', roles: ['SUPER_ADMIN', 'ADMIN'] },
   ];
 
   const MODULE_KEYS = {
@@ -203,35 +204,54 @@ export default function Layout() {
         {filteredMenuItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.35 }}>
+            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 onClick={() => navigate(item.path)}
                 sx={{
                   alignItems: 'center',
                   borderRadius: '14px',
-                  bgcolor: isActive ? 'rgba(10, 49, 77, 0.12)' : 'transparent',
-                  color: isActive ? 'primary.main' : 'text.secondary',
-                  py: 0.95,
+                  bgcolor: isActive ? alpha(item.color, 0.08) : 'transparent',
+                  color: isActive ? 'text.primary' : 'text.secondary',
+                  py: 0.75,
                   px: 1.15,
                   border: '1px solid',
-                  borderColor: isActive ? 'rgba(10, 49, 77, 0.15)' : 'transparent',
-                  boxShadow: isActive ? '0 10px 24px rgba(10, 49, 77, 0.08)' : 'none',
+                  borderColor: isActive ? alpha(item.color, 0.15) : 'transparent',
+                  boxShadow: isActive ? `0 6px 20px ${alpha(item.color, 0.05)}` : 'none',
                   '&:hover': {
-                    bgcolor: isActive ? 'rgba(10, 49, 77, 0.12)' : 'rgba(255,255,255,0.40)',
+                    bgcolor: isActive ? alpha(item.color, 0.08) : 'rgba(255,255,255,0.40)',
                     color: 'text.primary',
-                    '& .MuiListItemIcon-root': {
-                      color: 'text.primary',
+                    '& .sidebar-icon-badge': {
+                      transform: 'scale(1.15) rotate(3deg)',
+                      boxShadow: `0 4px 14px ${alpha(item.color, 0.3)}`
                     }
                   },
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
                 <ListItemIcon sx={{ 
-                  color: isActive ? 'primary.main' : 'text.secondary', 
-                  minWidth: 32,
-                  transition: 'color 0.2s ease'
+                  minWidth: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  mr: 1.25
                 }}>
-                  {React.cloneElement(item.icon, { sx: { fontSize: 20 } })}
+                  <Box 
+                    className="sidebar-icon-badge"
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      borderRadius: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      bgcolor: isActive ? item.color : alpha(item.color, 0.12),
+                      color: isActive ? '#ffffff' : item.color,
+                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: isActive ? `0 4px 12px ${alpha(item.color, 0.4)}` : 'none'
+                    }}
+                  >
+                    {React.cloneElement(item.icon, { sx: { fontSize: 18 } })}
+                  </Box>
                 </ListItemIcon>
                 <ListItemText 
                   primary={item.text} 
