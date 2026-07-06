@@ -5,7 +5,8 @@ import {
   Box, Typography, TextField, Button, Grid, Card, CardContent, 
   MenuItem, Alert, CircularProgress, Divider, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Select, InputAdornment, Snackbar, Autocomplete, Tabs, Tab, Stack
+  Select, InputAdornment, Snackbar, Autocomplete, Tabs, Tab, Stack,
+  useTheme
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SendIcon from '@mui/icons-material/Send';
@@ -764,7 +765,7 @@ const NewStore = () => {
           position: 'sticky',
           top: { xs: 56, sm: 64 },
           zIndex: 10,
-          bgcolor: 'rgba(255,255,255,0.95)',
+          bgcolor: 'background.default',
           backdropFilter: 'blur(8px)',
           mt: -5,
           pt: 5,
@@ -1044,7 +1045,7 @@ const NewStore = () => {
                         {...register('latt')}
                         error={!!errors.latt}
                         helperText={errors.latt?.message || "Auto-filled"}
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 3 }}>
@@ -1056,7 +1057,7 @@ const NewStore = () => {
                         {...register('long')}
                         error={!!errors.long}
                         helperText={errors.long?.message || "Auto-filled"}
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
                       />
                     </Grid>
    
@@ -1184,7 +1185,7 @@ const NewStore = () => {
                         InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                         error={!!errors.cafeManagerContactNo}
                         helperText={errors.cafeManagerContactNo?.message || "Auto-filled"}
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? 'action.hover' : 'inherit' } }}
                       />
                     </Grid>
                   </Grid>
@@ -1216,7 +1217,7 @@ const NewStore = () => {
                         InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                         error={!!errors.areaManagerEmail}
                         helperText={errors.areaManagerEmail?.message || "Auto-filled"}
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? 'action.hover' : 'inherit' } }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}>
@@ -1228,7 +1229,7 @@ const NewStore = () => {
                         InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                         error={!!errors.areaManagerPhone}
                         helperText={errors.areaManagerPhone?.message || "Auto-filled"}
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? 'action.hover' : 'inherit' } }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}>
@@ -1259,7 +1260,7 @@ const NewStore = () => {
                         InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                         error={!!errors.cityHeadEmail} 
                         helperText={errors.cityHeadEmail?.message || "Auto-filled"} 
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? 'action.hover' : 'inherit' } }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}>
@@ -1271,7 +1272,7 @@ const NewStore = () => {
                         InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
                         error={!!errors.cityHeadPhone} 
                         helperText={errors.cityHeadPhone?.message || "Auto-filled"} 
-                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? '#f8fafc' : 'inherit' } }}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: (!isSuperAdmin && !isAdmin) ? 'action.hover' : 'inherit' } }}
                       />
                     </Grid>
                   </Grid>
@@ -1407,7 +1408,7 @@ const NewStore = () => {
                             InputLabelProps={{ shrink: true }}
                             InputProps={{ readOnly: true }}
                             helperText="Auto-filled from Launch Date"
-                            sx={{ '& .MuiOutlinedInput-root': { bgcolor: '#f8fafc' } }}
+                            sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'action.hover' } }}
                           />
                           <input type="hidden" {...register('cafeLaunchMonth')} />
                           <input type="hidden" {...register('cafeLaunchYear')} />
@@ -1547,7 +1548,7 @@ const NewStore = () => {
                         label="Latitude (Read-only)" 
                         value={watch('latt') || ''} 
                         InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: '#f8fafc' }} 
+                        sx={{ bgcolor: 'background.paper' }} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -1556,7 +1557,7 @@ const NewStore = () => {
                         label="Longitude (Read-only)" 
                         value={watch('long') || ''} 
                         InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: '#f8fafc' }} 
+                        sx={{ bgcolor: 'background.paper' }} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -1565,7 +1566,7 @@ const NewStore = () => {
                         label="Area Manager Mail ID (Read-only)" 
                         value={watch('areaManagerEmail') || ''} 
                         InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: '#f8fafc' }} 
+                        sx={{ bgcolor: 'background.paper' }} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -1574,7 +1575,7 @@ const NewStore = () => {
                         label="Area Manager Contact Number (Read-only)" 
                         value={watch('areaManagerPhone') || ''} 
                         InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: '#f8fafc' }} 
+                        sx={{ bgcolor: 'background.paper' }} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -1583,7 +1584,7 @@ const NewStore = () => {
                         label="City Head Mail ID (Read-only)" 
                         value={watch('cityHeadEmail') || ''} 
                         InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: '#f8fafc' }} 
+                        sx={{ bgcolor: 'background.paper' }} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -1592,7 +1593,7 @@ const NewStore = () => {
                         label="City Head Contact Number (Read-only)" 
                         value={watch('cityHeadPhone') || ''} 
                         InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: '#f8fafc' }} 
+                        sx={{ bgcolor: 'background.paper' }} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
