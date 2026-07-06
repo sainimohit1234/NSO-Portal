@@ -471,97 +471,19 @@ export default function ExpansionPipeline() {
 
   const handleConfirmYes = async () => {
     const store = confirmDialog.store;
-    const hasCode = confirmDialog.hasCode;
     
     // Close confirmation dialog
     setConfirmDialog(prev => ({ ...prev, open: false, store: null }));
 
-    if (hasCode) {
-      // Scenario 2: Save status to Ready for Construction directly
-      try {
-        setLoading(true);
-        await axios.put(`/api/stores/${store.id}`, { status: 'Ready for Construction' });
-        setSnackbar({ open: true, message: 'Project status updated to Ready for Construction.', severity: 'success' });
-        loadData();
-      } catch (err) {
-        console.error(err);
-        setSnackbar({ open: true, message: 'Failed to update status.', severity: 'error' });
-        setLoading(false);
-      }
-    } else {
-      // Scenario 1: Open draft email dialog
-      try {
-        setLoading(true);
-        const [mappingsRes, templatesRes] = await Promise.all([
-          axios.get('/api/system/email-mappings'),
-          axios.get('/api/system/email-templates')
-        ]);
-        const mappings = mappingsRes.data || [];
-        const templates = templatesRes.data || {};
-        
-        // Find New Store Code Creation mapping
-        const mapping = mappings.find(m => 
-          (m.subCategory && m.subCategory.toLowerCase() === 'new store code creation') ||
-          (m.category && m.category.toLowerCase() === 'new store code creation')
-        );
-
-        // Find New Store Code Creation template
-        const templateKey = Object.keys(templates).find(k => k.toLowerCase() === 'new store code creation') || '';
-        const template = templateKey ? templates[templateKey] : null;
-
-        const brandNamePretty = store.brand === 'BLUE_TOKAI_SUCHALI' 
-          ? "Blue Tokai / Suchali's Artisan Bakehouse" 
-          : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
-
-        const defaultSubject = `New Store Code Creation Request | ${brandNamePretty} | ${store.cafeName || ''}`;
-        const defaultBody = `Hi Team,
-
-This is regarding the new store code creation request for our upcoming cafe. Please find the details below and initiate the store code creation process.
-
-Store Details:
-- Cafe Name: ${store.cafeName || 'N/A'}
-- Brand: ${brandNamePretty}
-- City: ${store.city || 'N/A'}
-- State: ${store.state || 'N/A'}
-- Pin Code: ${store.pinCode || 'N/A'}
-- Address: ${store.cafeAddress || store.address || 'N/A'}
-- Café Model: ${store.cafeModel || 'N/A'}
-
-Best regards,
-Operations Team`;
-
-        let to = mapping?.to?.join(', ') || '';
-        let cc = mapping?.cc?.join(', ') || '';
-        let subject = defaultSubject;
-        let body = defaultBody;
-
-        if (template) {
-          subject = `New Store Code Creation Request | ${brandNamePretty} | ${store.cafeName || ''}`;
-          let tBody = template.body || '';
-          tBody = tBody.replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '');
-          tBody = tBody.replace(/{brandName}|\[Brand Name\]/gi, brandNamePretty);
-          tBody = tBody.replace(/{city}|\[City\]/gi, store.city || '');
-          tBody = tBody.replace(/{state}|\[State\]/gi, store.state || '');
-          tBody = tBody.replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '');
-          tBody = tBody.replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '');
-          body = tBody || defaultBody;
-        }
-
-        setDraftDialog({
-          open: true,
-          store,
-          to,
-          cc,
-          subject,
-          body,
-          isEditable: false
-        });
-      } catch (err) {
-        console.error('Failed to load email configurations', err);
-        setSnackbar({ open: true, message: 'Failed to prepare email draft.', severity: 'error' });
-      } finally {
-        setLoading(false);
-      }
+    try {
+      setLoading(true);
+      await axios.put(`/api/stores/${store.id}`, { status: 'Ready for Construction' });
+      setSnackbar({ open: true, message: 'Project status updated to Ready for Construction.', severity: 'success' });
+      loadData();
+    } catch (err) {
+      console.error(err);
+      setSnackbar({ open: true, message: 'Failed to update status.', severity: 'error' });
+      setLoading(false);
     }
   };
 

@@ -445,12 +445,18 @@ export default function SwiggyZomatoIntegration() {
                     const isSent = statusVal === 'Sent' || statusVal === 'SENT';
                     if (isSent) return <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />;
                     return (
-                      <Button variant="contained" size="small" disabled={!canModify}
-                        startIcon={<SendIcon sx={{ fontSize: '12px !important' }} />}
-                        onClick={() => handleOpenDraftDialog(store, brandKey, brandLabel, mappingId)}
-                        sx={{ textTransform: 'none', fontSize: '0.75rem', borderRadius: '6px', py: 0.5, fontWeight: 700, boxShadow: 'none', '&:hover': { boxShadow: 'none' } }}>
-                        Send
-                      </Button>
+                      <Chip 
+                        label="Pending" 
+                        size="small" 
+                        sx={{ 
+                          bgcolor: '#fef7e0', 
+                          color: '#b06000', 
+                          border: '1px solid',
+                          borderColor: '#feebc8', 
+                          fontWeight: 700, 
+                          borderRadius: '6px' 
+                        }} 
+                      />
                     );
                   };
 
