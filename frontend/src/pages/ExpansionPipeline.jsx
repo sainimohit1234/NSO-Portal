@@ -927,10 +927,10 @@ export default function ExpansionPipeline() {
                 Any new column added in the future MUST be inserted AFTER "MISCELLANEOUS DOCUMENTS" and BEFORE "Status".
               */}
               <TableRow>
-                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, fontWeight: 800, width: 50, bgcolor: 'background.default', color: 'text.primary' }}>S.No.</TableCell>
-                <TableCell sx={{ position: 'sticky', left: 50, zIndex: 4, fontWeight: 800, width: 160, bgcolor: 'background.default', color: 'text.primary' }}>Brand</TableCell>
-                <TableCell sx={{ position: 'sticky', left: 210, zIndex: 4, fontWeight: 800, width: 240, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.default', color: 'text.primary' }}>Café Name</TableCell>
-                <TableCell sx={{ position: 'sticky', left: 450, zIndex: 4, fontWeight: 800, width: 110, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.default', color: 'text.primary' }}>Café Code</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, fontWeight: 800, width: 50, bgcolor: 'background.paper', color: 'text.primary' }}>S.No.</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 50, zIndex: 4, fontWeight: 800, width: 160, bgcolor: 'background.paper', color: 'text.primary' }}>Brand</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 210, zIndex: 4, fontWeight: 800, width: 240, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary' }}>Café Name</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 450, zIndex: 4, fontWeight: 800, width: 110, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary' }}>Café Code</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 110 }}>Pin Code</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 130 }}>City</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 130 }}>State</TableCell>
@@ -979,10 +979,10 @@ export default function ExpansionPipeline() {
                          Any new column must be inserted AFTER "MISCELLANEOUS DOCUMENTS".
                        */}
                        {/* Serial No. */}
-                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.default', color: 'text.primary', fontWeight: 800 }}>{index + 1}</TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper', color: 'text.primary', fontWeight: 800 }}>{index + 1}</TableCell>
 
                       {/* Brand Select */}
-                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.default' }}>
+                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.paper' }}>
                         <Select
                           value={store.brand || 'BLUE_TOKAI_SUCHALI'}
                           size="small"
@@ -996,7 +996,7 @@ export default function ExpansionPipeline() {
                         </Select>
                       </TableCell>
                       {/* Café Name */}
-                      <TableCell sx={{ position: 'sticky', left: 210, zIndex: 2, bgcolor: 'background.default', borderRight: '1.5px solid', borderColor: 'divider' }}>
+                      <TableCell sx={{ position: 'sticky', left: 210, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
                         <TextField
                           value={store.cafeName || ''}
                           size="small"
@@ -1021,7 +1021,7 @@ export default function ExpansionPipeline() {
                       </TableCell>
 
                       {/* Café Code */}
-                      <TableCell sx={{ position: 'sticky', left: 450, zIndex: 2, bgcolor: 'background.default', borderRight: '1.5px solid', borderColor: 'divider' }}>
+                      <TableCell sx={{ position: 'sticky', left: 450, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
                         <TextField
                           value={store.cafeCode || ''}
                           size="small"

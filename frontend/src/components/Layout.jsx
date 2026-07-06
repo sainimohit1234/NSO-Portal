@@ -384,10 +384,37 @@ export default function Layout() {
           py: { xs: 1.5, md: 2 },
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           mt: { xs: 8.5, sm: 9 },
-          position: 'relative'
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
-        <Box sx={{ width: '100%', maxWidth: 1640, mx: 'auto' }}>
+        {/* Background Decorative Blur Blobs */}
+        <Box sx={{
+          position: 'absolute',
+          top: '-10%',
+          right: '-10%',
+          width: '500px',
+          height: '500px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, rgba(99, 102, 241, 0) 70%)',
+          filter: 'blur(50px)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }} />
+        <Box sx={{
+          position: 'absolute',
+          bottom: '-10%',
+          left: '-10%',
+          width: '500px',
+          height: '500px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, rgba(139, 92, 246, 0) 70%)',
+          filter: 'blur(50px)',
+          pointerEvents: 'none',
+          zIndex: 0
+        }} />
+
+        <Box sx={{ width: '100%', maxWidth: 1640, mx: 'auto', position: 'relative', zIndex: 1 }}>
           <Outlet />
         </Box>
       </Box>

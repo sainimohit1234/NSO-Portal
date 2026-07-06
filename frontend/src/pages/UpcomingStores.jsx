@@ -6,6 +6,10 @@ import {
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import ConstructionIcon from '@mui/icons-material/Construction';
+import LayersIcon from '@mui/icons-material/Layers';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -313,34 +317,126 @@ export default function UpcomingStores() {
       </Box>
 
       {/* Status Summary Tiles */}
-      <Box sx={{ display: 'flex', gap: 3, mb: 3 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2.25, mb: 3.5 }}>
         {[
-          { label: 'In Pipeline', count: pipelineCount, status: 'In Pipeline' },
-          { label: 'Ready for Construction', count: rfcCount, status: 'Ready for Construction' },
-          { label: 'Under Construction', count: ucCount, status: 'Under Construction' }
-        ].map(tile => (
-          <Card 
-            key={tile.label} 
-            onClick={() => handleTileClick(tile.status)}
-            sx={{ 
-              flex: 1, 
-              cursor: 'pointer', 
-              border: '2px solid #0A314D', 
-              bgcolor: filters.workflowStatus === tile.status ? 'rgba(10, 49, 77, 0.1)' : '#ffffff',
-              transition: 'all 0.2s',
-              '&:hover': { bgcolor: 'rgba(10, 49, 77, 0.15)' }
-            }}
-          >
-            <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
-              <Typography variant="h6" sx={{ color: '#000000', fontWeight: 'bold', fontStyle: 'italic', mb: 1 }}>
-                {tile.label}
-              </Typography>
-              <Typography variant="h4" sx={{ color: '#000000', fontWeight: 'bold', fontStyle: 'italic' }}>
-                {tile.count}
-              </Typography>
-            </CardContent>
-          </Card>
-        ))}
+          {
+            key: 'pipeline',
+            label: 'In Pipeline',
+            count: pipelineCount,
+            filterValue: 'In Pipeline',
+            icon: <TimelineIcon />,
+            color: '#3b82f6'
+          },
+          {
+            key: 'rfc',
+            label: 'Ready for Construction',
+            count: rfcCount,
+            filterValue: 'Ready for Construction',
+            icon: <AssignmentIcon />,
+            color: '#10b981'
+          },
+          {
+            key: 'construction',
+            label: 'Under Construction',
+            count: ucCount,
+            filterValue: 'Under Construction',
+            icon: <ConstructionIcon />,
+            color: '#8b5cf6'
+          }
+        ].map((tile) => {
+          const isActive = filters.workflowStatus === tile.filterValue;
+          return (
+            <Card
+              key={tile.key}
+              onClick={() => handleTileClick(isActive ? '' : tile.filterValue)}
+              sx={{
+                bgcolor: 'background.paper',
+                borderRadius: '16px',
+                border: '2px solid',
+                borderColor: isActive ? tile.color : 'transparent',
+                boxShadow: isActive 
+                  ? `0 12px 24px ${tile.color}1e, inset 0 2px 0 rgba(255,255,255,0.5)`
+                  : '0 4px 12px rgba(0,0,0,0.03)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                position: 'relative',
+                overflow: 'hidden',
+                opacity: filters.workflowStatus !== '' && !isActive ? 0.65 : 1,
+                transform: isActive ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: isActive ? 'scale(1.02) translateY(-2px)' : 'translateY(-3px)',
+                  boxShadow: isActive 
+                    ? `0 16px 32px ${tile.color}2c`
+                    : '0 12px 24px rgba(15,23,42,0.08)',
+                  opacity: 1,
+                  borderColor: isActive ? tile.color : `${tile.color}40`
+                }
+              }}
+            >
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: -24,
+                  right: -24,
+                  width: 90,
+                  height: 90,
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle, ${tile.color}18 0%, ${tile.color}00 70%)`
+                }}
+              />
+              <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography 
+                      variant="body2" 
+                      color="text.secondary" 
+                      sx={{ 
+                        fontWeight: 700, 
+                        mb: 0.75, 
+                        textTransform: 'uppercase', 
+                        letterSpacing: '0.05em', 
+                        fontSize: '0.7rem' 
+                      }}
+                    >
+                      {tile.label}
+                    </Typography>
+                    <Typography 
+                      variant="h4" 
+                      sx={{ 
+                        fontWeight: 800, 
+                        color: 'text.primary', 
+                        fontSize: { xs: '1.8rem', md: '2.1rem' }, 
+                        lineHeight: 1, 
+                        mb: 0.5 
+                      }}
+                    >
+                      {tile.count}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {isActive ? 'Active Filter' : 'Click to filter'}
+                    </Typography>
+                  </Box>
+                  <Box 
+                    sx={{
+                      bgcolor: isActive ? tile.color : `${tile.color}12`,
+                      p: 1.25,
+                      borderRadius: 3.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: isActive ? '#ffffff' : tile.color,
+                      border: `1px solid ${tile.color}20`,
+                      boxShadow: isActive ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.45)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    {React.cloneElement(tile.icon, { sx: { fontSize: 22 } })}
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          );
+        })}
       </Box>
 
       {/* Filters Card */}
@@ -473,20 +569,20 @@ export default function UpcomingStores() {
 
       {/* Stores List Card */}
       <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden' }}>
-        <TableContainer component={Paper} elevation={0} sx={{ border: '2px solid #0A314D', borderRadius: '8px' }}>
+        <TableContainer>
           <Table>
-            <TableHead sx={{ bgcolor: 'rgba(10, 49, 77, 0.05)', '& th': { borderBottom: '2px solid #0A314D', color: '#000000', fontWeight: 'bold', fontStyle: 'italic' } }}>
+            <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Code</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Cafe Name</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Location</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Expected Sale</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Project Start</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Handover Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Dry Launch Date</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Workflow Status</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Sent to NSO Team for Approval By</TableCell>
-                <TableCell sx={{ fontWeight: 700 }}>Approved By</TableCell>
+                <TableCell>Code</TableCell>
+                <TableCell>Cafe Name</TableCell>
+                <TableCell>Location</TableCell>
+                <TableCell>Expected Sale</TableCell>
+                <TableCell>Project Start</TableCell>
+                <TableCell>Handover Date</TableCell>
+                <TableCell>Dry Launch Date</TableCell>
+                <TableCell>Workflow Status</TableCell>
+                <TableCell>Sent to NSO Team for Approval By</TableCell>
+                <TableCell>Approved By</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
