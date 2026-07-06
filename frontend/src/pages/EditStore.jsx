@@ -94,6 +94,7 @@ export default function EditStore() {
   const [allStoresList, setAllStoresList] = useState([]);
   const isSavedRef = useRef(false);
   const pendingDataRef = useRef(null);
+  const isApprovedStatus = store && ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
 
   // Active Tab state for layout categorization
   const [activeTab, setActiveTab] = useState('Cafe Basic Details');
@@ -605,7 +606,6 @@ export default function EditStore() {
   const currentStatusVal = watch('status');
   // Unlock locally if the user is transitioning it to Under Construction
   const isLocked = store?.isLocked && currentStatusVal !== 'Under Construction';
-  const isApprovedStatus = store && ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
   
   const hasEditStores = user?.permissions?.includes('EDIT_STORES');
   const hasEditContacts = isSuperAdmin || user?.permissions?.includes('EDIT_CONTACTS');
