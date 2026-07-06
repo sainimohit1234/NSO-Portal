@@ -51,11 +51,11 @@ import gotTeaLogo from '../assets/got_tea_logo.png';
 
 const drawerWidth = 228;
 const glassPanelSx = {
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.84) 0%, rgba(255,255,255,0.64) 100%)',
+  background: 'linear-gradient(180deg, rgba(18, 24, 36, 0.82) 0%, rgba(11, 15, 25, 0.68) 100%)',
   backdropFilter: 'blur(22px)',
   WebkitBackdropFilter: 'blur(22px)',
-  border: '1px solid rgba(63, 174, 191, 0.12)',
-  boxShadow: '0 16px 34px rgba(15, 23, 42, 0.05)'
+  borderRight: '1px solid rgba(255, 255, 255, 0.06)',
+  boxShadow: '0 16px 34px rgba(0, 0, 0, 0.25)'
 };
 
 export default function Layout() {
@@ -193,9 +193,9 @@ export default function Layout() {
           size="small"
           sx={{
             height: 28,
-            bgcolor: 'rgba(10, 49, 77, 0.08)',
-            color: 'text.primary',
-            border: '1px solid rgba(10, 49, 77, 0.15)'
+            bgcolor: 'rgba(56, 189, 248, 0.1)',
+            color: '#38bdf8',
+            border: '1px solid rgba(56, 189, 248, 0.25)'
           }}
         />
       </Box>
