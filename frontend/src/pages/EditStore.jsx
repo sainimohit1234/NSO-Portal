@@ -347,9 +347,9 @@ export default function EditStore() {
   // Block in-app navigation when form is dirty
   const blocker = useBlocker(
     useCallback(() => {
-      if (isSavedRef.current) return false;
+      if (isSavedRef.current || isViewOnly || isApprovedStatus) return false;
       return hasDirtyFields;
-    }, [hasDirtyFields])
+    }, [hasDirtyFields, isViewOnly, isApprovedStatus])
   );
 
   useEffect(() => {
@@ -512,17 +512,18 @@ export default function EditStore() {
 
   // Auto-extract PIN code from Address field
   const cafeAddressValue = watch('cafeAddress');
+  const isAddressDirty = formState.dirtyFields.cafeAddress;
   useEffect(() => {
     if (cafeAddressValue) {
       const match = cafeAddressValue.match(/\b\d{6}\b/);
       if (match) {
         const extractedPin = match[0];
         if (pinCodeValue !== extractedPin) {
-          setValue('pinCode', extractedPin, { shouldValidate: true, shouldDirty: true });
+          setValue('pinCode', extractedPin, { shouldValidate: true, shouldDirty: !!isAddressDirty });
         }
       }
     }
-  }, [cafeAddressValue, pinCodeValue, setValue]);
+  }, [cafeAddressValue, pinCodeValue, isAddressDirty, setValue]);
 
   // Email ID Auto-Population based on Cafe Name and Brand
   const cafeNameValue = watch('cafeName');
@@ -556,16 +557,18 @@ export default function EditStore() {
 
   // Launch Date → Cafe Launch Month & Year auto-fill (for non-Super Admin & non-Admin)
   const launchDateValue = watch('launchDate');
+  const isLaunchDateDirty = formState.dirtyFields.launchDate;
   useEffect(() => {
     if (!isSuperAdmin && !isAdmin && launchDateValue && String(launchDateValue).trim()) {
       const d = new Date(launchDateValue);
       if (!isNaN(d.getTime())) {
         const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-        setValue('cafeLaunchMonth', monthNames[d.getMonth()], { shouldDirty: true, shouldValidate: true });
-        setValue('cafeLaunchYear', String(d.getFullYear()), { shouldDirty: true, shouldValidate: true });
+        const shouldDirty = !!isLaunchDateDirty;
+        setValue('cafeLaunchMonth', monthNames[d.getMonth()], { shouldDirty, shouldValidate: true });
+        setValue('cafeLaunchYear', String(d.getFullYear()), { shouldDirty, shouldValidate: true });
       }
     }
-  }, [launchDateValue, isSuperAdmin, isAdmin, setValue]);
+  }, [launchDateValue, isSuperAdmin, isAdmin, isLaunchDateDirty, setValue]);
 
   // Unique contacts by designation
   const areaManagers = contacts.filter(c => c.designation === 'Area Manager');
