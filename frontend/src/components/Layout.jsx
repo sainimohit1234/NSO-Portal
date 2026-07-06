@@ -210,19 +210,19 @@ export default function Layout() {
                 sx={{
                   alignItems: 'center',
                   borderRadius: '14px',
-                  bgcolor: isActive ? alpha(item.color, 0.08) : 'transparent',
-                  color: isActive ? 'text.primary' : 'text.secondary',
+                  bgcolor: isActive ? 'rgba(56, 189, 248, 0.12)' : 'transparent',
+                  color: isActive ? '#38bdf8' : 'text.secondary',
                   py: 0.75,
                   px: 1.15,
                   border: '1px solid',
-                  borderColor: isActive ? alpha(item.color, 0.15) : 'transparent',
-                  boxShadow: isActive ? `0 6px 20px ${alpha(item.color, 0.05)}` : 'none',
+                  borderColor: isActive ? 'rgba(56, 189, 248, 0.25)' : 'transparent',
+                  boxShadow: isActive ? '0 6px 20px rgba(56, 189, 248, 0.05)' : 'none',
                   '&:hover': {
-                    bgcolor: isActive ? alpha(item.color, 0.08) : 'rgba(255,255,255,0.40)',
+                    bgcolor: isActive ? 'rgba(56, 189, 248, 0.16)' : 'rgba(255, 255, 255, 0.04)',
                     color: 'text.primary',
                     '& .sidebar-icon-badge': {
                       transform: 'scale(1.15) rotate(3deg)',
-                      boxShadow: `0 4px 14px ${alpha(item.color, 0.3)}`
+                      boxShadow: '0 4px 14px rgba(56, 189, 248, 0.35)'
                     }
                   },
                   transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -244,10 +244,10 @@ export default function Layout() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      bgcolor: isActive ? item.color : alpha(item.color, 0.12),
-                      color: isActive ? '#ffffff' : item.color,
+                      bgcolor: isActive ? '#38bdf8' : 'rgba(56, 189, 248, 0.12)',
+                      color: isActive ? '#0B0F19' : '#38bdf8',
                       transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: isActive ? `0 4px 12px ${alpha(item.color, 0.4)}` : 'none'
+                      boxShadow: isActive ? '0 4px 12px rgba(56, 189, 248, 0.35)' : 'none'
                     }}
                   >
                     {React.cloneElement(item.icon, { sx: { fontSize: 18 } })}
