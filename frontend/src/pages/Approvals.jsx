@@ -417,13 +417,12 @@ export default function Approvals() {
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Workflow Status</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>On Hold Remarks</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Approved By</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary', fontWeight: 600 }}>
                     {stores.length === 0 ? "No stores pending approval. You're all caught up!" : "No stores match your search."}
                   </TableCell>
                 </TableRow>
