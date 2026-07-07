@@ -56,7 +56,7 @@ const drawerWidth = 260;
 
 export default function Layout() {
   const theme = useTheme();
-  const { themeMode, setThemeMode, customColors, setCustomColors, isRainThemeActive } = useThemeMode();
+  const { themeMode, setThemeMode, customColors, setCustomColors, customBgUrl, setCustomBgUrl } = useThemeMode();
   const isLight = theme.palette.mode === 'light';
 
   const glassPanelSx = {
@@ -77,6 +77,7 @@ export default function Layout() {
 
   const [themeAnchorEl, setThemeAnchorEl] = useState(null);
   const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
+  const [themeBgDialogOpen, setThemeBgDialogOpen] = useState(false);
 
   // Custom theme color editor local state
   const [customBg, setCustomBg] = useState(customColors?.background || '#0B0F19');
@@ -235,7 +236,7 @@ export default function Layout() {
   );
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', ...(isRainThemeActive ? { background: 'transparent' } : glassPanelSx) }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', ...(themeMode === 'customize' ? { background: 'transparent' } : glassPanelSx) }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', px: 2, pt: 2.75, pb: 2, gap: 1.5 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 46, width: 46, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
@@ -329,7 +330,7 @@ export default function Layout() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', position: 'relative' }}>
-      {isRainThemeActive && (
+      {themeMode === 'customize' && customBgUrl && (
         <Box
           sx={{
             position: 'fixed',
@@ -340,47 +341,14 @@ export default function Layout() {
             zIndex: -1,
             overflow: 'hidden',
             backgroundColor: '#050a10',
-            opacity: 0.9,
+            opacity: 0.95,
           }}
         >
-          <iframe
-            src="https://www.youtube.com/embed/J5OSRpRyl6g?autoplay=1&loop=1&mute=1&controls=0&modestbranding=1&playlist=J5OSRpRyl6g&rel=0&iv_load_policy=3"
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              width: '100vw',
-              height: '100vh',
-              minWidth: '177.77vh',
-              minHeight: '56.25vw',
-              transform: 'translate(-50%, -50%) scale(1.2)',
-              border: 'none',
-              pointerEvents: 'none',
-              filter: 'brightness(0.65) contrast(1.3)'
-            }}
-            allow="autoplay; fullscreen; encrypted-media"
+          <img
+            src={customBgUrl}
+            alt="Custom Theme"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }}
           />
-          <Box
-            sx={{
-              position: 'absolute',
-              top: '50%',
-              left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: { xs: '300px', md: '550px' },
-              height: { xs: '300px', md: '550px' },
-              pointerEvents: 'none',
-              zIndex: 1,
-              opacity: 0.9,
-              filter: 'drop-shadow(0 30px 50px rgba(0,0,0,0.85)) drop-shadow(0 10px 15px rgba(0,0,0,0.5)) brightness(0.9) contrast(1.15)',
-            }}
-          >
-            <img 
-              src="/assets/central_cup.png" 
-              alt="Blue Tokai Coffee Cup" 
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-              onError={(e) => { e.target.style.display = 'none'; }} 
-            />
-          </Box>
         </Box>
       )}
       <AppBar
@@ -483,9 +451,9 @@ export default function Layout() {
               boxSizing: 'border-box', 
               width: drawerWidth, 
               borderRight: 'none',
-              background: isRainThemeActive ? 'rgba(15, 23, 42, 0.4)' : undefined,
-              backdropFilter: isRainThemeActive ? 'blur(16px)' : undefined,
-              WebkitBackdropFilter: isRainThemeActive ? 'blur(16px)' : undefined
+              background: themeMode === 'customize' ? 'rgba(15, 23, 42, 0.4)' : undefined,
+              backdropFilter: themeMode === 'customize' ? 'blur(16px)' : undefined,
+              WebkitBackdropFilter: themeMode === 'customize' ? 'blur(16px)' : undefined
             },
           }}
         >
@@ -500,9 +468,9 @@ export default function Layout() {
               width: drawerWidth, 
               borderRight: '1px solid', 
               borderColor: 'divider',
-              background: isRainThemeActive ? 'transparent' : undefined,
-              backdropFilter: isRainThemeActive ? 'blur(10px)' : undefined,
-              WebkitBackdropFilter: isRainThemeActive ? 'blur(10px)' : undefined
+              background: themeMode === 'customize' ? 'transparent' : undefined,
+              backdropFilter: themeMode === 'customize' ? 'blur(10px)' : undefined,
+              WebkitBackdropFilter: themeMode === 'customize' ? 'blur(10px)' : undefined
             },
           }}
           open
@@ -645,20 +613,67 @@ export default function Layout() {
           Light Theme
         </MenuItem>
         <MenuItem 
-          onClick={() => { setThemeMode('system'); handleThemeClose(); }} 
-          selected={themeMode === 'system'} 
+          onClick={() => { setThemeBgDialogOpen(true); handleThemeClose(); }} 
+          selected={themeMode === 'customize'} 
           sx={{ fontWeight: 600 }}
         >
-          System Theme (Auto)
-        </MenuItem>
-        <MenuItem 
-          onClick={() => { setThemeMode('rain'); handleThemeClose(); }} 
-          selected={themeMode === 'rain'} 
-          sx={{ fontWeight: 600 }}
-        >
-          Rain Theme (Manual)
+          Customize Theme
         </MenuItem>
       </Menu>
+
+      {/* Theme Background Selection Dialog */}
+      <Dialog 
+        open={themeBgDialogOpen} 
+        onClose={() => setThemeBgDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: '24px', p: 2, background: 'background.paper' }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', fontSize: '1.5rem', pb: 1 }}>
+          Customize Your Theme
+        </DialogTitle>
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mb: 3 }}>
+          Select a background image to personalize your dashboard.
+        </Typography>
+        <DialogContent sx={{ overflowY: 'visible', pb: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 3 }}>
+            {['/assets/themes/theme1.png', '/assets/themes/theme2.png', '/assets/themes/theme3.png', '/assets/themes/theme4.png'].map((url, idx) => (
+              <Box 
+                key={idx}
+                onClick={() => {
+                  setThemeMode('customize');
+                  setCustomBgUrl(url);
+                  setThemeBgDialogOpen(false);
+                }}
+                sx={{
+                  position: 'relative',
+                  width: '100%',
+                  aspectRatio: '16/9',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  border: customBgUrl === url && themeMode === 'customize' ? '4px solid #38bdf8' : '2px solid transparent',
+                  boxShadow: customBgUrl === url && themeMode === 'customize' ? '0 0 20px rgba(56, 189, 248, 0.5)' : '0 4px 12px rgba(0,0,0,0.1)',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'scale(1.02)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+                  }
+                }}
+              >
+                <img src={url} alt={`Theme ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </Box>
+            ))}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'center' }}>
+          <Button onClick={() => setThemeBgDialogOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
   );

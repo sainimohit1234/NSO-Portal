@@ -75,59 +75,18 @@ export const CustomThemeProvider = ({ children }) => {
     localStorage.setItem('customColors', JSON.stringify(colors));
   };
 
-  const [systemThemeValue, setSystemThemeValue] = useState(() => {
-    const hour = new Date().getHours();
-    return (hour >= 6 && hour < 18) ? 'light' : 'dark';
+  const [customBgUrl, setCustomBgUrlState] = useState(() => {
+    return localStorage.getItem('customBgUrl') || '';
   });
 
-  useEffect(() => {
-    if (themeMode !== 'system') return;
-    
-    // Fallback time-based check
-    const checkTime = () => {
-      const hour = new Date().getHours();
-      return (hour >= 6 && hour < 18) ? 'light' : 'dark';
-    };
-
-    // Fetch weather to determine if it is raining
-    const checkWeather = async () => {
-      try {
-        const locationRes = await fetch('https://ipapi.co/json/');
-        const locationData = await locationRes.json();
-        
-        if (locationData.latitude && locationData.longitude) {
-          const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${locationData.latitude}&longitude=${locationData.longitude}&current_weather=true`);
-          const weatherData = await weatherRes.json();
-          
-          if (weatherData && weatherData.current_weather) {
-            const code = weatherData.current_weather.weathercode;
-            // WMO Weather codes for Rain, Drizzle, Showers, Thunderstorms:
-            // 51-55 (Drizzle), 56-57 (Freezing Drizzle), 61-65 (Rain), 66-67 (Freezing Rain), 
-            // 80-82 (Rain Showers), 95-99 (Thunderstorm)
-            const isRaining = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || (code >= 95 && code <= 99);
-            
-            if (isRaining) {
-              setSystemThemeValue('rain');
-              return; // Weather theme takes precedence
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch weather for theme", err);
-      }
-      
-      // Fallback if weather fetch fails or it's not raining
-      setSystemThemeValue(checkTime());
-    };
-
-    // Initial check
-    checkWeather();
-
-    const interval = setInterval(() => {
-      checkWeather();
-    }, 600000); // Check every 10 minutes instead of every minute to respect rate limits
-    return () => clearInterval(interval);
-  }, [themeMode]);
+  const setCustomBgUrl = (url) => {
+    setCustomBgUrlState(url);
+    if (url) {
+      localStorage.setItem('customBgUrl', url);
+    } else {
+      localStorage.removeItem('customBgUrl');
+    }
+  };
 
   const activeTheme = useMemo(() => {
     let text, border, headerBg, bgDefault, bgPaper, primaryMain;
@@ -135,71 +94,33 @@ export const CustomThemeProvider = ({ children }) => {
     let primaryLight = '#7dd3fc';
     let textSecondary = '#94A3B8';
     let paletteMode = 'dark';
-
-    if (themeMode === 'system') {
-      const isDaytime = systemThemeValue === 'light';
-      const isRaining = systemThemeValue === 'rain';
-      const defaults = isRaining ? systemRainThemeDefaults : (isDaytime ? systemDayThemeDefaults : systemNightThemeDefaults);
-      
-      text = defaults.text;
-      border = defaults.border;
-      headerBg = defaults.header;
-      bgDefault = defaults.background;
-      bgPaper = defaults.paper;
-      primaryMain = defaults.primary;
-      
-      if (isRaining) {
-        primaryDark = '#0284c7';
-        primaryLight = '#7dd3fc';
-        textSecondary = '#94a3b8';
-        paletteMode = 'dark';
-      } else {
-        primaryDark = isDaytime ? '#b45309' : '#4f46e5';
-        primaryLight = isDaytime ? '#fcd34d' : '#c7d2fe';
-        textSecondary = isDaytime ? '#64748b' : '#a5b4fc';
-        paletteMode = isDaytime ? 'light' : 'dark';
-      }
-    } else if (themeMode === 'rain') {
-      text = systemRainThemeDefaults.text;
-      border = systemRainThemeDefaults.border;
-      headerBg = systemRainThemeDefaults.header;
-      bgDefault = systemRainThemeDefaults.background;
-      bgPaper = systemRainThemeDefaults.paper;
-      primaryMain = systemRainThemeDefaults.primary;
-      primaryDark = '#0284c7';
-      primaryLight = '#7dd3fc';
-      textSecondary = '#94a3b8';
-      paletteMode = 'dark';
-    } else if (themeMode === 'light') {
+    if (themeMode === 'light') {
       text = lightThemeDefaults.text;
       border = lightThemeDefaults.border;
       headerBg = lightThemeDefaults.header;
       bgDefault = lightThemeDefaults.background;
       bgPaper = lightThemeDefaults.paper;
       primaryMain = lightThemeDefaults.primary;
-      primaryDark = '#061E33';
-      primaryLight = '#174A73';
+      primaryDark = '#061d2d';
+      primaryLight = '#124c73';
       textSecondary = '#475569';
       paletteMode = 'light';
-    } else if (themeMode === 'custom') {
+    } else {
+      // both 'dark' and 'customize' fall back to dark palette
       text = customColors.text || darkThemeDefaults.text;
       border = customColors.border || darkThemeDefaults.border;
       headerBg = customColors.header || darkThemeDefaults.header;
-      bgDefault = customColors.background || darkThemeDefaults.background;
-      bgPaper = customColors.background || darkThemeDefaults.paper; 
+      bgDefault = themeMode === 'customize' ? 'transparent' : (customColors.background || darkThemeDefaults.background);
+      bgPaper = customColors.paper || darkThemeDefaults.paper;
       primaryMain = customColors.primary || darkThemeDefaults.primary;
+      
+      if (themeMode === 'customize') {
+        headerBg = 'rgba(15, 23, 42, 0.7)'; // Transparent for custom background
+        bgPaper = 'rgba(15, 23, 42, 0.65)'; // Semi-transparent paper
+      }
       primaryDark = alpha(primaryMain, 0.8);
       primaryLight = alpha(primaryMain, 0.4);
       textSecondary = alpha(text, 0.65);
-      paletteMode = 'dark';
-    } else {
-      // Default Dark Theme
-      text = darkThemeDefaults.text;
-      border = darkThemeDefaults.border;
-      headerBg = darkThemeDefaults.header;
-      bgDefault = darkThemeDefaults.background;
-      bgPaper = darkThemeDefaults.paper;
-      primaryMain = darkThemeDefaults.primary;
       paletteMode = 'dark';
     }
 
@@ -644,12 +565,10 @@ export const CustomThemeProvider = ({ children }) => {
     return responsiveFontSizes(baseTheme, {
       factor: 2.4
     });
-  }, [themeMode, customColors, systemThemeValue]);
-
-  const isRainThemeActive = themeMode === 'rain' || (themeMode === 'system' && systemThemeValue === 'rain');
+  }, [themeMode, customColors]);
 
   return (
-    <ThemeContext.Provider value={{ themeMode, setThemeMode, customColors, setCustomColors, isRainThemeActive }}>
+    <ThemeContext.Provider value={{ themeMode, setThemeMode, customColors, setCustomColors, customBgUrl, setCustomBgUrl }}>
       <ThemeProvider theme={activeTheme}>
         {children}
       </ThemeProvider>
