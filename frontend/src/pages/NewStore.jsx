@@ -828,8 +828,18 @@ const NewStore = () => {
                 Register a new cafe with full operational details. Fields marked required must be filled before submission.
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-              <TextField size="small" label="Status *" disabled value="Upcoming Store" sx={{ minWidth: 160 }} />
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+              <TextField 
+                size="small" 
+                label="Status *" 
+                disabled 
+                value="Upcoming Store" 
+                sx={{ 
+                  minWidth: 160,
+                  bgcolor: 'background.paper',
+                  borderRadius: 1
+                }} 
+              />
               <TextField
                 select
                 size="small"
@@ -837,13 +847,17 @@ const NewStore = () => {
                 {...register('brand')}
                 error={!!errors.brand}
                 helperText={errors.brand?.message}
-                sx={{ minWidth: 280 }}
+                sx={{ 
+                  minWidth: 280,
+                  bgcolor: 'background.paper',
+                  borderRadius: 1
+                }}
               >
                 <MenuItem value="">— Clear Selection —</MenuItem>
                 <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's Artisan Bakehouse</MenuItem>
                 <MenuItem value="GOT_TEA">Got Tea</MenuItem>
               </TextField>
-              <Button variant="outlined" onClick={() => navigate(-1)} sx={{ px: 3, borderRadius: '8px' }}>
+              <Button variant="outlined" onClick={() => navigate(-1)} sx={{ px: 3, borderRadius: '8px', height: 40, bgcolor: 'background.paper' }}>
                 Cancel
               </Button>
             </Box>
@@ -1814,11 +1828,11 @@ const NewStore = () => {
 
         </Grid>
         ) : (
-          <Card sx={{ p: 6, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '16px', bgcolor: 'rgba(0,122,140,0.02)', mt: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.secondary', mb: 1 }}>
+          <Card sx={{ p: 6, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '16px', bgcolor: 'background.paper', mt: 2, backdropFilter: 'blur(8px)' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary', mb: 1 }}>
               Select a Brand to Begin
             </Typography>
-            <Typography variant="body2" color="text.disabled">
+            <Typography variant="body2" color="text.secondary">
               Please choose a brand from the dropdown in the header to start entering café details.
             </Typography>
           </Card>
