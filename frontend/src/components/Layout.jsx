@@ -339,9 +339,8 @@ export default function Layout() {
             height: '100vh',
             zIndex: -1,
             overflow: 'hidden',
-            backgroundColor: '#000',
-            opacity: 0.85,
-            filter: 'brightness(0.6)'
+            backgroundColor: '#050a10',
+            opacity: 0.9,
           }}
         >
           <iframe
@@ -356,26 +355,27 @@ export default function Layout() {
               minHeight: '56.25vw',
               transform: 'translate(-50%, -50%) scale(1.2)',
               border: 'none',
-              pointerEvents: 'none'
+              pointerEvents: 'none',
+              filter: 'brightness(0.65) contrast(1.3)'
             }}
             allow="autoplay; fullscreen; encrypted-media"
           />
           <Box
             sx={{
               position: 'absolute',
-              bottom: { xs: '-5%', md: '-10%' },
-              right: { xs: '-5%', md: '-5%' },
-              width: { xs: '300px', md: '500px' },
-              height: { xs: '300px', md: '500px' },
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: { xs: '300px', md: '550px' },
+              height: { xs: '300px', md: '550px' },
               pointerEvents: 'none',
               zIndex: 1,
-              opacity: 0.85,
-              transform: 'rotate(-5deg)',
-              filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.5))',
+              opacity: 0.9,
+              filter: 'drop-shadow(0 30px 50px rgba(0,0,0,0.85)) drop-shadow(0 10px 15px rgba(0,0,0,0.5)) brightness(0.9) contrast(1.15)',
             }}
           >
             <img 
-              src="/assets/coffee_cup.png" 
+              src="/assets/central_cup.png" 
               alt="Blue Tokai Coffee Cup" 
               style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               onError={(e) => { e.target.style.display = 'none'; }} 
