@@ -42,6 +42,15 @@ const systemNightThemeDefaults = {
   primary: '#818cf8' // Indigo 400
 };
 
+const systemRainThemeDefaults = {
+  text: '#f1f5f9', // Slate 100
+  border: 'rgba(255, 255, 255, 0.08)',
+  header: '#0f172a', // Slate 900
+  background: '#1e293b', // Slate 800
+  paper: '#334155', // Slate 700
+  primary: '#38bdf8' // Light Blue 400
+};
+
 export const CustomThemeProvider = ({ children }) => {
   const [themeMode, setThemeModeState] = useState(() => {
     return localStorage.getItem('themeMode') || 'dark';
@@ -73,10 +82,50 @@ export const CustomThemeProvider = ({ children }) => {
 
   useEffect(() => {
     if (themeMode !== 'system') return;
-    const interval = setInterval(() => {
+    
+    // Fallback time-based check
+    const checkTime = () => {
       const hour = new Date().getHours();
-      setSystemThemeValue((hour >= 6 && hour < 18) ? 'light' : 'dark');
-    }, 60000); // Check every minute
+      return (hour >= 6 && hour < 18) ? 'light' : 'dark';
+    };
+
+    // Fetch weather to determine if it is raining
+    const checkWeather = async () => {
+      try {
+        const locationRes = await fetch('https://ipapi.co/json/');
+        const locationData = await locationRes.json();
+        
+        if (locationData.latitude && locationData.longitude) {
+          const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${locationData.latitude}&longitude=${locationData.longitude}&current_weather=true`);
+          const weatherData = await weatherRes.json();
+          
+          if (weatherData && weatherData.current_weather) {
+            const code = weatherData.current_weather.weathercode;
+            // WMO Weather codes for Rain, Drizzle, Showers, Thunderstorms:
+            // 51-55 (Drizzle), 56-57 (Freezing Drizzle), 61-65 (Rain), 66-67 (Freezing Rain), 
+            // 80-82 (Rain Showers), 95-99 (Thunderstorm)
+            const isRaining = (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || (code >= 95 && code <= 99);
+            
+            if (isRaining) {
+              setSystemThemeValue('rain');
+              return; // Weather theme takes precedence
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch weather for theme", err);
+      }
+      
+      // Fallback if weather fetch fails or it's not raining
+      setSystemThemeValue(checkTime());
+    };
+
+    // Initial check
+    checkWeather();
+
+    const interval = setInterval(() => {
+      checkWeather();
+    }, 600000); // Check every 10 minutes instead of every minute to respect rate limits
     return () => clearInterval(interval);
   }, [themeMode]);
 
@@ -89,7 +138,8 @@ export const CustomThemeProvider = ({ children }) => {
 
     if (themeMode === 'system') {
       const isDaytime = systemThemeValue === 'light';
-      const defaults = isDaytime ? systemDayThemeDefaults : systemNightThemeDefaults;
+      const isRaining = systemThemeValue === 'rain';
+      const defaults = isRaining ? systemRainThemeDefaults : (isDaytime ? systemDayThemeDefaults : systemNightThemeDefaults);
       
       text = defaults.text;
       border = defaults.border;
@@ -98,10 +148,17 @@ export const CustomThemeProvider = ({ children }) => {
       bgPaper = defaults.paper;
       primaryMain = defaults.primary;
       
-      primaryDark = isDaytime ? '#b45309' : '#4f46e5';
-      primaryLight = isDaytime ? '#fcd34d' : '#c7d2fe';
-      textSecondary = isDaytime ? '#64748b' : '#a5b4fc';
-      paletteMode = isDaytime ? 'light' : 'dark';
+      if (isRaining) {
+        primaryDark = '#0284c7';
+        primaryLight = '#7dd3fc';
+        textSecondary = '#94a3b8';
+        paletteMode = 'dark';
+      } else {
+        primaryDark = isDaytime ? '#b45309' : '#4f46e5';
+        primaryLight = isDaytime ? '#fcd34d' : '#c7d2fe';
+        textSecondary = isDaytime ? '#64748b' : '#a5b4fc';
+        paletteMode = isDaytime ? 'light' : 'dark';
+      }
     } else if (themeMode === 'light') {
       text = lightThemeDefaults.text;
       border = lightThemeDefaults.border;
