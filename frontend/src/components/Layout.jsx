@@ -343,9 +343,10 @@ export default function Layout() {
             height: '100vh',
             objectFit: 'cover',
             zIndex: -1,
-            opacity: 0.6
+            opacity: 0.85,
+            filter: 'blur(6px) brightness(0.4)'
           }}
-          src="https://assets.mixkit.co/videos/preview/mixkit-raindrops-falling-on-a-glass-window-442-large.mp4"
+          src="https://media.giphy.com/media/l0HlPwMAzh13pcZ20/giphy.mp4"
         />
       )}
       <AppBar
