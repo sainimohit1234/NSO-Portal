@@ -360,6 +360,27 @@ export default function Layout() {
             }}
             allow="autoplay; fullscreen; encrypted-media"
           />
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: { xs: '-5%', md: '-10%' },
+              right: { xs: '-5%', md: '-5%' },
+              width: { xs: '300px', md: '500px' },
+              height: { xs: '300px', md: '500px' },
+              pointerEvents: 'none',
+              zIndex: 1,
+              opacity: 0.85,
+              transform: 'rotate(-5deg)',
+              filter: 'drop-shadow(0 20px 30px rgba(0,0,0,0.5))',
+            }}
+          >
+            <img 
+              src="/assets/coffee_cup.png" 
+              alt="Blue Tokai Coffee Cup" 
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              onError={(e) => { e.target.style.display = 'none'; }} 
+            />
+          </Box>
         </Box>
       )}
       <AppBar
