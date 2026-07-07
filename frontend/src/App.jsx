@@ -4,6 +4,7 @@ import { CssBaseline, Box, CircularProgress } from '@mui/material';
 import { CustomThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Stores = React.lazy(() => import('./pages/Stores'));
@@ -54,11 +55,13 @@ function ProtectedRoute({ children, allowedRoles }) {
 const router = createBrowserRouter([
   {
     path: '/login',
-    element: <Suspense fallback={<PageLoader />}><Login /></Suspense>
+    element: <Suspense fallback={<PageLoader />}><Login /></Suspense>,
+    errorElement: <GlobalErrorBoundary />
   },
   {
     path: '/',
     element: <ProtectedRoute><Layout /></ProtectedRoute>,
+    errorElement: <GlobalErrorBoundary />,
     children: [
       {
         index: true,
