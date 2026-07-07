@@ -762,20 +762,13 @@ const NewStore = () => {
       <form onSubmit={handleSubmit(onSubmit)}>
         {/* Sticky Header & Remarks Section */}
         <Box sx={{
-          position: 'sticky',
-          top: { xs: 56, sm: 64 },
-          zIndex: 10,
-          bgcolor: 'background.default',
-          backdropFilter: 'blur(8px)',
-          mt: -5,
-          pt: 5,
-          pb: 2,
           mb: 4,
           borderBottom: '1px solid',
           borderColor: 'divider',
+          pb: 3
         }}>
           {/* ─── Title Row ─── */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
             <Box>
               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2, mb: 0.5, flexWrap: 'wrap' }}>
                 <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
