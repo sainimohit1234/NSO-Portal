@@ -458,7 +458,14 @@ export default function Layout() {
           }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, borderRight: 'none' },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth, 
+              borderRight: 'none',
+              background: isRainThemeActive ? 'rgba(15, 23, 42, 0.4)' : undefined,
+              backdropFilter: isRainThemeActive ? 'blur(16px)' : undefined,
+              WebkitBackdropFilter: isRainThemeActive ? 'blur(16px)' : undefined
+            },
           }}
         >
           {drawer}
@@ -467,7 +474,15 @@ export default function Layout() {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, borderRight: '1px solid', borderColor: 'divider' },
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: drawerWidth, 
+              borderRight: '1px solid', 
+              borderColor: 'divider',
+              background: isRainThemeActive ? 'transparent' : undefined,
+              backdropFilter: isRainThemeActive ? 'blur(10px)' : undefined,
+              WebkitBackdropFilter: isRainThemeActive ? 'blur(10px)' : undefined
+            },
           }}
           open
         >
