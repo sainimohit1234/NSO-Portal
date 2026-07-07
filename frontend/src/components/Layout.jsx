@@ -56,7 +56,7 @@ const drawerWidth = 260;
 
 export default function Layout() {
   const theme = useTheme();
-  const { themeMode, setThemeMode, customColors, setCustomColors } = useThemeMode();
+  const { themeMode, setThemeMode, customColors, setCustomColors, isRainThemeActive } = useThemeMode();
   const isLight = theme.palette.mode === 'light';
 
   const glassPanelSx = {
@@ -329,6 +329,25 @@ export default function Layout() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', position: 'relative' }}>
+      {isRainThemeActive && (
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            objectFit: 'cover',
+            zIndex: -1,
+            opacity: 0.6
+          }}
+          src="https://assets.mixkit.co/videos/preview/mixkit-raindrops-falling-on-a-glass-window-442-large.mp4"
+        />
+      )}
       <AppBar
         position="fixed"
         sx={{

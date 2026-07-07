@@ -45,9 +45,9 @@ const systemNightThemeDefaults = {
 const systemRainThemeDefaults = {
   text: '#f1f5f9', // Slate 100
   border: 'rgba(255, 255, 255, 0.08)',
-  header: '#0f172a', // Slate 900
-  background: '#1e293b', // Slate 800
-  paper: '#334155', // Slate 700
+  header: 'rgba(15, 23, 42, 0.7)', // Slate 900 highly transparent for video
+  background: 'transparent', // Transparent to see video
+  paper: 'rgba(51, 65, 85, 0.65)', // Slate 700 highly transparent
   primary: '#38bdf8' // Light Blue 400
 };
 
@@ -644,10 +644,12 @@ export const CustomThemeProvider = ({ children }) => {
     return responsiveFontSizes(baseTheme, {
       factor: 2.4
     });
-  }, [themeMode, customColors]);
+  }, [themeMode, customColors, systemThemeValue]);
+
+  const isRainThemeActive = themeMode === 'rain' || (themeMode === 'system' && systemThemeValue === 'rain');
 
   return (
-    <ThemeContext.Provider value={{ themeMode, setThemeMode, customColors, setCustomColors }}>
+    <ThemeContext.Provider value={{ themeMode, setThemeMode, customColors, setCustomColors, isRainThemeActive }}>
       <ThemeProvider theme={activeTheme}>
         {children}
       </ThemeProvider>
