@@ -638,8 +638,8 @@ export default function Layout() {
           Select a background image to personalize your dashboard.
         </Typography>
         <DialogContent sx={{ overflowY: 'visible', pb: 2 }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 3 }}>
-            {['/assets/themes/theme1.png', '/assets/themes/theme2.png', '/assets/themes/theme3.png', '/assets/themes/theme4.png'].map((url, idx) => (
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 3 }}>
+            {['/assets/themes/theme1.jpg', '/assets/themes/theme2.jpg', '/assets/themes/theme3.jpg', '/assets/themes/theme4.jpg', '/assets/themes/theme5.jpg'].map((url, idx) => (
               <Box 
                 key={idx}
                 onClick={() => {
