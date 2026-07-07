@@ -57,7 +57,7 @@ const drawerWidth = 260;
 export default function Layout() {
   const theme = useTheme();
   const { themeMode, setThemeMode, customColors, setCustomColors } = useThemeMode();
-  const isLight = themeMode === 'light';
+  const isLight = theme.palette.mode === 'light';
 
   const glassPanelSx = {
     background: isLight 
@@ -268,7 +268,7 @@ export default function Layout() {
                   alignItems: 'center',
                   borderRadius: '14px',
                   bgcolor: isActive ? alpha(item.color, 0.12) : 'transparent',
-                  color: isActive ? 'text.primary' : 'text.secondary',
+                  color: isActive ? 'text.primary' : (isLight ? '#1e293b' : '#cbd5e1'),
                   py: 0.75,
                   px: 1.15,
                   border: '1px solid',
