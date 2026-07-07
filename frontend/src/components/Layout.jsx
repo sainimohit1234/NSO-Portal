@@ -582,6 +582,13 @@ export default function Layout() {
         >
           System Theme (Auto)
         </MenuItem>
+        <MenuItem 
+          onClick={() => { setThemeMode('rain'); handleThemeClose(); }} 
+          selected={themeMode === 'rain'} 
+          sx={{ fontWeight: 600 }}
+        >
+          Rain Theme (Manual)
+        </MenuItem>
       </Menu>
 
     </Box>

@@ -159,6 +159,17 @@ export const CustomThemeProvider = ({ children }) => {
         textSecondary = isDaytime ? '#64748b' : '#a5b4fc';
         paletteMode = isDaytime ? 'light' : 'dark';
       }
+    } else if (themeMode === 'rain') {
+      text = systemRainThemeDefaults.text;
+      border = systemRainThemeDefaults.border;
+      headerBg = systemRainThemeDefaults.header;
+      bgDefault = systemRainThemeDefaults.background;
+      bgPaper = systemRainThemeDefaults.paper;
+      primaryMain = systemRainThemeDefaults.primary;
+      primaryDark = '#0284c7';
+      primaryLight = '#7dd3fc';
+      textSecondary = '#94a3b8';
+      paletteMode = 'dark';
     } else if (themeMode === 'light') {
       text = lightThemeDefaults.text;
       border = lightThemeDefaults.border;
