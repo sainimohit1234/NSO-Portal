@@ -330,24 +330,37 @@ export default function Layout() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', position: 'relative' }}>
       {isRainThemeActive && (
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          style={{
+        <Box
+          sx={{
             position: 'fixed',
             top: 0,
             left: 0,
             width: '100vw',
             height: '100vh',
-            objectFit: 'cover',
             zIndex: -1,
+            overflow: 'hidden',
+            backgroundColor: '#000',
             opacity: 0.85,
-            filter: 'blur(6px) brightness(0.4)'
+            filter: 'brightness(0.6)'
           }}
-          src="https://media.giphy.com/media/l0HlPwMAzh13pcZ20/giphy.mp4"
-        />
+        >
+          <iframe
+            src="https://www.youtube.com/embed/J5OSRpRyl6g?autoplay=1&loop=1&mute=1&controls=0&modestbranding=1&playlist=J5OSRpRyl6g&rel=0&iv_load_policy=3"
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              width: '100vw',
+              height: '100vh',
+              minWidth: '177.77vh',
+              minHeight: '56.25vw',
+              transform: 'translate(-50%, -50%) scale(1.2)',
+              border: 'none',
+              pointerEvents: 'none'
+            }}
+            allow="autoplay; fullscreen; encrypted-media"
+          />
+        </Box>
       )}
       <AppBar
         position="fixed"
