@@ -339,19 +339,15 @@ export default function Approvals() {
   return (
     <Box sx={{ py: 1 }}>
       <Box sx={{
-        position: 'sticky',
-        top: { xs: 56, sm: 64 },
-        zIndex: 10,
-        bgcolor: 'background.default',
-        mt: -4,
-        pt: 4,
-        pb: 2,
-        mb: 4,
         display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' },
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
+        alignItems: { xs: 'stretch', md: 'flex-start' },
+        gap: 2,
+        mb: 4,
         borderBottom: '1px solid',
         borderColor: 'divider',
+        pb: 3
       }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
@@ -405,17 +401,17 @@ export default function Approvals() {
         </Alert>
       )}
 
-      <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden' }}>
-        <TableContainer component={Paper} elevation={0}>
+      <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden', backdropFilter: 'blur(12px)' }}>
+        <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider', width: 50 }}>S.No.</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Code</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>City</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.secondary', bgcolor: 'background.paper', borderBottom: '2px solid', borderColor: 'divider' }}>Approved By</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider', width: 50 }}>S.No.</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Code</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>City</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Approved By</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
