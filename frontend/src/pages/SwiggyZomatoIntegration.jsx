@@ -82,8 +82,18 @@ const computeIntegrationStatus = (store) => {
       requiredRIDFields = ['blueTokaiZomatoRID', 'blueTokaiSwiggyRID'];
   }
 
+  // Treat existing stores (created before July 9, 2026) as 'Sent' by default if status is empty
+  const storeDate = new Date(store.createdAt || store.updatedAt || 0);
+  const isExistingLegacyStore = storeDate < new Date('2026-07-09T00:00:00Z');
+
+  const checkMailStatus = (statusValue) => {
+    if (statusValue === 'Sent' || statusValue === 'SENT') return true;
+    if (isExistingLegacyStore && (statusValue === undefined || statusValue === null || statusValue === '')) return true;
+    return false;
+  };
+
   const allEmailsSent = requiredEmailFields.every(
-    f => store[f] === 'Sent' || store[f] === 'SENT'
+    f => checkMailStatus(store[f])
   );
 
   if (!allEmailsSent) {
@@ -143,8 +153,7 @@ export default function SwiggyZomatoIntegration() {
       .then(([fetchedStores, mappingsRes]) => {
         const filtered = fetchedStores.filter(s =>
           s.isActive !== false &&
-          s.isActive !== 'false' &&
-          (s.status === 'APPROVED' || s.status === 'NSO_APPROVED' || s.status === 'READY_TO_GO_LIVE')
+          s.isActive !== 'false'
         );
         filtered.sort((a, b) => (a.cafeName || '').localeCompare(b.cafeName || ''));
         setStores(filtered);
@@ -312,7 +321,7 @@ export default function SwiggyZomatoIntegration() {
 
                   const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled) => {
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
-                    const isSent = statusVal === 'Sent' || statusVal === 'SENT';
+                    const isSent = checkMailStatus(statusVal);
                     if (isSent) return <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />;
                     return (
                       <Chip 
