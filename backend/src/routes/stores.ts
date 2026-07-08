@@ -1037,9 +1037,7 @@ function getStatusAliases(status: string): string[] {
   if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
     return ['On Hold', 'ON_HOLD'];
   }
-  if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
-    return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
-  }
+
   if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
     return ['Closed', 'CLOSED'];
   }
@@ -1249,8 +1247,9 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
     const hasReachedNsoApproval = store.status !== 'INCOMPLETE_INFORMATION';
     if (hasReachedNsoApproval && targetStatus !== store.status) {
       const isSuperAdmin = requestUser?.role === 'SUPER_ADMIN';
+      const isAdmin = requestUser?.role === 'ADMIN';
       const isApprover = requestUser?.permissions && requestUser.permissions.includes('APPROVER');
-      if (!isSuperAdmin && !isApprover) {
+      if (!isSuperAdmin && !isAdmin && !isApprover) {
         return res.status(403).json({ error: 'Access denied: Only users with Approver permission can change the status of a store in this stage.' });
       }
     }
@@ -1259,7 +1258,7 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
       // Auto-populate legacy launchStatus field if missing to avoid blocking approvals
       if (!store.launchStatus || String(store.launchStatus).trim() === '') {
         await prisma.store.update({
-          where: { id: storeId },
+          where: { id: id as string },
           data: { launchStatus: 'Newly Launched' }
         });
         (store as any).launchStatus = 'Newly Launched';
@@ -1316,7 +1315,7 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
         updateData.sentToNsoBy = requestUser?.name || requestUser?.email || 'Unknown';
         updateData.sentToNsoAt = new Date().toISOString();
       }
-    } else if (targetStatus && !['PENDING_APPROVAL', ...approvalStatuses, 'COMPLIANCE_APPROVED', 'LIVE'].includes(targetStatus)) {
+    } else if (targetStatus && !['PENDING_APPROVAL', ...approvalStatuses, 'LIVE'].includes(targetStatus)) {
       updateData.sentToNsoBy = null;
       updateData.sentToNsoAt = null;
     }
@@ -1352,82 +1351,7 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
   }
 });
 
-// Approve compliance details for a store
-router.put('/:id/compliance-approve', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'FINANCE'), async (req, res) => {
-  const { id } = req.params;
-  const user = (req as any).user;
-  if (user?.role === 'FINANCE' && (!user.permissions || !user.permissions.split(',').map((p: string) => p.trim()).includes('APPROVER'))) {
-    return res.status(403).json({ error: 'Access denied: Finance profile requires Approver permission to approve compliance.' });
-  }
-  if (user?.role === 'SUPER_ADMIN' && (!user.permissions || !user.permissions.split(',').map((p: string) => p.trim()).includes('APPROVE_COMPLIANCE'))) {
-    return res.status(403).json({ error: 'Access denied: Super Admin profile requires Approve Compliance permission.' });
-  }
-  try {
-    const store = await prisma.store.findUnique({
-      where: { id: id as string }
-    });
 
-    if (!store) {
-      return res.status(404).json({ error: 'Store not found' });
-    }
-
-    if (store.isLocked && user?.role !== 'SUPER_ADMIN') {
-      return res.status(403).json({ error: 'Store is locked. Only Super Admin can approve compliance.' });
-    }
-
-    const complianceFields = [
-      { key: 'fssaiNo', label: 'FSSAI Number' },
-      { key: 'fssaiLicense', label: 'FSSAI Certificate Link' },
-      { key: 'fssaiStartDate', label: 'FSSAI Start Date' },
-      { key: 'fssaiExpiry', label: 'FSSAI Expiry Date' },
-      { key: 'gstNo', label: 'GST Number' },
-      { key: 'gstCertificateLink', label: 'GST Certificate Link' },
-      { key: 'rentStartDate', label: 'Rent Agreement Start Date' },
-      { key: 'rentExpiry', label: 'Rent Agreement Expiry Date' },
-      { key: 'rentAgreementLink', label: 'Rent Agreement Certificate Link' }
-    ];
-
-    const missingFields: string[] = [];
-    for (const field of complianceFields) {
-      const val = (store as any)[field.key];
-      if (val === null || val === undefined || String(val).trim() === '') {
-        missingFields.push(field.label);
-      }
-    }
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        error: 'Compliance Validation Failed',
-        message: 'These compliance details must be completed before compliance approval.',
-        missingFields
-      });
-    }
-
-    const updatedStore = await prisma.store.update({
-      where: { id: id as string },
-      data: { 
-        status: 'COMPLIANCE_APPROVED',
-        complianceApprovedBy: user?.name || null,
-        complianceApprovedAt: new Date()
-      }
-    });
-
-    await prisma.storeHistory.create({
-      data: {
-        storeId: updatedStore.id,
-        action: 'Compliance Approved',
-        newValue: `COMPLIANCE_APPROVED by ${user?.name || 'Unknown'}`
-      }
-    });
-
-
-
-    res.json(updatedStore);
-  } catch (error) {
-    console.error('Compliance approval error:', error);
-    res.status(500).json({ error: 'Failed to approve compliance' });
-  }
-});
 
 // Update store details
 router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), async (req: any, res) => {
@@ -1443,9 +1367,9 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       return res.status(404).json({ error: 'Store not found' });
     }
 
-    const approvalStatuses = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'];
+    const approvalStatuses = ['NSO_APPROVED', 'APPROVED', 'LIVE'];
     if (approvalStatuses.includes(currentStore.status)) {
-      const allowedKeys = ['status', 'isLocked', 'mailStatus', 'uploadedDocuments', 'blueTokaiSwiggyRID', 'blueTokaiZomatoRID', 'suchaliSwiggyRID', 'suchaliZomatoRID', 'gotTeaSwiggyRID', 'gotTeaZomatoRID'];
+      const allowedKeys = ['status', 'isLocked', 'mailStatus', 'uploadedDocuments', 'blueTokaiSwiggyRID', 'blueTokaiZomatoRID', 'suchaliSwiggyRID', 'suchaliZomatoRID', 'gotTeaSwiggyRID', 'gotTeaZomatoRID', 'inStoreLive', 'inStoreLiveDate', 'deliveryLive', 'deliveryLiveDate', 'blueTokaiSwiggyLive', 'blueTokaiSwiggyLiveDate', 'blueTokaiZomatoLive', 'blueTokaiZomatoLiveDate', 'suchaliSwiggyLive', 'suchaliSwiggyLiveDate', 'suchaliZomatoLive', 'suchaliZomatoLiveDate', 'gotTeaSwiggyLive', 'gotTeaSwiggyLiveDate', 'gotTeaZomatoLive', 'gotTeaZomatoLiveDate', 'inStoreClosureDate', 'deliveryClosureDate', 'inStoreClosed', 'inStoreClosedDate', 'deliveryClosed', 'deliveryClosedDate'];
       const attemptedChanges = Object.keys(req.body).filter(key => {
         if (allowedKeys.includes(key)) return false;
         let reqVal = req.body[key];
@@ -1482,8 +1406,8 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
         if (!isSuperAdmin && !hasGoLivePermission) {
           return res.status(403).json({ error: 'Access denied: You do not have Go-Live Access permission.' });
         }
-        if (currentStore.status !== 'COMPLIANCE_APPROVED') {
-          return res.status(400).json({ error: 'Store must be Compliance Approved before going Live.' });
+        if (!['APPROVED', 'NSO_APPROVED', 'READY_TO_GO_LIVE'].includes(currentStore.status)) {
+          return res.status(400).json({ error: 'Store must be Approved before going Live.' });
         }
       } else {
         const hasReachedNsoApproval = currentStore.status !== 'INCOMPLETE_INFORMATION';
@@ -1594,7 +1518,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     updateData.uploadedDocuments = currentDocsList;
 
     if (updateData.status === 'APPROVED') {
-      const approvalStatuses = ['NSO_APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'APPROVED'];
+      const approvalStatuses = ['NSO_APPROVED', 'LIVE', 'APPROVED'];
       if (currentStore && approvalStatuses.includes(currentStore.status)) {
         updateData.status = currentStore.status;
       } else {
@@ -1787,7 +1711,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     const isSuperAdmin = user.role === 'SUPER_ADMIN';
     const hasEditContacts = user.permissions && user.permissions.includes('EDIT_CONTACTS');
     const hasEditStores = user.permissions && user.permissions.includes('EDIT_STORES');
-    const isApprovedStatus = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(currentStore.status);
+    const isApprovedStatus = ['NSO_APPROVED', 'APPROVED', 'LIVE'].includes(currentStore.status);
 
     if (!isSuperAdmin) {
       // 1. NSO Approval Lock: If the store is already approved, NO ONE (except Super Admin or Approvers changing status) can edit.
@@ -1833,6 +1757,8 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
         'fssaiLicense',
         'fssaiStartDate',
         'fssaiExpiry',
+        'fssaiIssuedOn',
+        'fssaiValidUntil',
         'gstNo',
         'gstCertificateLink',
         'rentStartDate',
@@ -1870,7 +1796,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
         updateData.sentToNsoBy = user?.name || user?.email || 'Unknown';
         updateData.sentToNsoAt = new Date().toISOString();
       }
-    } else if (updateData.status && !['PENDING_APPROVAL', ...nsoApprovalStatuses, 'COMPLIANCE_APPROVED', 'LIVE'].includes(updateData.status)) {
+    } else if (updateData.status && !['PENDING_APPROVAL', ...nsoApprovalStatuses, 'LIVE'].includes(updateData.status)) {
       updateData.sentToNsoBy = null;
       updateData.sentToNsoAt = null;
     }
@@ -3162,9 +3088,10 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
         }
 
         if (allRequiredEmailsSent) {
+          const updates: any = { integrationMailSentAt: new Date().toISOString() };
           await prisma.store.update({
             where: { id: storeId },
-            data: { integrationMailSentAt: new Date().toISOString() } as any
+            data: updates
           });
         }
       }

@@ -12,7 +12,7 @@ const darkThemeDefaults = {
   header: '#111827',
   background: '#0B0F19',
   paper: '#121824',
-  primary: '#38bdf8'
+  primary: '#0A314D'
 };
 
 const lightThemeDefaults = {
@@ -48,20 +48,20 @@ const systemRainThemeDefaults = {
   header: 'rgba(15, 23, 42, 0.7)', // Slate 900 highly transparent for video
   background: 'transparent', // Transparent to see video
   paper: 'rgba(51, 65, 85, 0.65)', // Slate 700 highly transparent
-  primary: '#38bdf8' // Light Blue 400
+  primary: '#0A314D' // Blue Tokai Navy
 };
 
 export const CustomThemeProvider = ({ children }) => {
   const [themeMode, setThemeModeState] = useState(() => {
-    return localStorage.getItem('themeMode') || 'dark';
+    return localStorage.getItem('themeMode') || 'light';
   });
 
   const [customColors, setCustomColorsState] = useState(() => {
     try {
       const saved = localStorage.getItem('customColors');
-      return saved ? JSON.parse(saved) : { ...darkThemeDefaults };
+      return saved ? JSON.parse(saved) : { ...lightThemeDefaults };
     } catch {
-      return { ...darkThemeDefaults };
+      return { ...lightThemeDefaults };
     }
   });
 

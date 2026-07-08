@@ -30,7 +30,7 @@ export const getCurrentStatus = (store) => {
     return 'Newly Launched';
   }
 
-  if (store.status === 'COMPLIANCE_APPROVED') {
+  if (store.status === 'READY_TO_GO_LIVE') {
     return 'Ready to Go Live';
   }
 

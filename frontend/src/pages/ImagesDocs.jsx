@@ -3,7 +3,7 @@ import {
   Box, Grid, Card, CardContent, Typography, Button, Dialog, 
   DialogTitle, DialogContent, DialogActions, TextField, IconButton, 
   CircularProgress, List, ListItem, ListItemButton, ListItemIcon, 
-  ListItemText, Divider, Alert, Snackbar, Paper
+  ListItemText, Divider, Alert, Snackbar, Paper, Backdrop, Portal
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
@@ -20,6 +20,7 @@ export default function ImagesDocs() {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedDoc, setSelectedDoc] = useState(null);
   
   // Dialog State
@@ -116,13 +117,20 @@ export default function ImagesDocs() {
     }
 
     setUploading(true);
+    setUploadProgress(0);
     const formData = new FormData();
     formData.append('file', selectedFile);
 
     try {
       // 1. Upload file using stores upload endpoint
       const uploadRes = await axios.post('/api/stores/upload-file', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          }
+        }
       });
       const fileUrl = uploadRes.data?.url;
 
@@ -513,6 +521,13 @@ export default function ImagesDocs() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <Portal>
+        <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={uploading}>
+          <CircularProgress variant={uploadProgress > 0 ? "determinate" : "indeterminate"} value={uploadProgress} color="inherit" size={60} />
+          <Typography variant="h6">Processing Document... {uploadProgress > 0 ? `${uploadProgress}%` : ''}</Typography>
+        </Backdrop>
+      </Portal>
     </Box>
   );
 }

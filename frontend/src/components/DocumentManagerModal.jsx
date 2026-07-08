@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid, Box, Typography,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip,
   IconButton, Link, Switch, TextField, Accordion, AccordionSummary, AccordionDetails,
-  Backdrop, CircularProgress, Tooltip
+  Backdrop, CircularProgress, Tooltip, Portal, Snackbar, Alert
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -18,7 +18,7 @@ import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import Papa from 'papaparse';
 
-const DOCUMENT_CONFIG = [
+export const DOCUMENT_CONFIG = [
   {
     name: 'Legal Documents',
     subcategories: [
@@ -40,7 +40,7 @@ const DOCUMENT_CONFIG = [
         docs: [
           { type: 'PAN Card', mandatory: true },
           { type: 'Aadhaar Card', mandatory: true },
-          { type: 'GST Certificate', mandatory: true },
+          { type: 'GST Docs', mandatory: true },
           { type: 'Property Ownership Deed', mandatory: true },
           { type: 'Property Tax Receipt', mandatory: true },
           { type: 'Electricity Bill', mandatory: true },
@@ -82,11 +82,15 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
   const [previewDoc, setPreviewDoc] = useState(null);
   const [previewText, setPreviewText] = useState(null);
   const [previewData, setPreviewData] = useState(null);
+  const [gstNo, setGstNo] = useState(store?.gstNo || '');
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [miscInput, setMiscInput] = useState('');
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [addMoreInputs, setAddMoreInputs] = useState({});
   const { user } = useAuth();
 
   useEffect(() => {
@@ -175,7 +179,7 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
     }
   }, [store]);
 
-  const handleFileUpload = async (file, docType, metadata = {}, category = 'Miscellaneous Documents', isMisc = false) => {
+  const handleFileUpload = async (file, docType, metadata = {}, category = 'Miscellaneous Documents', isMisc = false, isExtra = false, subcategory = null, extraName = '') => {
     if (!file) return;
     const maxSize = 500 * 1024; // 500kb
     if (file.size > maxSize) {
@@ -187,7 +191,9 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
     formData.append('file', file);
 
     try {
+      setLoadingMessage(`Uploading ${isMisc || isExtra ? 'document' : docType}...`);
       setLoading(true);
+      setUploadProgress(0);
       // Determine file type slot to reuse existing upload endpoint
       let typeParam = 'doc';
       if (docType === 'Letter of Intent (LOI)') typeParam = 'loi';
@@ -195,14 +201,21 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       if (docType === 'Lease / Rental Agreement') typeParam = 'agreement';
 
       const res = await axios.post(`/api/stores/upload-file?type=${typeParam}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          }
+        }
       });
       const fileUrl = res.data.url;
 
       const newDoc = {
         id: Date.now() + Math.random(),
         category,
-        type: isMisc ? miscInput || 'Misc Document' : docType,
+        subcategory,
+        type: isExtra ? extraName : (isMisc ? miscInput || 'Misc Document' : docType),
         url: fileUrl,
         fileName: file.name,
         uploadedBy: user?.email || 'Unknown',
@@ -211,12 +224,13 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
            isSignageEnabled: docType === 'Signage Approval' ? true : undefined,
            ...metadata
         },
-        isMisc
+        isMisc,
+        isExtra
       };
 
       setDocuments(prev => {
-        // Remove old document of same type if it exists (unless it's misc and we are adding a new one)
-        const filtered = isMisc ? prev : prev.filter(d => d.type !== docType);
+        // Remove old document of same type if it exists (unless it's misc or extra and we are adding a new one)
+        const filtered = (isMisc || isExtra) ? prev : prev.filter(d => d.type !== docType);
         return [...filtered, newDoc];
       });
       setHasUnsavedChanges(true);
@@ -227,6 +241,7 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       setSnackbar({ open: true, message: 'Failed to upload document.', severity: 'error' });
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -303,11 +318,31 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
 
   const handleSaveAll = async () => {
     if (!store) return;
+    
+    // VALIDATION: Require FSSAI Number and Dates if FSSAI doc is uploaded
+    const fssaiDoc = documents.find(d => d.type === 'FSSAI License');
+    if (fssaiDoc && fssaiDoc.url) {
+      if (!fssaiDoc.metadata || !fssaiDoc.metadata.fssaiNumber || fssaiDoc.metadata.fssaiNumber.trim() === '') {
+        setSnackbar({ open: true, message: 'Please update the FSSAI Number before saving.', severity: 'error' });
+        return;
+      }
+      if (!fssaiDoc.metadata || !fssaiDoc.metadata.fssaiIssuedOn || !fssaiDoc.metadata.fssaiValidUntil) {
+        setSnackbar({ open: true, message: 'Please update the FSSAI Issued On and Valid Until dates before saving.', severity: 'error' });
+        return;
+      }
+    }
+
     try {
+      setLoadingMessage('Saving all changes...');
       setLoading(true);
       // Remove dummy signage disabled doc before saving to DB, just keep track via a flat boolean or within the documents array
       // Actually keeping the dummy object is fine, it just doesn't have a URL.
       const payload = { documents };
+      
+      // Include gstNo if it was updated
+      if (gstNo !== store?.gstNo) {
+        payload.gstNo = gstNo;
+      }
       
       // Update backwards compatible fields just in case
       const loiDoc = documents.find(d => d.type === 'Letter of Intent (LOI)');
@@ -348,6 +383,7 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       setSnackbar({ open: true, message: 'Failed to save documents.', severity: 'error' });
     } finally {
       setLoading(false);
+      setLoadingMessage('');
     }
   };
 
@@ -421,9 +457,22 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
                cat.subcategories.forEach(sub => {
                   items.push({ isSubHeader: true, name: sub.name });
                   sub.docs.forEach(d => items.push(d));
+                  
+                  const extraDocs = documents.filter(d => d.isExtra && d.category === cat.name && d.subcategory === sub.name);
+                  extraDocs.forEach(d => items.push({ ...d, isExtraDoc: true }));
+
+                  if (!canModify) {
+                     items.push({ isAddMore: true, subcategory: sub.name });
+                  }
                });
             } else {
-               items = cat.docs;
+               items = [...cat.docs];
+               const extraDocs = documents.filter(d => d.isExtra && d.category === cat.name && !d.subcategory);
+               extraDocs.forEach(d => items.push({ ...d, isExtraDoc: true }));
+
+               if (!canModify) {
+                  items.push({ isAddMore: true });
+               }
             }
 
             return items.map((item, idx) => {
@@ -433,6 +482,71 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
                        {idx === 0 && <TableCell rowSpan={items.length} sx={{ fontWeight: 800, verticalAlign: 'top', borderRight: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>{cat.name}</TableCell>}
                        <TableCell colSpan={2} sx={{ fontWeight: 700, color: '#0369a1' }}>{item.name}</TableCell>
                     </TableRow>
+                  );
+               }
+
+               if (item.isAddMore) {
+                  const inputKey = `${cat.name}-${item.subcategory || 'root'}`;
+                  return (
+                    <TableRow key={`add-more-${inputKey}`} sx={{ bgcolor: 'background.default' }}>
+                       {idx === 0 && <TableCell rowSpan={items.length} sx={{ fontWeight: 800, verticalAlign: 'top', borderRight: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>{cat.name}</TableCell>}
+                       <TableCell colSpan={2}>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <TextField 
+                               size="small" 
+                               label="New Document Title" 
+                               value={addMoreInputs[inputKey] || ''} 
+                               onChange={e => setAddMoreInputs(prev => ({ ...prev, [inputKey]: e.target.value }))} 
+                               fullWidth 
+                            />
+                            <Button 
+                               variant="contained" 
+                               component="label" 
+                               disabled={!addMoreInputs[inputKey] || loading}
+                               sx={{ whiteSpace: 'nowrap' }}
+                            >
+                              Add more Docs
+                              <input 
+                                 type="file" 
+                                 hidden 
+                                 onChange={(e) => {
+                                    const title = addMoreInputs[inputKey];
+                                    handleFileUpload(e.target.files[0], 'Extra', {}, cat.name, false, true, item.subcategory, title);
+                                    setAddMoreInputs(prev => ({ ...prev, [inputKey]: '' }));
+                                 }} 
+                              />
+                            </Button>
+                          </Box>
+                       </TableCell>
+                    </TableRow>
+                  );
+               }
+
+               if (item.isExtraDoc) {
+                  const doc = item;
+                  return (
+                     <TableRow key={doc.id} hover onClick={() => setPreviewDoc(doc)} sx={{ cursor: 'pointer', bgcolor: previewDoc?.id === doc.id ? 'action.selected' : '#f8fafc' }}>
+                        {idx === 0 && <TableCell rowSpan={items.length} sx={{ fontWeight: 800, verticalAlign: 'top', borderRight: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>{cat.name}</TableCell>}
+                        <TableCell>
+                           <Typography variant="body2" sx={{ fontWeight: 700 }}>{doc.type}</Typography>
+                           <Chip label="Additional" size="small" sx={{ mt: 1, bgcolor: 'secondary.main', color: 'secondary.contrastText' }} />
+                        </TableCell>
+                        <TableCell>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                               <Box>
+                                 <Typography variant="body2" color="primary" sx={{ mb: 0.5, fontWeight: 600 }}>Document Name: {doc.fileName}</Typography>
+                                 <Typography variant="caption" color="text.secondary" component="div">Uploaded By: {doc.uploadedBy || 'Unknown'}</Typography>
+                                 <Typography variant="caption" color="text.secondary" component="div">Timestamp: {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleString() : 'N/A'}</Typography>
+                                 <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+                                   <Chip label="Uploaded" color="success" size="small" />
+                                   {isEditMode && canModify && (
+                                     <Button size="small" color="error" onClick={(e) => { e.stopPropagation(); handleDelete(doc.id); }}>Remove</Button>
+                                   )}
+                                 </Box>
+                               </Box>
+                            </Box>
+                        </TableCell>
+                     </TableRow>
                   );
                }
 
@@ -556,6 +670,18 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
                              sx={{ width: 316 }}
                            />
                          )}
+                         {previewDoc.type === 'GST Docs' && (
+                           <TextField
+                             label="GST Number" size="small"
+                             value={gstNo}
+                             onChange={(e) => {
+                               setGstNo(e.target.value);
+                               setHasUnsavedChanges(true);
+                             }}
+                             disabled={!canModify || !isEditMode}
+                             sx={{ width: 316 }}
+                           />
+                         )}
                          <Box sx={{ display: 'flex', gap: 2 }}>
                            <TextField 
                              label="Issued On" type="date" size="small" InputLabelProps={{ shrink: true }}
@@ -641,17 +767,22 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
 
       </DialogContent>
       <DialogActions sx={{ p: 3, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Button onClick={handleAttemptClose} variant="outlined" color="inherit">{isEditMode ? 'Cancel' : 'Close'}</Button>
-        {isEditMode && (
+        <Button onClick={handleAttemptClose} variant="outlined" color="inherit">{isEditMode || hasUnsavedChanges ? 'Cancel' : 'Close'}</Button>
+        {(isEditMode || hasUnsavedChanges) && (
           <Button onClick={handleSaveAll} variant="contained" disabled={loading}>Save All Changes</Button>
         )}
       </DialogActions>
     </Dialog>
     
-    <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={loading}>
-      <CircularProgress color="inherit" />
-      <Typography variant="h6">Processing Document...</Typography>
-    </Backdrop>
+    <Portal>
+      <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={loading}>
+        <CircularProgress variant={uploadProgress > 0 && loadingMessage.includes('Uploading') ? "determinate" : "indeterminate"} value={uploadProgress} color="inherit" size={60} />
+        <Typography variant="h6">
+          {loadingMessage || 'Processing Document...'} 
+          {uploadProgress > 0 && loadingMessage.includes('Uploading') ? ` ${uploadProgress}%` : ''}
+        </Typography>
+      </Backdrop>
+    </Portal>
 
     <Dialog open={showConfirmClose} onClose={() => setShowConfirmClose(false)} PaperProps={{ sx: { borderRadius: '12px' } }}>
       <DialogTitle sx={{ fontWeight: 800, borderBottom: '1px solid', borderColor: 'divider' }}>Unsaved Document Warning</DialogTitle>
@@ -664,6 +795,17 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
         <Button onClick={async () => { setShowConfirmClose(false); await handleSaveAll(); }} color="success" variant="contained">Yes, Save</Button>
       </DialogActions>
     </Dialog>
+    
+    <Snackbar 
+      open={snackbar.open} 
+      autoHideDuration={6000} 
+      onClose={() => setSnackbar({ ...snackbar, open: false })}
+      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+    >
+      <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity || 'info'} sx={{ width: '100%', fontWeight: 600 }}>
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
     </>
   );
 }

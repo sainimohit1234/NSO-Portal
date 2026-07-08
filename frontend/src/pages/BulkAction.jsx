@@ -26,7 +26,9 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Paper
+  Paper,
+  Backdrop,
+  Portal
 } from '@mui/material';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
@@ -91,6 +93,7 @@ export default function BulkAction() {
   // Separate loading states so Download and Upload spinners are independent
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
   
@@ -174,6 +177,7 @@ export default function BulkAction() {
     e.target.value = null;
 
     setUploadLoading(true);
+    setUploadProgress(0);
     setErrors(null);
     setSuccessMsg('');
 
@@ -189,6 +193,12 @@ export default function BulkAction() {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadProgress(percentCompleted);
+          }
+        }
       });
       
       setSuccessMsg(response.data.message || 'Stores successfully processed!');
@@ -403,6 +413,13 @@ export default function BulkAction() {
 
         </CardContent>
       </Card>
+
+      <Portal>
+        <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={uploadLoading}>
+          <CircularProgress variant={uploadProgress > 0 ? "determinate" : "indeterminate"} value={uploadProgress} color="inherit" size={60} />
+          <Typography variant="h6">Processing Document... {uploadProgress > 0 ? `${uploadProgress}%` : ''}</Typography>
+        </Backdrop>
+      </Portal>
     </Box>
   );
 }

@@ -84,7 +84,7 @@ export default function Layout() {
   const [customHeader, setCustomHeader] = useState(customColors?.header || '#111827');
   const [customText, setCustomText] = useState(customColors?.text || '#F8FAFC');
   const [customBorder, setCustomBorder] = useState(customColors?.border || '#1e293b');
-  const [customPrimary, setCustomPrimary] = useState(customColors?.primary || '#38bdf8');
+  const [customPrimary, setCustomPrimary] = useState(customColors?.primary || '#0A314D');
 
   // Sync state when customColors changes
   useEffect(() => {
@@ -93,7 +93,7 @@ export default function Layout() {
       setCustomHeader(customColors.header || '#111827');
       setCustomText(customColors.text || '#F8FAFC');
       setCustomBorder(customColors.border || '#1e293b');
-      setCustomPrimary(customColors.primary || '#38bdf8');
+      setCustomPrimary(customColors.primary || '#0A314D');
     }
   }, [customColors]);
 
@@ -654,8 +654,8 @@ export default function Layout() {
                   borderRadius: '16px',
                   overflow: 'hidden',
                   cursor: 'pointer',
-                  border: customBgUrl === url && themeMode === 'customize' ? '4px solid #38bdf8' : '2px solid transparent',
-                  boxShadow: customBgUrl === url && themeMode === 'customize' ? '0 0 20px rgba(56, 189, 248, 0.5)' : '0 4px 12px rgba(0,0,0,0.1)',
+                  border: customBgUrl === url && themeMode === 'customize' ? '4px solid #0A314D' : '2px solid transparent',
+                  boxShadow: customBgUrl === url && themeMode === 'customize' ? '0 0 20px rgba(10, 49, 77, 0.5)' : '0 4px 12px rgba(0,0,0,0.1)',
                   transition: 'all 0.2s',
                   '&:hover': {
                     transform: 'scale(1.02)',

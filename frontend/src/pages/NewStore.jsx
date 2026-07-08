@@ -238,7 +238,7 @@ const NewStore = () => {
       'areaManagerEmail', 'areaManagerPhone', 'cityHeadEmail', 'cityHeadPhone'
     ],
     'GST & FSSAI Details': [
-      'gstNo', 'gstCertificateLink', 'fssaiLicense', 'fssaiNo', 'fssaiExpiry'
+      'gstNo', 'fssaiNo', 'fssaiStartDate', 'fssaiExpiry'
     ],
     'Operations Details': [
       'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
@@ -406,10 +406,19 @@ const NewStore = () => {
     }
   }, [cafeNameValue, brandValue, setValue]);
 
-  // Launch Date → Cafe Launch Month & Year auto-fill (for non-Super Admin & non-Admin)
+  useEffect(() => {
+    const indoor = Number(watch('indoorSeatingCount')) || 0;
+    const outdoor = Number(watch('outdoorSeatingCount')) || 0;
+    const currentTotal = Number(watch('totalNoOfTables')) || 0;
+    if (indoor + outdoor !== currentTotal) {
+      setValue('totalNoOfTables', String(indoor + outdoor), { shouldDirty: true, shouldValidate: true });
+    }
+  }, [watch('indoorSeatingCount'), watch('outdoorSeatingCount'), watch, setValue]);
+
+  // Launch Date → Cafe Launch Month & Year auto-fill
   const launchDateValue = watch('launchDate');
   useEffect(() => {
-    if (!isSuperAdmin && !isAdmin && launchDateValue && String(launchDateValue).trim()) {
+    if (launchDateValue && String(launchDateValue).trim()) {
       const d = new Date(launchDateValue);
       if (!isNaN(d.getTime())) {
         const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -417,7 +426,7 @@ const NewStore = () => {
         setValue('cafeLaunchYear', String(d.getFullYear()), { shouldValidate: true });
       }
     }
-  }, [launchDateValue, isSuperAdmin, isAdmin, setValue]);
+  }, [launchDateValue, setValue]);
 
   // Warn user about unsaved changes on browser back / refresh
   useEffect(() => {
@@ -541,8 +550,8 @@ const NewStore = () => {
     if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
       return ['On Hold', 'ON_HOLD'];
     }
-    if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
-      return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
+    if (norm === 'READY_TO_GO_LIVE' || norm === 'READY TO GO LIVE') {
+      return ['Ready to Go Live', 'READY_TO_GO_LIVE'];
     }
     if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
       return ['Closed', 'CLOSED'];
@@ -1311,7 +1320,7 @@ const NewStore = () => {
                   </Box>
 
                   <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, sm: 3 }}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
                         fullWidth 
                         label="GST No" 
@@ -1320,29 +1329,35 @@ const NewStore = () => {
                         helperText={errors.gstNo?.message} 
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
-                      <TextField 
-                        fullWidth 
-                        label="GST Certificate Link" 
-                        placeholder="e.g. http://..." 
-                        {...register('gstCertificateLink')}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
-                      <TextField 
-                        fullWidth 
-                        label="FSSAI License (Certificate Link)" 
-                        placeholder="e.g. http://..." 
-                        {...register('fssaiLicense')} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
                         fullWidth 
                         label="FSSAI No" 
                         {...register('fssaiNo')} 
                         error={!!errors.fssaiNo} 
                         helperText={errors.fssaiNo?.message} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        type="date"
+                        label="FSSAI Issued On" 
+                        InputLabelProps={{ shrink: true }}
+                        {...register('fssaiStartDate')} 
+                        error={!!errors.fssaiStartDate} 
+                        helperText={errors.fssaiStartDate?.message} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        type="date"
+                        label="FSSAI Valid Until" 
+                        InputLabelProps={{ shrink: true }}
+                        {...register('fssaiExpiry')} 
+                        error={!!errors.fssaiExpiry} 
+                        helperText={errors.fssaiExpiry?.message} 
                       />
                     </Grid>
                   </Grid>
@@ -1517,12 +1532,10 @@ const NewStore = () => {
                       <TextField 
                         fullWidth 
                         label="Total No. of Tables" 
-                        {...register('totalNoOfTables', {
-                          onChange: (e) => {
-                            e.target.value = e.target.value.replace(/[^0-9]/g, '');
-                          }
-                        })} 
+                        {...register('totalNoOfTables')} 
                         value={watch('totalNoOfTables') || ''}
+                        InputProps={{ readOnly: true }}
+                        sx={{ bgcolor: 'background.paper' }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -1547,60 +1560,6 @@ const NewStore = () => {
                             String(option.cafeCode).toLowerCase().includes(query)
                           );
                         }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Latitude (Read-only)" 
-                        value={watch('latt') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Longitude (Read-only)" 
-                        value={watch('long') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Area Manager Mail ID (Read-only)" 
-                        value={watch('areaManagerEmail') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Area Manager Contact Number (Read-only)" 
-                        value={watch('areaManagerPhone') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="City Head Mail ID (Read-only)" 
-                        value={watch('cityHeadEmail') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="City Head Contact Number (Read-only)" 
-                        value={watch('cityHeadPhone') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -1669,9 +1628,8 @@ const NewStore = () => {
                                 disableUnderline
                                 sx={{ mr: 1, fontWeight: 600, cursor: 'pointer' }}
                               >
-                                <MenuItem value="Thousands">Thousands</MenuItem>
                                 <MenuItem value="Lakhs">Lakhs</MenuItem>
-                                <MenuItem value="Crores">Crores</MenuItem>
+                                <MenuItem value="Crores">Cr.</MenuItem>
                               </Select>
                             </InputAdornment>
                           )

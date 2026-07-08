@@ -1,9 +1,9 @@
 import { alpha, createTheme, responsiveFontSizes } from '@mui/material/styles';
 
-const primaryMain = '#38bdf8'; // Electric sky blue (bright Navy for dark theme)
-const primaryDark = '#0284c7';
-const primaryLight = '#7dd3fc';
-const primaryDeep = '#0f172a'; // Deep slate
+const primaryMain = '#0A314D'; // Blue Tokai Navy
+const primaryDark = '#061E33';
+const primaryLight = '#174A73';
+const primaryDeep = '#041524';
 const surfaceBorder = 'rgba(255, 255, 255, 0.08)';
 const paperSurface = '#1C2438'; // Lightened slate card background
 const defaultBg = '#141C2E'; // Lightened Deep Navy
@@ -93,15 +93,15 @@ const baseTheme = createTheme({
           color: '#F8FAFC',
           backgroundColor: defaultBg,
           backgroundAttachment: 'fixed',
-          scrollbarColor: `${alpha('#38bdf8', 0.25)} ${alpha('#000000', 0.15)}`,
+          scrollbarColor: `${alpha('#0A314D', 0.25)} ${alpha('#000000', 0.15)}`,
           '&::-webkit-scrollbar': { width: 10, height: 10 },
           '&::-webkit-scrollbar-track': { background: alpha('#000000', 0.15) },
           '&::-webkit-scrollbar-thumb': {
-            background: alpha('#38bdf8', 0.2),
+            background: alpha('#0A314D', 0.2),
             borderRadius: 999
           },
           '&::-webkit-scrollbar-thumb:hover': {
-            background: alpha('#38bdf8', 0.4)
+            background: alpha('#0A314D', 0.4)
           }
         },
         '#root': {
@@ -372,6 +372,22 @@ const baseTheme = createTheme({
           backgroundColor: 'rgba(96, 165, 250, 0.12)',
           color: '#60a5fa',
           border: '1px solid rgba(96, 165, 250, 0.25)'
+        }
+      }
+    },
+    MuiSnackbar: {
+      styleOverrides: {
+        root: {
+          zIndex: 9999
+        },
+        anchorOriginTopRight: {
+          marginTop: '68px'
+        },
+        anchorOriginTopCenter: {
+          marginTop: '68px'
+        },
+        anchorOriginTopLeft: {
+          marginTop: '68px'
         }
       }
     },

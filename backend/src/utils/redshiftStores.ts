@@ -208,7 +208,6 @@ function mapSourceStatusToAppStatus(row: RedshiftStoreRow, currentStatus?: strin
     'PENDING_APPROVAL',
     'NSO_APPROVED',
     'APPROVED',
-    'COMPLIANCE_APPROVED',
     'ON_HOLD',
     'INCOMPLETE_INFORMATION'
   ];

@@ -6,7 +6,7 @@ import {
   MenuItem, Alert, CircularProgress, Divider, Chip, Switch, FormControlLabel,
   Dialog, DialogTitle, DialogContent, DialogActions,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Select, InputAdornment, Autocomplete, Tabs, Tab, Stack
+  Select, InputAdornment, Autocomplete, Tabs, Tab, Stack, Backdrop
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import EditIcon from '@mui/icons-material/Edit';
@@ -94,7 +94,7 @@ export default function EditStore() {
   const [allStoresList, setAllStoresList] = useState([]);
   const isSavedRef = useRef(false);
   const pendingDataRef = useRef(null);
-  const isApprovedStatus = store && ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+  const isApprovedStatus = store && ['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(store.status);
 
   // Active Tab state for layout categorization
   const [activeTab, setActiveTab] = useState('Cafe Basic Details');
@@ -119,7 +119,7 @@ export default function EditStore() {
       'areaManagerEmail', 'areaManagerPhone', 'cityHeadEmail', 'cityHeadPhone'
     ],
     'GST & FSSAI Details': [
-      'gstNo', 'gstCertificateLink', 'fssaiLicense', 'fssaiNo', 'fssaiExpiry'
+      'gstNo', 'fssaiNo', 'fssaiStartDate', 'fssaiExpiry'
     ],
     'Operations Details': [
       'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
@@ -327,7 +327,7 @@ export default function EditStore() {
   const isManager = user?.role === 'MANAGER';
   const isFinance = user?.role === 'FINANCE';
   const isViewOnly = user?.role === 'USER';  // User Access Profile — view only
-  const canApprove = isSuperAdmin || user?.permissions?.includes('APPROVER');
+  const canApprove = isSuperAdmin || isAdmin || user?.permissions?.includes('APPROVER');
   const hasGoLiveAccess = user?.permissions?.includes('GO_LIVE') || isSuperAdmin;
   const hasUpcomingEditor = isSuperAdmin || isAdmin || user?.permissions?.includes('EDITOR');
 
@@ -467,6 +467,15 @@ export default function EditStore() {
     });
   }, [id, navigate, reset, isSuperAdmin, isViewOnly]);
 
+  useEffect(() => {
+    const indoor = Number(watch('indoorSeatingCount')) || 0;
+    const outdoor = Number(watch('outdoorSeatingCount')) || 0;
+    const currentTotal = Number(watch('totalNoOfTables')) || 0;
+    if (indoor + outdoor !== currentTotal) {
+      setValue('totalNoOfTables', String(indoor + outdoor), { shouldDirty: true, shouldValidate: true });
+    }
+  }, [watch('indoorSeatingCount'), watch('outdoorSeatingCount'), watch, setValue]);
+
   // Watch latitude to auto-fill latt and long
   const latitudeValue = watch('latitude');
 
@@ -556,11 +565,11 @@ export default function EditStore() {
     }
   }, [cafeNameValue, brandValue, cafeMailIdValue, isMailIdDirty, isCmMailIdDirty, isCafeNameDirty, isBrandDirty, setValue]);
 
-  // Launch Date → Cafe Launch Month & Year auto-fill (for non-Super Admin & non-Admin)
+  // Launch Date → Cafe Launch Month & Year auto-fill
   const launchDateValue = watch('launchDate');
   const isLaunchDateDirty = formState.dirtyFields.launchDate;
   useEffect(() => {
-    if (!isSuperAdmin && !isAdmin && launchDateValue && String(launchDateValue).trim()) {
+    if (launchDateValue && String(launchDateValue).trim()) {
       const d = new Date(launchDateValue);
       if (!isNaN(d.getTime())) {
         const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -569,7 +578,7 @@ export default function EditStore() {
         setValue('cafeLaunchYear', String(d.getFullYear()), { shouldDirty, shouldValidate: true });
       }
     }
-  }, [launchDateValue, isSuperAdmin, isAdmin, isLaunchDateDirty, setValue]);
+  }, [launchDateValue, isLaunchDateDirty, setValue]);
 
   // Unique contacts by designation
   const areaManagers = contacts.filter(c => c.designation === 'Area Manager');
@@ -610,8 +619,20 @@ export default function EditStore() {
   const hasEditStores = user?.permissions?.includes('EDIT_STORES');
   const hasEditContacts = isSuperAdmin || user?.permissions?.includes('EDIT_CONTACTS');
   
+  const isDeliveryDisabledDueToRIDs = (() => {
+    if (!store) return false;
+    const b = (store.brand || '').toLowerCase();
+    if (b.includes('got tea') || b.includes('gottea')) {
+      return !store.gotTeaZomatoRID || !store.gotTeaSwiggyRID;
+    } else if (b.includes('suchali')) {
+      return !store.suchaliZomatoRID || !store.suchaliSwiggyRID;
+    } else {
+      return !store.blueTokaiZomatoRID || !store.blueTokaiSwiggyRID;
+    }
+  })();
+  
   // Go-Live Configuration card visibility and editability
-  const isGoLiveVisible = currentStatusVal === 'LIVE';
+  const isGoLiveVisible = ['LIVE', 'READY_TO_GO_LIVE', 'APPROVED', 'NSO_APPROVED'].includes(currentStatusVal);
   const canEditGoLive = store && hasGoLiveAccess && (!isLocked || isSuperAdmin) && (store?.status !== 'CLOSED' || isSuperAdmin);
 
   const instLiveWatched = watch('inStoreLive');
@@ -677,6 +698,8 @@ export default function EditStore() {
     canEditContacts = false;
     canEditFinance = false;
   }
+
+  const canEditGstFssai = isManager ? false : canEditBasicDetails;
 
   const isGoLiveFormValid = () => {
     const currentStatusVal = watch('status');
@@ -943,11 +966,11 @@ export default function EditStore() {
     if (norm === 'APPROVED' || norm === 'NSO_APPROVED') {
       return ['Approved', 'APPROVED', 'NSO_APPROVED'];
     }
+    if (norm === 'READY_TO_GO_LIVE' || norm === 'READY TO GO LIVE') {
+      return ['Ready to Go Live', 'READY_TO_GO_LIVE'];
+    }
     if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
       return ['On Hold', 'ON_HOLD'];
-    }
-    if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
-      return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
     }
     if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
       return ['Closed', 'CLOSED'];
@@ -1040,6 +1063,28 @@ export default function EditStore() {
   const handleDraftCancel = () => {
     setDraftDialog({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
     pendingDataRef.current = null;
+  };
+
+  const handleSaveGoLive = async () => {
+    try {
+      setLoading(true);
+      setErrorMsg('');
+      const payload = {
+        inStoreLive: watch('inStoreLive'),
+        inStoreLiveDate: watch('inStoreLiveDate'),
+        deliveryLive: watch('deliveryLive'),
+        deliveryLiveDate: watch('deliveryLiveDate'),
+      };
+      await storesService.updateStore(store.id, payload);
+      setSuccessMsg('Go-Live configuration saved successfully.');
+      setTimeout(() => setSuccessMsg(''), 3000);
+      setIsSaved(true);
+    } catch (err) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.error || 'Failed to save Go-Live configuration.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Step 1: Intercept form submit → compute diffs → show changes dialog
@@ -1252,35 +1297,38 @@ export default function EditStore() {
   const isNsoFlow = store && ['PENDING_APPROVAL', 'APPROVED', 'NSO_APPROVED', 'ON_HOLD'].includes(store.status);
   // Finance & Legal is read-only for ALL users in NSO flow or Upcoming (INCOMPLETE_INFORMATION) flow
   const isFinanceReadOnly = isNsoFlow || (store?.status === 'INCOMPLETE_INFORMATION');
-  const isComplianceApprovedOrLive = store && ['COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+  const isReadyToGoLiveOrLive = store && ['READY_TO_GO_LIVE', 'LIVE'].includes(store.status);
 
   const baseOptions = isSuperAdmin 
     ? [
         { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
-        { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable },
+        { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable },
         { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled },
         { value: 'ON_HOLD', label: 'On Hold' },
-        { value: 'COMPLIANCE_APPROVED', label: 'Compliance Approved' },
-        ...(isComplianceApprovedOrLive ? [{ value: 'LIVE', label: 'Live' }] : []),
+        ...((isReadyToGoLiveOrLive || store?.status === 'APPROVED' || store?.status === 'NSO_APPROVED') ? [{ value: 'READY_TO_GO_LIVE', label: 'Ready to Go Live' }] : []),
+        ...(isReadyToGoLiveOrLive ? [{ value: 'LIVE', label: 'Live' }] : []),
         { value: 'CLOSED', label: 'Closed' }
       ]
-    : isComplianceApprovedOrLive
+    : isReadyToGoLiveOrLive
       ? [
-          { value: 'COMPLIANCE_APPROVED', label: 'Compliance Approved' },
+          { value: 'READY_TO_GO_LIVE', label: 'Ready to Go Live' },
           ...((hasGoLiveAccess || store?.status === 'LIVE') ? [{ value: 'LIVE', label: 'Live' }] : [])
         ]
       : isNsoFlow 
         ? [
             { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
-            { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable },
+            { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable },
+            ...((canApprove || isApprovedStatus) ? [
+              { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled }
+            ] : []),
             ...(canApprove ? [
-              { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled },
               { value: 'ON_HOLD', label: 'On Hold' }
-            ] : [])
+            ] : []),
+            ...(hasGoLiveAccess ? [{ value: 'LIVE', label: 'Live' }] : [])
           ]
         : [
             { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
-            { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable }
+            { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable }
           ];
 
   let statusOptions = [...baseOptions];
@@ -1380,10 +1428,10 @@ export default function EditStore() {
                 value={watch('status') || ''}
                 disabled={
                   isViewOnly || 
-                  isApprovedStatus ||
+                  (isApprovedStatus && !hasGoLiveAccess) ||
                   (store && store.isLocked && !isSuperAdmin) || 
                   (() => {
-                    if (store && ['COMPLIANCE_APPROVED', 'LIVE'].includes(store.status)) {
+                    if (store && ['READY_TO_GO_LIVE', 'LIVE'].includes(store.status)) {
                       return !hasGoLiveAccess;
                     }
                     if (store?.status === 'Ready for Construction') {
@@ -1403,36 +1451,20 @@ export default function EditStore() {
                 ))}
               </TextField>
               {/* Approved By - read-only display */}
-              {(store?.approvedBy || store?.complianceApprovedBy) && (
+              {store?.approvedBy && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  {store?.approvedBy && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        Approved By:
-                      </Typography>
-                      <Chip
-                        label={store.approvedBy}
-                        size="small"
-                        color="primary"
-                        variant="outlined"
-                        sx={{ fontWeight: 700, fontSize: '0.7rem', height: 22, borderRadius: '6px' }}
-                      />
-                    </Box>
-                  )}
-                  {store?.complianceApprovedBy && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        Compliance By:
-                      </Typography>
-                      <Chip
-                        label={store.complianceApprovedBy}
-                        size="small"
-                        color="success"
-                        variant="outlined"
-                        sx={{ fontWeight: 700, fontSize: '0.7rem', height: 22, borderRadius: '6px' }}
-                      />
-                    </Box>
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                      Approved By:
+                    </Typography>
+                    <Chip
+                      label={store.approvedBy}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      sx={{ fontWeight: 700, fontSize: '0.7rem', height: 22, borderRadius: '6px' }}
+                    />
+                  </Box>
                 </Box>
               )}
               <Box sx={{ display: 'flex', gap: 2 }}>
@@ -1443,39 +1475,15 @@ export default function EditStore() {
             </Box>
           </Box>
 
-          {/* ─── CARD: Remarks (Sticky) ─── */}
-          <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8, boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)', mb: 1 }}>
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                  Remarks / Special Instructions
-                </Typography>
-                {watch('status') === 'ON_HOLD' ? <RequiredBadge /> : <OptionalBadge />}
-                {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
-              </Box>
-              <TextField
-                fullWidth
-                multiline
-                minRows={1}
-                maxRows={3}
-                label={watch('status') === 'ON_HOLD' ? "Remarks *" : "Remarks"}
-                placeholder={watch('status') === 'ON_HOLD' ? "Enter the reason for placing the cafe on hold..." : "Enter any operational remarks, constraints, or special instructions according to the requirement..."}
-                {...register('remarks', { required: watch('status') === 'ON_HOLD' ? 'Required' : false })}
-                error={!!errors.remarks}
-                helperText={errors.remarks?.message}
-                disabled={!canEditBasicDetails}
-              />
-            </CardContent>
-          </Card>
-        </Box>
 
         {/* Horizontal Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4, mt: 1 }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 0, mt: 1 }}>
           <Tabs
             value={activeTab}
             onChange={(e, val) => setActiveTab(val)}
             variant="scrollable"
-            scrollButtons="auto"
+            scrollButtons={true}
+            allowScrollButtonsMobile
             sx={{
               '& .MuiTab-root': {
                 fontWeight: 800,
@@ -1525,6 +1533,34 @@ export default function EditStore() {
             })}
           </Tabs>
         </Box>
+        </Box> {/* Closes Sticky Header Box */}
+
+        {/* ─── CARD: Remarks (Normal Flow) ─── */}
+        <Box sx={{ mt: 3, mb: 4 }}>
+          <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8, boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)', mb: 1 }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                  Remarks / Special Instructions
+                </Typography>
+                {watch('status') === 'ON_HOLD' ? <RequiredBadge /> : <OptionalBadge />}
+                {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+              </Box>
+              <TextField
+                fullWidth
+                multiline
+                minRows={1}
+                maxRows={3}
+                label={watch('status') === 'ON_HOLD' ? "Remarks *" : "Remarks"}
+                placeholder={watch('status') === 'ON_HOLD' ? "Enter the reason for placing the cafe on hold..." : "Enter any operational remarks, constraints, or special instructions according to the requirement..."}
+                {...register('remarks', { required: watch('status') === 'ON_HOLD' ? 'Required' : false })}
+                error={!!errors.remarks}
+                helperText={errors.remarks?.message}
+                disabled={!canEditBasicDetails}
+              />
+            </CardContent>
+          </Card>
+        </Box>
 
         {isViewOnly && (
           <Alert
@@ -1568,10 +1604,10 @@ export default function EditStore() {
             sx={{ 
               mb: 4, 
               borderRadius: '12px',
-              '& .MuiAlert-message': { fontWeight: 700 }
+              '& .MuiAlert-message': { fontWeight: 700, color: '#000' }
             }}
           >
-            To enable the <strong>"Sent to NSO Team for Approval"</strong> action, please complete all mandatory fields:{' '}
+            To enable the <strong>"Approval Pending"</strong> action, please complete all mandatory fields:{' '}
             <strong>
               {nsoMandatoryFields.filter(f => {
                 const val = watch(f);
@@ -1586,7 +1622,7 @@ export default function EditStore() {
             sx={{ 
               mb: 4, 
               borderRadius: '12px',
-              '& .MuiAlert-message': { fontWeight: 700 }
+              '& .MuiAlert-message': { fontWeight: 700, color: '#000' }
             }}
           >
             <strong>Launch Date</strong> is required to select the <strong>"Approved"</strong> status.
@@ -1595,100 +1631,6 @@ export default function EditStore() {
 
         <Grid container spacing={4}>
           
-          {/* Go-Live Configuration Card */}
-          {isGoLiveVisible && (
-            <Grid size={12}>
-              <Card sx={{ bgcolor: 'background.paper', opacity: canEditGoLive ? 1 : 0.8 }}>
-                <CardContent sx={{ p: 4 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                      Go-Live Configuration
-                    </Typography>
-                    {!canEditGoLive && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
-                  </Box>
-
-                  <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                        <FormControlLabel
-                          control={
-                            <Switch 
-                              {...(canEditGoLive ? register('inStoreLive') : {})}
-                              checked={inStoreLiveValue || false}
-                              disabled={!canEditGoLive}
-                              onChange={(e) => {
-                                if (canEditGoLive) {
-                                  setValue('inStoreLive', e.target.checked, { shouldDirty: true });
-                                  if (!e.target.checked) {
-                                    setValue('inStoreLiveDate', '', { shouldDirty: true });
-                                  }
-                                }
-                              }}
-                            />
-                          }
-                          label={<span style={{ fontWeight: 600 }}>In-Store Go-Live</span>}
-                        />
-                        {inStoreLiveValue && (
-                          <TextField
-                            fullWidth
-                            type="date"
-                            label="In-Store Live Date *"
-                            InputLabelProps={{ shrink: true }}
-                            {...(canEditGoLive ? register('inStoreLiveDate', { 
-                              required: inStoreLiveValue ? 'Required when In-Store is enabled' : false 
-                            }) : {})}
-                            value={canEditGoLive ? undefined : safeGetDateString(store?.inStoreLiveDate)}
-                            error={canEditGoLive ? !!errors.inStoreLiveDate : false}
-                            helperText={canEditGoLive ? errors.inStoreLiveDate?.message : ''}
-                            disabled={!canEditGoLive}
-                          />
-                        )}
-                      </Box>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                        <FormControlLabel
-                          control={
-                            <Switch 
-                              {...(canEditGoLive ? register('deliveryLive') : {})}
-                              checked={deliveryLiveValue || false}
-                              disabled={!canEditGoLive}
-                              onChange={(e) => {
-                                if (canEditGoLive) {
-                                  setValue('deliveryLive', e.target.checked, { shouldDirty: true });
-                                  if (!e.target.checked) {
-                                    setValue('deliveryLiveDate', '', { shouldDirty: true });
-                                  }
-                                }
-                              }}
-                            />
-                          }
-                          label={<span style={{ fontWeight: 600 }}>Delivery Go-Live</span>}
-                        />
-                        {deliveryLiveValue && (
-                          <TextField
-                            fullWidth
-                            type="date"
-                            label="Delivery Live Date *"
-                            InputLabelProps={{ shrink: true }}
-                            {...(canEditGoLive ? register('deliveryLiveDate', { 
-                              required: deliveryLiveValue ? 'Required when Delivery is enabled' : false 
-                            }) : {})}
-                            value={canEditGoLive ? undefined : safeGetDateString(store?.deliveryLiveDate)}
-                            error={canEditGoLive ? !!errors.deliveryLiveDate : false}
-                            helperText={canEditGoLive ? errors.deliveryLiveDate?.message : ''}
-                            disabled={!canEditGoLive}
-                          />
-                        )}
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-
           {/* Closure Configuration Card */}
           {isClosedVisible && (
             <Grid size={12}>
@@ -2176,53 +2118,59 @@ export default function EditStore() {
           {/* GST & FSSAI Details */}
           {activeTab === 'GST & FSSAI Details' && (
             <Grid size={12}>
-              <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8 }}>
+              <Card sx={{ bgcolor: 'background.paper', opacity: canEditGstFssai ? 1 : 0.8 }}>
                 <CardContent sx={{ p: 4 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
                       GST & FSSAI Details
                     </Typography>
                     <OptionalBadge />
-                    {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
+                    {!canEditGstFssai && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
                   </Box>
 
                   <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, sm: 3 }}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
                         fullWidth 
                         label="GST No" 
                         {...register('gstNo')} 
                         error={!!errors.gstNo} 
                         helperText={errors.gstNo?.message} 
-                        disabled={!canEditBasicDetails} 
+                        disabled={!canEditGstFssai} 
                       />
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
-                      <TextField 
-                        fullWidth 
-                        label="GST Certificate Link" 
-                        placeholder="e.g. http://..." 
-                        {...register('gstCertificateLink')} 
-                        disabled={!canEditBasicDetails} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
-                      <TextField 
-                        fullWidth 
-                        label="FSSAI License (Certificate Link)" 
-                        placeholder="e.g. http://..." 
-                        {...register('fssaiLicense')} 
-                        disabled={!canEditBasicDetails} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 3 }}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
                         fullWidth 
                         label="FSSAI No" 
                         {...register('fssaiNo')} 
                         error={!!errors.fssaiNo} 
                         helperText={errors.fssaiNo?.message} 
-                        disabled={!canEditBasicDetails} 
+                        disabled={!canEditGstFssai} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        type="date"
+                        label="FSSAI Issued On" 
+                        InputLabelProps={{ shrink: true }}
+                        {...register('fssaiStartDate')} 
+                        error={!!errors.fssaiStartDate} 
+                        helperText={errors.fssaiStartDate?.message} 
+                        disabled={!canEditGstFssai} 
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 2 }}>
+                      <TextField 
+                        fullWidth 
+                        type="date"
+                        label="FSSAI Valid Until" 
+                        InputLabelProps={{ shrink: true }}
+                        {...register('fssaiExpiry')} 
+                        error={!!errors.fssaiExpiry} 
+                        helperText={errors.fssaiExpiry?.message} 
+                        disabled={!canEditGstFssai} 
                       />
                     </Grid>
                   </Grid>
@@ -2231,30 +2179,7 @@ export default function EditStore() {
             </Grid>
           )}
 
-          {/* Finance Information */}
-          {activeTab === 'GST & FSSAI Details' && (canEditFinance || isFinanceReadOnly || isSuperAdmin || isAdmin || isManager) && (
-            <Grid size={12}>
-              <Card sx={{ bgcolor: 'background.paper', opacity: (canEditFinance && !isFinanceReadOnly) ? 1 : 0.8 }}>
-                <CardContent sx={{ p: 4 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                      Finance & Legal Expiries
-                    </Typography>
-                    <Chip label="Read Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />
-                  </Box>
 
-                  <Grid container spacing={2.5}>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField fullWidth type="date" label="FSSAI License Expiry Date" InputLabelProps={{ shrink: true }} {...register('fssaiExpiry')} error={!!errors.fssaiExpiry} helperText={errors.fssaiExpiry?.message} disabled={true} />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6 }}>
-                      <TextField fullWidth type="date" label="Rent Agreement Expiry Date" InputLabelProps={{ shrink: true }} {...register('rentExpiry')} error={!!errors.rentExpiry} helperText={errors.rentExpiry?.message} disabled={true} />
-                    </Grid>
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
 
           {/* ─── CARD 4: Operations Details ─── */}
           {activeTab === 'Operations Details' && (
@@ -2333,7 +2258,7 @@ export default function EditStore() {
                         type="date" 
                         label="Launch Date" 
                         InputLabelProps={{ shrink: true }} 
-                        {...register('launchDate', { required: ['APPROVED', 'NSO_APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(watch('status')) ? 'Launch Date is required for approval' : false })} 
+                        {...register('launchDate', { required: ['APPROVED', 'NSO_APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(watch('status')) ? 'Launch Date is required for approval' : false })} 
                         error={!!errors.launchDate} 
                         helperText={errors.launchDate?.message} 
                         disabled={!canEditBasicDetails} 
@@ -2427,13 +2352,11 @@ export default function EditStore() {
                       <TextField 
                         fullWidth 
                         label="Total No. of Tables" 
-                        {...register('totalNoOfTables', {
-                          onChange: (e) => {
-                            e.target.value = e.target.value.replace(/[^0-9]/g, '');
-                          }
-                        })} 
+                        {...register('totalNoOfTables')} 
                         disabled={!canEditBasicDetails}
                         value={watch('totalNoOfTables') || ''}
+                        InputProps={{ readOnly: true }}
+                        sx={{ bgcolor: 'background.paper' }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -2459,60 +2382,6 @@ export default function EditStore() {
                             String(option.cafeCode).toLowerCase().includes(query)
                           );
                         }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Latitude (Read-only)" 
-                        value={watch('latt') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Longitude (Read-only)" 
-                        value={watch('long') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Area Manager Mail ID (Read-only)" 
-                        value={watch('areaManagerEmail') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="Area Manager Contact Number (Read-only)" 
-                        value={watch('areaManagerPhone') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="City Head Mail ID (Read-only)" 
-                        value={watch('cityHeadEmail') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField 
-                        fullWidth 
-                        label="City Head Contact Number (Read-only)" 
-                        value={watch('cityHeadPhone') || ''} 
-                        InputProps={{ readOnly: true }} 
-                        sx={{ bgcolor: 'background.paper' }} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
@@ -2583,9 +2452,8 @@ export default function EditStore() {
                                 disabled={!canEditBasicDetails}
                                 sx={{ mr: 1, fontWeight: 600, cursor: 'pointer' }}
                               >
-                                <MenuItem value="Thousands">Thousands</MenuItem>
                                 <MenuItem value="Lakhs">Lakhs</MenuItem>
-                                <MenuItem value="Crores">Crores</MenuItem>
+                                <MenuItem value="Crores">Cr.</MenuItem>
                               </Select>
                             </InputAdornment>
                           )
@@ -3045,7 +2913,11 @@ export default function EditStore() {
           </Stack>
         </DialogContent>
       </Dialog>
-
-          </Box>
+      
+      <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={loading}>
+        <CircularProgress color="inherit" />
+        <Typography variant="h6" sx={{ color: 'inherit' }}>Processing...</Typography>
+      </Backdrop>
+    </Box>
   );
 }

@@ -25,6 +25,7 @@ export default function Approvals() {
   const [searchQuery, setSearchQuery] = useState('');
   const [approvalFilter, setApprovalFilter] = useState('ALL');
   const [remarksDialogOpen, setRemarksDialogOpen] = useState(false);
+  const [confirmApproveDialog, setConfirmApproveDialog] = useState({ open: false, store: null });
 
   // Email Mappings & Templates
   const [emailMappings, setEmailMappings] = useState([]);
@@ -53,7 +54,7 @@ export default function Approvals() {
   }, [location]);
 
   // Only Super Admins and users with APPROVER permission can change workflow status
-  const canApprove = user?.role === 'SUPER_ADMIN' || user?.permissions?.includes('APPROVER');
+  const canApprove = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.permissions?.includes('APPROVER');
 
   const getStatusChipStyle = (status) => {
     switch (status) {
@@ -62,7 +63,7 @@ export default function Approvals() {
       case 'NSO_APPROVED':
       case 'APPROVED':
         return { bgcolor: 'rgba(234, 179, 8, 0.12)', color: '#a16207', border: '1px solid rgba(234, 179, 8, 0.35)' };       // Yellow
-      case 'COMPLIANCE_APPROVED':
+      case 'READY_TO_GO_LIVE':
       case 'PENDING_APPROVAL':
         return { bgcolor: 'rgba(249, 115, 22, 0.12)', color: '#c2410c', border: '1px solid rgba(249, 115, 22, 0.3)' };      // Orange
       case 'ON_HOLD':
@@ -75,16 +76,21 @@ export default function Approvals() {
   };
 
   const fetchStores = () => {
+    const filterStore = (s) => {
+      const status = (s.status || '').toUpperCase().trim().replace(/ /g, '_');
+      return ['PENDING_APPROVAL', 'APPROVAL_PENDING', 'NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE', 'ON_HOLD', 'INCOMPLETE_INFORMATION', 'CLOSED'].includes(status) || !!s.sentToNsoBy;
+    };
+
     fetchStoresFromFirestore()
       .then(stores => {
-        setStores(stores.filter(s => s.isActive !== false && s.isActive !== 'false' && ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD'].includes(s.status)));
+        setStores(stores.filter(filterStore));
       })
       .catch(async err => {
         console.error('Failed to load stores from Firestore, falling back to API:', err);
         try {
           const res = await axios.get('/api/stores');
-          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
-          setStores(stores.filter(s => s.isActive !== false && s.isActive !== 'false' && ['PENDING_APPROVAL', 'NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE', 'ON_HOLD'].includes(s.status)));
+          const storesList = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          setStores(storesList.filter(filterStore));
         } catch (apiError) {
           console.error(apiError);
         }
@@ -124,11 +130,8 @@ export default function Approvals() {
     if (norm === 'APPROVED' || norm === 'NSO_APPROVED') {
       return ['Approved', 'APPROVED', 'NSO_APPROVED'];
     }
-    if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
-      return ['On Hold', 'ON_HOLD'];
-    }
-    if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
-      return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
+    if (norm === 'READY_TO_GO_LIVE' || norm === 'READY TO GO LIVE') {
+      return ['Ready to Go Live', 'READY_TO_GO_LIVE'];
     }
     if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
       return ['Closed', 'CLOSED'];
@@ -168,14 +171,13 @@ export default function Approvals() {
       .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
       .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
       .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
-      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
+      .replace(/{pincode}|\[Pin Code\]|\[Pin Code\]/gi, store.pinCode || '');
   };
 
   const handleSendEmail = async () => {
-    const store = draftDialog.store;
     try {
-      setLoading(true);
-      await axios.post(`/api/stores/${store.id}/send-status-email`, {
+      setSendingEmail(true);
+      await axios.post(`/api/stores/${draftDialog.store.id}/send-status-email`, {
         status: draftDialog.status,
         to: draftDialog.to,
         cc: draftDialog.cc,
@@ -183,17 +185,24 @@ export default function Approvals() {
         body: draftDialog.body
       });
       if (draftDialog.status === 'ON_HOLD' && draftDialog.remarks) {
-        await axios.put(`/api/stores/${store.id}/status`, {
+        await axios.put(`/api/stores/${draftDialog.store.id}/status`, {
           status: 'ON_HOLD',
           remarks: draftDialog.remarks
         });
       }
+      
+      // Immediately update local state to avoid caching race condition
+      setStores(prevStores => prevStores.map(s => 
+        s.id === draftDialog.store.id ? { ...s, status: draftDialog.status } : s
+      ));
+      
       setDraftDialog({ open: false, store: null, status: '', to: '', cc: '', subject: '', body: '', isEditable: false, remarks: '' });
-      fetchStores();
-    } catch (err) {
-      console.error(err);
+      fetchStores(); // Refresh list in background
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      alert(error.response?.data?.error || 'Failed to send email. Please try again.');
     } finally {
-      setLoading(false);
+      setSendingEmail(false);
     }
   };
 
@@ -203,8 +212,12 @@ export default function Approvals() {
 
   const proceedWithAction = async (store, actionStatus) => {
     try {
-      await axios.put(`/api/stores/${store.id}/status`, { status: actionStatus });
-      fetchStores(); // Refresh list
+      const response = await axios.put(`/api/stores/${store.id}/status`, { status: actionStatus });
+      // Immediately update local state to avoid caching race condition
+      setStores(prevStores => prevStores.map(s => 
+        s.id === store.id ? { ...s, ...response.data } : s
+      ));
+      fetchStores(); // Refresh list in background
     } catch (error) {
       if (error.response && error.response.status === 400 && error.response.data?.missingFields) {
         setAttemptedStoreName(store.cafeName);
@@ -212,6 +225,7 @@ export default function Approvals() {
         setValidationOpen(true);
       } else {
         console.error('Failed to update status', error);
+        alert(error.response?.data?.error || error.response?.data?.message || 'Failed to update store status. Please try again.');
       }
     }
   };
@@ -246,6 +260,8 @@ export default function Approvals() {
       setRemarksText(store.remarks || '');
       setRemarksError(false);
       setRemarksDialogOpen(true);
+    } else if (newStatus === 'APPROVED' && store.status === 'PENDING_APPROVAL') {
+      setConfirmApproveDialog({ open: true, store });
     } else {
       handleAction(store, newStatus);
     }
@@ -288,15 +304,6 @@ export default function Approvals() {
     }
   };
 
-  const handleLaunchStatusChange = async (storeId, newLaunchStatus) => {
-    try {
-      await axios.put(`/api/stores/${storeId}`, { launchStatus: newLaunchStatus });
-      setStores(prev => prev.map(s => s.id === storeId ? { ...s, launchStatus: newLaunchStatus } : s));
-    } catch (error) {
-      console.error('Failed to update launch status', error);
-    }
-  };
-
   const formatFieldName = (field) => {
     return field
       .replace(/([A-Z])/g, ' $1')
@@ -309,6 +316,15 @@ export default function Approvals() {
       .replace('Google Link', 'Google Map Link');
   };
 
+  const statusCounts = stores.reduce((acc, store) => {
+    const normStatus = (store.status || '').toUpperCase().trim().replace(/ /g, '_');
+    acc.all++;
+    if (['PENDING_APPROVAL', 'APPROVAL_PENDING'].includes(normStatus)) acc.pending++;
+    else if (['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(normStatus)) acc.approved++;
+    else if (normStatus === 'ON_HOLD') acc.onHold++;
+    return acc;
+  }, { all: 0, pending: 0, approved: 0, onHold: 0 });
+
   const filteredStores = stores.filter(store => {
     // Search query filter
     let searchMatch = true;
@@ -319,17 +335,19 @@ export default function Approvals() {
       searchMatch = nameMatch || codeMatch;
     }
     
-    // Live filter
-    const isLive = store.status === 'Live' || store.status === 'LIVE';
-    if (isLive) return false;
+    const normStatus = (store.status || '').toUpperCase().trim().replace(/ /g, '_');
     
     // Approval filter
     let approvalMatch = true;
     if (approvalFilter !== 'ALL') {
       if (approvalFilter === 'NSO_APPROVED') {
-        approvalMatch = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+        approvalMatch = ['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(normStatus);
       } else {
-        approvalMatch = store.status === approvalFilter;
+        if (approvalFilter === 'PENDING_APPROVAL') {
+          approvalMatch = ['PENDING_APPROVAL', 'APPROVAL_PENDING'].includes(normStatus);
+        } else {
+          approvalMatch = normStatus === approvalFilter;
+        }
       }
     }
 
@@ -367,7 +385,7 @@ export default function Approvals() {
             sx={{ width: 160, bgcolor: 'background.paper' }}
           >
             <MenuItem value="ALL">All Statuses</MenuItem>
-            <MenuItem value="PENDING_APPROVAL">Sent to NSO Team for Approval</MenuItem>
+            <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
             <MenuItem value="NSO_APPROVED">Approved</MenuItem>
             <MenuItem value="ON_HOLD">On Hold</MenuItem>
           </TextField>
@@ -387,6 +405,49 @@ export default function Approvals() {
           />
       </Box>
     </Box>
+
+      {/* Status Filter Cards */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 4 }}>
+        {[
+          { label: 'All Cafes', value: 'ALL', count: statusCounts.all, mainColor: '#3b82f6', bgColor: 'rgba(59, 130, 246, 0.08)' },
+          { label: 'Pending Approval', value: 'PENDING_APPROVAL', count: statusCounts.pending, mainColor: '#f97316', bgColor: 'rgba(249, 115, 22, 0.08)' },
+          { label: 'Approved', value: 'NSO_APPROVED', count: statusCounts.approved, mainColor: '#16a34a', bgColor: 'rgba(22, 163, 74, 0.08)' },
+          { label: 'On Hold', value: 'ON_HOLD', count: statusCounts.onHold, mainColor: '#ef4444', bgColor: 'rgba(239, 68, 68, 0.08)' }
+        ].map(item => {
+          const isActive = approvalFilter === item.value;
+          return (
+            <Paper
+              key={item.value}
+              onClick={() => setApprovalFilter(item.value)}
+              sx={{
+                p: 2.5,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                border: '1px solid',
+                borderColor: isActive ? item.mainColor : 'divider',
+                bgcolor: isActive ? item.bgColor : 'background.paper',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: isActive ? `0 4px 12px ${item.bgColor}` : '0 1px 3px rgba(0,0,0,0.05)',
+                borderRadius: '12px',
+                '&:hover': {
+                  borderColor: item.mainColor,
+                  bgcolor: item.bgColor,
+                  transform: 'translateY(-2px)',
+                  boxShadow: `0 6px 16px ${item.bgColor}`
+                }
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 700, color: isActive ? item.mainColor : 'text.secondary', mb: 1, textTransform: 'uppercase', letterSpacing: '0.5px', fontSize: '0.75rem' }}>
+                {item.label}
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: isActive ? item.mainColor : 'text.primary' }}>
+                {item.count}
+              </Typography>
+            </Paper>
+          );
+        })}
+      </Box>
 
       {successMsg && (
         <Alert 
@@ -411,6 +472,7 @@ export default function Approvals() {
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>City</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Sent to NSO Team By</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Approved By</TableCell>
               </TableRow>
             </TableHead>
@@ -423,7 +485,7 @@ export default function Approvals() {
                 </TableRow>
               ) : (
                 filteredStores.map((store, index) => {
-                  const isStoreApproved = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+                  const isStoreApproved = ['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(store.status);
                   const canClickStore = canApprove && !(user?.role === 'MANAGER' && isStoreApproved);
                   
                   return (
@@ -447,41 +509,11 @@ export default function Approvals() {
                       <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>{store.cafeName}</TableCell>
                       <TableCell>{store.city} - {store.zone}</TableCell>
                       <TableCell>
-                        {['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status) || !canApprove || (store.isLocked && user?.role !== 'SUPER_ADMIN') ? (
+                        {['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(store.status) || !canApprove || (store.isLocked && user?.role !== 'SUPER_ADMIN') ? (
                           <Chip
-                            icon={
-                              store.status === 'LIVE' || store.status === 'COMPLIANCE_APPROVED' ? (
-                                <Box 
-                                  sx={{ 
-                                    width: 6, 
-                                    height: 6, 
-                                    borderRadius: '50%', 
-                                    bgcolor: store.status === 'LIVE' ? '#22c55e' : '#f97316',
-                                    boxShadow: `0 0 6px ${store.status === 'LIVE' ? '#22c55e' : '#f97316'}`,
-                                    ml: '4px !important',
-                                    mr: '-2px !important',
-                                    animation: 'pulse 1.8s infinite ease-in-out',
-                                    '@keyframes pulse': {
-                                      '0%': {
-                                        transform: 'scale(0.85)',
-                                        boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(249, 115, 22, 0.7)'}`
-                                      },
-                                      '70%': {
-                                        transform: 'scale(1.15)',
-                                        boxShadow: `0 0 0 5px ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
-                                      },
-                                      '100%': {
-                                        transform: 'scale(0.85)',
-                                        boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
-                                      }
-                                    }
-                                  }} 
-                                />
-                              ) : undefined
-                            }
                             label={
                               store.status === 'NSO_APPROVED' || store.status === 'APPROVED' ? 'Approved'
-                              : store.status === 'COMPLIANCE_APPROVED' ? 'Compliance Approved'
+                              : store.status === 'READY_TO_GO_LIVE' ? 'Ready to Go Live'
                               : store.status === 'INCOMPLETE_INFORMATION' ? 'Incomplete Information'
                               : store.status === 'PENDING_APPROVAL' ? 'Approval Pending'
                               : store.status === 'ON_HOLD' ? 'On Hold'
@@ -506,12 +538,34 @@ export default function Approvals() {
                             onChange={(e) => handleStatusDropdownChange(store, e.target.value)}
                             sx={{ minWidth: 200 }}
                           >
-                            <MenuItem value="PENDING_APPROVAL">Sent to NSO Team for Approval</MenuItem>
+                            <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
                             {canApprove && <MenuItem value="APPROVED">Approved</MenuItem>}
                             {canApprove && <MenuItem value="ON_HOLD">On Hold</MenuItem>}
                             {canApprove && <MenuItem value="INCOMPLETE_INFORMATION">Incomplete Information</MenuItem>}
                           </TextField>
                         )}
+                      </TableCell>
+
+                      <TableCell sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
+                        {store.sentToNsoBy ? (
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.825rem' }}>
+                              {store.sentToNsoBy}
+                            </Typography>
+                            {store.sentToNsoAt && (
+                              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.75rem' }}>
+                                {new Date(store.sentToNsoAt).toLocaleString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : '—'}
                       </TableCell>
 
                       <TableCell sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
@@ -652,6 +706,52 @@ export default function Approvals() {
             sx={{ fontWeight: 700, borderRadius: '8px', px: 3 }}
           >
             Save Reason
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Confirm Approval Dialog */}
+      <Dialog 
+        open={confirmApproveDialog.open} 
+        onClose={() => setConfirmApproveDialog({ open: false, store: null })}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: { 
+            borderRadius: '16px', 
+            p: 1.5,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+          }
+        }}
+      >
+        <DialogTitle>
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+            Confirm Status Update
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" sx={{ mt: 1 }}>
+            Are you sure you want to update the status from Pending Approval to Approved?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1.5 }}>
+          <Button 
+            onClick={() => setConfirmApproveDialog({ open: false, store: null })} 
+            variant="outlined"
+            sx={{ fontWeight: 700, borderRadius: '8px', px: 3 }}
+          >
+            No
+          </Button>
+          <Button 
+            onClick={() => {
+              handleAction(confirmApproveDialog.store, 'APPROVED');
+              setConfirmApproveDialog({ open: false, store: null });
+            }} 
+            variant="contained" 
+            color="primary" 
+            sx={{ fontWeight: 700, borderRadius: '8px', px: 3 }}
+          >
+            Yes
           </Button>
         </DialogActions>
       </Dialog>

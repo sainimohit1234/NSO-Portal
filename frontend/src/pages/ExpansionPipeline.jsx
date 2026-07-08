@@ -89,10 +89,7 @@ export default function ExpansionPipeline() {
     fetchStoresFromFirestore()
       .then(fetchedStores => {
         // Load all active stores (including live and closed ones)
-        const allStores = fetchedStores.filter(s => 
-          s.isActive !== false &&
-          s.isActive !== 'false'
-        );
+        const allStores = fetchedStores;
         // Pre-extract PIN code if missing
         allStores.forEach(s => {
           if (!s.pinCode) {
@@ -124,10 +121,7 @@ export default function ExpansionPipeline() {
         try {
           const res = await axios.get('/api/stores');
           const list = normalizeListResponse(res.data, ['stores', 'data', 'items']);
-          const allStores = list.filter(s => 
-            s.isActive !== false &&
-            s.isActive !== 'false'
-          );
+          const allStores = list;
           // Pre-extract PIN code if missing
           allStores.forEach(s => {
             if (!s.pinCode) {
@@ -380,8 +374,8 @@ export default function ExpansionPipeline() {
     if (norm === 'ON_HOLD' || norm === 'ON HOLD') {
       return ['On Hold', 'ON_HOLD'];
     }
-    if (norm === 'COMPLIANCE_APPROVED' || norm === 'COMPLIANCE APPROVED') {
-      return ['Compliance Approved', 'COMPLIANCE_APPROVED'];
+    if (norm === 'READY_TO_GO_LIVE' || norm === 'READY TO GO LIVE') {
+      return ['Ready to Go Live', 'READY_TO_GO_LIVE'];
     }
     if (norm === 'CLOSED' || norm === 'CLOSED STORES' || norm === 'CLOSED STORE') {
       return ['Closed', 'CLOSED'];
@@ -700,7 +694,7 @@ export default function ExpansionPipeline() {
     if (status === 'INCOMPLETE_INFORMATION') return 'Incomplete';
     if (status === 'PENDING_APPROVAL') return 'Pending Approval';
     if (status === 'APPROVED' || status === 'NSO_APPROVED') return 'Approved';
-    if (status === 'COMPLIANCE_APPROVED') return 'Ready for Launch';
+    if (status === 'READY_TO_GO_LIVE') return 'Ready to Go Live';
     if (status === 'ON_HOLD') return 'On Hold';
     return status;
   };
@@ -893,16 +887,16 @@ export default function ExpansionPipeline() {
                   </Box>
                   <Box 
                     sx={{
-                      bgcolor: isActive ? '#38bdf8' : 'rgba(56, 189, 248, 0.16)',
+                      bgcolor: isActive ? tile.color : `${tile.color}15`,
                       p: 1.25,
                       borderRadius: 3.5,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: isActive ? '#0B0F19' : '#38bdf8',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      color: isActive ? '#ffffff' : tile.color,
+                      border: `1px solid ${tile.color}30`,
                       transition: 'all 0.3s ease',
-                      boxShadow: isActive ? '0 4px 12px rgba(56, 189, 248, 0.35)' : 'none'
+                      boxShadow: isActive ? `0 4px 12px ${tile.color}40` : 'none'
                     }}
                   >
                     {React.cloneElement(tile.icon, { sx: { fontSize: 24 } })}
@@ -973,8 +967,7 @@ export default function ExpansionPipeline() {
               ) : (
                 filteredStores.map((store, index) => {
                   const hasLoi = !!store.loiUrl;
-                  const isApprovedStatus = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
-                  const isLocked = store.isLocked === true || store.isLocked === 'true' || isApprovedStatus;
+                  const isLocked = store.isLocked === true || store.isLocked === 'true';
                   const rowEditable = canModify && !isLocked && (store.isTemp || editingStoreIds.has(store.id));
 
                   return (
@@ -1161,12 +1154,10 @@ export default function ExpansionPipeline() {
                                  {/* Status */}
                       <TableCell>
                         {(() => {
-                          const isApprovedStatus = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
-                          const isLocked = store.isLocked === true || store.isLocked === 'true' || isApprovedStatus;
+                          const isLocked = store.isLocked === true || store.isLocked === 'true';
                           let currentStatus = 'In Pipeline';
-                          if (isLocked || store.status === 'LIVE' || store.status === 'Live') {
-                            currentStatus = 'Live';
-                          } else if (store.status === 'Under Construction') {
+                          
+                          if (isLocked || ['LIVE', 'Live', 'READY_TO_GO_LIVE', 'APPROVED', 'PENDING_APPROVAL', 'Under Construction'].includes(store.status)) {
                             currentStatus = 'Under Construction';
                           } else if (store.status === 'Ready for Construction') {
                             currentStatus = 'Ready for Construction';
@@ -1195,11 +1186,8 @@ export default function ExpansionPipeline() {
                                {currentStatus === 'Ready for Construction' && (
                                  <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
                                )}
-                               {currentStatus === 'Under Construction' && (
+                               {(isLocked || currentStatus === 'Under Construction') && (
                                  <MenuItem value="Under Construction">Under Construction</MenuItem>
-                               )}
-                               {(isLocked || currentStatus === 'Live') && (
-                                 <MenuItem value="Live">Live</MenuItem>
                                )}
                              </Select>
                            );
@@ -1445,7 +1433,7 @@ export default function ExpansionPipeline() {
           open={!!uploadModalConfig} 
           store={uploadModalConfig.store}
           activeCategory={uploadModalConfig.category}
-          canModify={canModify && !(uploadModalConfig.store.isLocked === true || uploadModalConfig.store.isLocked === 'true' || ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(uploadModalConfig.store.status))}
+          canModify={canModify && !(uploadModalConfig.store.isLocked === true || uploadModalConfig.store.isLocked === 'true' || ['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(uploadModalConfig.store.status))}
           onClose={() => setUploadModalConfig(null)}
           setSnackbar={setSnackbar}
           onSave={(payload) => {

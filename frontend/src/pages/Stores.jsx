@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { 
   Box, Typography, Card, CardContent, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Paper, Chip, TextField, Grid, 
-  Button, MenuItem, IconButton, Tooltip, Switch
+  Button, MenuItem, IconButton, Tooltip, Switch, Dialog, DialogTitle, 
+  DialogContent, DialogActions, FormControlLabel
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
@@ -12,8 +13,12 @@ import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 import { fetchStoresFromFirestore } from '../services/storeService';
 import { getCurrentStatus, getCurrentStatusDotColor, getCurrentStatusChipStyle, getStatusRgb, sortStoresByCurrentStatus } from '../utils/status';
+import GoLiveDialog from '../components/GoLiveDialog';
 
 export default function Stores() {
+  const [goLiveDialogOpen, setGoLiveDialogOpen] = useState(false);
+  const [selectedGoLiveStore, setSelectedGoLiveStore] = useState(null);
+
   const getCurrentMonthValue = () => {
     const now = new Date();
     return String(now.getMonth() + 1).padStart(2, '0');
@@ -109,6 +114,7 @@ export default function Stores() {
   const { user } = useAuth();
   const isUser = user?.role === 'USER';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const hasGoLiveAccess = user?.permissions?.includes('GO_LIVE') || isSuperAdmin;
 
   useEffect(() => {
     fetchStoresFromFirestore()
@@ -140,11 +146,22 @@ export default function Stores() {
     }
   };
 
+  const handleChangeStatus = async (storeId, newStatus, additionalData = {}) => {
+    try {
+      await axios.put(`/api/stores/${storeId}`, { status: newStatus, ...additionalData });
+      setStores(prev => prev.map(s => s.id === storeId ? { ...s, status: newStatus, ...additionalData } : s));
+      setFilteredStores(prev => prev.map(s => s.id === storeId ? { ...s, status: newStatus, ...additionalData } : s));
+    } catch (err) {
+      console.error('Failed to change status:', err);
+      alert(err.response?.data?.error || 'Failed to change status.');
+    }
+  };
+
   useEffect(() => {
     let result = stores;
 
     // Filter out inactive stores (isActive is false)
-    result = result.filter(s => s.isActive !== false && s.isActive !== 'false');
+    // Removed to show all stores
 
     // Brand Filter
     if (filters.brand) {
@@ -295,9 +312,10 @@ export default function Stores() {
       case 'APPROVED':
       case 'NSO_APPROVED':
         return { bgcolor: 'rgba(234, 179, 8, 0.12)', color: '#a16207', borderColor: 'rgba(234, 179, 8, 0.35)' };  // Yellow
-      case 'COMPLIANCE_APPROVED':
-      case 'PENDING_APPROVAL':
+      case 'READY_TO_GO_LIVE':
         return { bgcolor: 'rgba(249, 115, 22, 0.12)', color: '#c2410c', borderColor: 'rgba(249, 115, 22, 0.3)' }; // Orange
+      case 'PENDING_APPROVAL':
+        return { bgcolor: '#f1f3f4', color: '#5f6368', borderColor: '#dadce0' }; // Match Under Construction
       case 'ON_HOLD':
         return { bgcolor: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', borderColor: 'rgba(239, 68, 68, 0.3)' };   // Red
       case 'INCOMPLETE_INFORMATION':
@@ -533,7 +551,7 @@ Store Operations Portal`;
               <MenuItem value="newly_launched">Newly Launch Stores</MenuItem>
               <MenuItem value="live">Live Stores</MenuItem>
               <MenuItem value="approved">Approved Stores</MenuItem>
-              <MenuItem value="pending_approval">Sent to NSO Team for Approval</MenuItem>
+              <MenuItem value="pending_approval">Approval Pending</MenuItem>
               <MenuItem value="incomplete_information">Incomplete Information Stores</MenuItem>
               <MenuItem value="on_hold">On Hold Stores</MenuItem>
               <MenuItem value="upcoming">Upcoming Stores</MenuItem>
@@ -574,6 +592,7 @@ Store Operations Portal`;
           <Table stickyHeader>
             <TableHead>
               <TableRow>
+                <TableCell>Brand</TableCell>
                 <TableCell>Current Status</TableCell>
                 <TableCell>Cafe Code</TableCell>
                 <TableCell>Cafe Name</TableCell>
@@ -591,7 +610,7 @@ Store Operations Portal`;
             <TableBody>
               {filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9 + (filters.expiryType ? 1 : 0) + (isSuperAdmin ? 1 : 0)} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={10 + (filters.expiryType ? 1 : 0) + (isSuperAdmin ? 1 : 0)} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No stores found. Create a new store to get started!
                   </TableCell>
                 </TableRow>
@@ -614,6 +633,9 @@ Store Operations Portal`;
                         cursor: 'pointer' 
                       }}
                     >
+                      <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.825rem' }}>
+                        {store.brand === 'BLUE_TOKAI_SUCHALI' ? "Blue Tokai / Suchali's" : store.brand === 'GOT_TEA' ? 'Got Tea' : (store.brand || '—')}
+                      </TableCell>
                       <TableCell>
                         <Chip 
                           icon={
@@ -732,59 +754,108 @@ Store Operations Portal`;
                           return result || 'N/A';
                         })()}
                       </TableCell>
-                      <TableCell>
-                        <Chip 
-                          icon={
-                            store.status === 'LIVE' || store.status === 'COMPLIANCE_APPROVED' ? (
-                              <Box 
-                                sx={{ 
-                                  width: 6, 
-                                  height: 6, 
-                                  borderRadius: '50%', 
-                                  bgcolor: store.status === 'LIVE' ? '#22c55e' : '#f97316',
-                                  boxShadow: `0 0 6px ${store.status === 'LIVE' ? '#22c55e' : '#f97316'}`,
-                                  ml: '4px !important',
-                                  mr: '-2px !important',
-                                  animation: 'pulse 1.8s infinite ease-in-out',
-                                  '@keyframes pulse': {
-                                    '0%': {
-                                      transform: 'scale(0.85)',
-                                      boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(249, 115, 22, 0.7)'}`
-                                    },
-                                    '70%': {
-                                      transform: 'scale(1.15)',
-                                      boxShadow: `0 0 0 5px ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
-                                    },
-                                    '100%': {
-                                      transform: 'scale(0.85)',
-                                      boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        {((store.status === 'APPROVED' || store.status === 'NSO_APPROVED' || store.status === 'READY_TO_GO_LIVE') && hasGoLiveAccess) ? (
+                          <TextField
+                            select
+                            size="small"
+                            value="READY_TO_GO_LIVE"
+                            onChange={(e) => {
+                              if (e.target.value === 'LIVE') {
+                                setSelectedGoLiveStore(store);
+                                setGoLiveDialogOpen(true);
+                              }
+                            }}
+                            sx={{ 
+                              width: 190,
+                              '& .MuiOutlinedInput-root': { 
+                                height: 26, 
+                                fontSize: '0.75rem', 
+                                fontWeight: 700,
+                                borderRadius: '6px',
+                                bgcolor: badgeStyle.bgcolor,
+                                color: badgeStyle.color,
+                                '& fieldset': {
+                                  borderColor: badgeStyle.borderColor,
+                                },
+                                '&:hover fieldset': {
+                                  borderColor: badgeStyle.borderColor,
+                                },
+                                '&.Mui-focused fieldset': {
+                                  borderColor: badgeStyle.borderColor,
+                                }
+                              },
+                              '& .MuiSelect-select': { 
+                                py: 0.25, 
+                                px: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                              }
+                            }}
+                          >
+                            <MenuItem value="READY_TO_GO_LIVE" sx={{ fontSize: '0.75rem', fontWeight: 700 }}>Ready to Go Live</MenuItem>
+                            <MenuItem value="LIVE" sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#22c55e' }}>Live</MenuItem>
+                          </TextField>
+                        ) : (
+                          <Chip 
+                            icon={
+                              store.status === 'LIVE' || store.status === 'READY_TO_GO_LIVE' ? (
+                                <Box 
+                                  sx={{ 
+                                    width: 6, 
+                                    height: 6, 
+                                    borderRadius: '50%', 
+                                    bgcolor: store.status === 'LIVE' ? '#22c55e' : '#f97316',
+                                    boxShadow: `0 0 6px ${store.status === 'LIVE' ? '#22c55e' : '#f97316'}`,
+                                    ml: '4px !important',
+                                    mr: '-2px !important',
+                                    animation: 'pulse 1.8s infinite ease-in-out',
+                                    '@keyframes pulse': {
+                                      '0%': {
+                                        transform: 'scale(0.85)',
+                                        boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0.7)' : 'rgba(249, 115, 22, 0.7)'}`
+                                      },
+                                      '70%': {
+                                        transform: 'scale(1.15)',
+                                        boxShadow: `0 0 0 5px ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
+                                      },
+                                      '100%': {
+                                        transform: 'scale(0.85)',
+                                        boxShadow: `0 0 0 0 ${store.status === 'LIVE' ? 'rgba(34, 197, 94, 0)' : 'rgba(249, 115, 22, 0)'}`
+                                      }
                                     }
-                                  }
-                                }} 
-                              />
-                            ) : undefined
-                          }
-                          label={
-                            store.status === 'PENDING_APPROVAL' ? 'APPROVAL PENDING' : 
-                            store.status === 'INCOMPLETE_INFORMATION' ? 'INCOMPLETE INFORMATION' : 
-                            store.status === 'ON_HOLD' ? 'ON HOLD' : 
-                            (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'APPROVED' : 
-                            (store.status ? store.status.replace(/_/g, ' ') : '')
-                          }
-                          size="small" 
-                          sx={{ 
-                            fontWeight: 700, 
-                            fontSize: '0.75rem',
-                            bgcolor: badgeStyle.bgcolor,
-                            color: badgeStyle.color,
-                            border: '1px solid',
-                            borderColor: badgeStyle.borderColor,
-                            borderRadius: '6px',
-                            px: 0.5,
-                            width: 190,
-                            justifyContent: 'center'
-                          }} 
-                        />
+                                  }} 
+                                />
+                              ) : undefined
+                            }
+                            label={
+                              store.status === 'PENDING_APPROVAL' ? 'Under Construction' : 
+                              store.status === 'INCOMPLETE_INFORMATION' ? 'INCOMPLETE INFORMATION' : 
+                              store.status === 'ON_HOLD' ? 'ON HOLD' : 
+                              (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'Ready to Go Live' :
+                              (store.status ? store.status.replace(/_/g, ' ') : '')
+                            }
+                            size="small" 
+                            onClick={(store.status === 'LIVE' || store.status === 'CLOSED') && hasGoLiveAccess ? () => {
+                              setSelectedGoLiveStore(store);
+                              setGoLiveDialogOpen(true);
+                            } : undefined}
+                            sx={{ 
+                              cursor: ((store.status === 'LIVE' || store.status === 'CLOSED') && hasGoLiveAccess) ? 'pointer' : 'default',
+                              fontWeight: 700, 
+                              fontSize: '0.75rem',
+                              bgcolor: badgeStyle.bgcolor,
+                              color: badgeStyle.color,
+                              border: '1px solid',
+                              borderColor: badgeStyle.borderColor,
+                              borderRadius: '6px',
+                              px: 0.5,
+                              width: 190,
+                              justifyContent: 'center'
+                            }} 
+                          />
+                        )}
                       </TableCell>
 
                       <TableCell sx={{ fontSize: '0.825rem', fontWeight: 800 }}>
@@ -875,6 +946,22 @@ Store Operations Portal`;
           </Table>
         </TableContainer>
       </Card>
+
+      <GoLiveDialog 
+        open={goLiveDialogOpen}
+        onClose={() => {
+          setGoLiveDialogOpen(false);
+          setSelectedGoLiveStore(null);
+        }}
+        store={selectedGoLiveStore}
+        onSave={async (payload) => {
+          if (selectedGoLiveStore) {
+            await handleChangeStatus(selectedGoLiveStore.id, 'LIVE', payload);
+            setGoLiveDialogOpen(false);
+            setSelectedGoLiveStore(null);
+          }
+        }}
+      />
     </Box>
   );
 }

@@ -45,33 +45,17 @@ export default function UpcomingStores() {
   const fetchStores = () => {
     fetchStoresFromFirestore()
       .then(stores => {
-        // Filter: show all stores that are in the setup/onboarding phase (i.e. not yet LIVE or CLOSED) and are active
-        const upcoming = stores.filter(s => 
-          s.isActive !== false &&
-          s.isActive !== 'false' &&
-          s.status !== 'LIVE' && 
-          s.status !== 'Live' && 
-          s.status !== 'CLOSED' && 
-          s.status !== 'Closed'
-        );
-        setStores(upcoming);
-        setFilteredStores(upcoming);
+        // Filter: Removed as per new requirement so that cafe entries never disappear
+        setStores(stores);
+        setFilteredStores(stores);
       })
       .catch(async err => {
         console.error('Failed to fetch stores from Firestore, falling back to API:', err);
         try {
           const res = await axios.get('/api/stores');
-          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
-          const upcoming = stores.filter(s => 
-            s.isActive !== false &&
-            s.isActive !== 'false' &&
-            s.status !== 'LIVE' && 
-            s.status !== 'Live' && 
-            s.status !== 'CLOSED' && 
-            s.status !== 'Closed'
-          );
-          setStores(upcoming);
-          setFilteredStores(upcoming);
+          const storesList = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          setStores(storesList);
+          setFilteredStores(storesList);
         } catch (apiError) {
           console.error('Failed to fetch stores:', apiError);
         }
@@ -267,8 +251,19 @@ export default function UpcomingStores() {
         return { bgcolor: 'rgba(34, 197, 94, 0.12)', color: '#16a34a', borderColor: 'rgba(34, 197, 94, 0.3)' };   // Green
       case 'APPROVED':
       case 'NSO_APPROVED':
-        return { bgcolor: 'rgba(234, 179, 8, 0.12)', color: '#a16207', borderColor: 'rgba(234, 179, 8, 0.35)' };  // Yellow
-      case 'COMPLIANCE_APPROVED':
+        return {
+          bgcolor: 'rgba(253, 224, 71, 0.2)', // Yellow for NSO Approved
+          color: '#b45309',
+          border: '1px solid rgba(250, 204, 21, 0.4)',
+          boxShadow: '0 2px 4px rgba(250, 204, 21, 0.1)'
+        };
+      case 'READY_TO_GO_LIVE':
+        return {
+          bgcolor: 'rgba(34, 197, 94, 0.15)',
+          color: '#166534',
+          border: '1px solid rgba(34, 197, 94, 0.3)',
+          boxShadow: '0 2px 4px rgba(34, 197, 94, 0.1)'
+        };
       case 'PENDING_APPROVAL':
         return { bgcolor: 'rgba(249, 115, 22, 0.12)', color: '#c2410c', borderColor: 'rgba(249, 115, 22, 0.3)' }; // Orange
       case 'ON_HOLD':
@@ -418,15 +413,15 @@ export default function UpcomingStores() {
                   </Box>
                   <Box 
                     sx={{
-                      bgcolor: isActive ? '#38bdf8' : 'rgba(56, 189, 248, 0.16)',
+                      bgcolor: isActive ? tile.color : `${tile.color}12`,
                       p: 1.25,
                       borderRadius: 3.5,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: isActive ? '#0B0F19' : '#38bdf8',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      boxShadow: isActive ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.1)',
+                      color: isActive ? '#ffffff' : tile.color,
+                      border: `1px solid ${tile.color}20`,
+                      boxShadow: isActive ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.45)',
                       transition: 'all 0.2s ease'
                     }}
                   >
@@ -537,11 +532,11 @@ export default function UpcomingStores() {
                 <MenuItem value="In Pipeline">In Pipeline</MenuItem>
                 <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
                 <MenuItem value="Under Construction">Under Construction</MenuItem>
-                <MenuItem value="PENDING_APPROVAL">Sent to NSO Team for Approval</MenuItem>
+                <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
                 <MenuItem value="APPROVED">Approved</MenuItem>
                 <MenuItem value="ON_HOLD">On Hold</MenuItem>
                 <MenuItem value="INCOMPLETE_INFORMATION">Incomplete Information</MenuItem>
-                <MenuItem value="COMPLIANCE_APPROVED">Compliance Approved</MenuItem>
+                <MenuItem value="READY_TO_GO_LIVE">Ready to Go Live</MenuItem>
                 <MenuItem value="UPCOMING">Upcoming</MenuItem>
                 <MenuItem value="LIVE">Live</MenuItem>
                 <MenuItem value="CLOSED">Closed</MenuItem>
@@ -595,7 +590,7 @@ export default function UpcomingStores() {
               ) : (
                 filteredStores.map((store) => {
                   const badgeStyle = getStatusChipStyle(store.status);
-                  const isStoreApproved = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
+                  const isStoreApproved = ['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(store.status);
                   const isStoreEditable = store.status !== 'Ready for Construction';
                   
                   return (
@@ -682,7 +677,7 @@ export default function UpcomingStores() {
                         ) : (
                           <Chip 
                             icon={
-                              store.status === 'LIVE' || store.status === 'COMPLIANCE_APPROVED' ? (
+                              store.status === 'LIVE' || store.status === 'READY_TO_GO_LIVE' ? (
                                 <Box 
                                   sx={{ 
                                     width: 6, 
@@ -773,16 +768,7 @@ export default function UpcomingStores() {
                                 })}
                               </Typography>
                             )}
-                            {store.complianceApprovedBy && store.complianceApprovedBy !== store.approvedBy && (
-                              <Typography variant="caption" sx={{ color: 'success.main', display: 'block', mt: 0.5 }}>
-                                Compliance: {store.complianceApprovedBy}
-                              </Typography>
-                            )}
                           </Box>
-                        ) : store.complianceApprovedBy ? (
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: 'success.main', fontSize: '0.825rem' }}>
-                            {store.complianceApprovedBy}
-                          </Typography>
                         ) : '—'}
                       </TableCell>
                     </TableRow>

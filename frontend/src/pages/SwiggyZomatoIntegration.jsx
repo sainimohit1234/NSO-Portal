@@ -216,8 +216,7 @@ export default function SwiggyZomatoIntegration() {
         const filtered = fetchedStores.filter(s =>
           s.isActive !== false &&
           s.isActive !== 'false' &&
-          (s.status === 'APPROVED' || s.status === 'NSO_APPROVED' ||
-            s.status === 'COMPLIANCE_APPROVED' || s.status === 'COMPLIANCE APPROVED')
+          (s.status === 'APPROVED' || s.status === 'NSO_APPROVED' || s.status === 'READY_TO_GO_LIVE')
         );
         filtered.sort((a, b) => (a.cafeName || '').localeCompare(b.cafeName || ''));
         setStores(filtered);

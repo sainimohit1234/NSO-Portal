@@ -249,6 +249,17 @@ class MockDelegate {
     return results;
   }
 
+  private async updateMetadataIfStore() {
+    if (this.modelName === 'store') {
+      try {
+        await db.collection('metadata').doc('store_updates').set({ lastUpdated: new Date().toISOString() }, { merge: true });
+      } catch (e) {
+        console.error('Failed to update store metadata', e);
+      }
+    }
+  }
+
+
   async findFirst(args?: any) {
     const results = await this.findMany(args);
     return results.length > 0 ? results[0] : null;
@@ -281,6 +292,7 @@ class MockDelegate {
     data.createdAt = new Date().toISOString();
     data.updatedAt = new Date().toISOString();
     await docRef.set(data);
+    await this.updateMetadataIfStore();
     return data;
   }
 
@@ -295,6 +307,7 @@ class MockDelegate {
     }
     await db.collection(this.collectionName).doc(docId).update(data);
     const doc = await db.collection(this.collectionName).doc(docId).get();
+    await this.updateMetadataIfStore();
     return mapDocumentData(this.modelName, doc.id, doc.data() || {});
   }
 
@@ -306,12 +319,14 @@ class MockDelegate {
        batch.update(ref, { ...args.data, updatedAt: new Date().toISOString() });
     }
     await batch.commit();
+    await this.updateMetadataIfStore();
     return { count: results.length };
   }
 
   async delete(args: any) {
     const docId = String(args.where.id);
     await db.collection(this.collectionName).doc(docId).delete();
+    await this.updateMetadataIfStore();
     return { id: docId };
   }
 
@@ -323,6 +338,7 @@ class MockDelegate {
        batch.delete(ref);
     }
     await batch.commit();
+    await this.updateMetadataIfStore();
     return { count: results.length };
   }
 
@@ -350,6 +366,7 @@ class MockDelegate {
        batch.set(ref, item);
     }
     await batch.commit();
+    await this.updateMetadataIfStore();
     return { count: args.data.length };
   }
 }
