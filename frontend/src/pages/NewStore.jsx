@@ -1,19 +1,17 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useBlocker } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { 
   Box, Typography, TextField, Button, Grid, Card, CardContent, 
   MenuItem, Alert, CircularProgress, Divider, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Select, InputAdornment, Snackbar, Autocomplete, Tabs, Tab, Stack,
-  useTheme
+  Select, InputAdornment, Snackbar, Autocomplete, Tabs, Tab, Stack
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SendIcon from '@mui/icons-material/Send';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import EmailIcon from '@mui/icons-material/Email';
 import axios from '../utils/api';
-import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
+import { CAFE_MODELS, MENU_OPTIONS, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 
@@ -153,9 +151,8 @@ const NewStore = () => {
   
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [users, setUsers] = useState([]);
+  const [, setUsers] = useState([]);
   const [contacts, setContacts] = useState([]);
-  const [isSaved, setIsSaved] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -213,7 +210,6 @@ const NewStore = () => {
 
   // Track if form has unsaved changes
   const hasDirtyFields = Object.keys(formState.dirtyFields).length > 0 && hasEnteredData;
-  const isDirty = hasDirtyFields && !isSavedRef.current;
 
   // Active Tab state for layout categorization
   const [activeTab, setActiveTab] = useState('Cafe Basic Details');
@@ -505,15 +501,6 @@ const NewStore = () => {
   // 'nso' | 'basic' | 'disabled'
   const submitMode = isNsoComplete ? 'nso' : isBasicComplete ? 'basic' : 'disabled';
 
-  const getConfirmMessage = () => {
-    if (!pendingSubmitData) return '';
-    const isComplete = checkIsComplete(pendingSubmitData);
-    if (isComplete) {
-      return 'All mandatory fields are completed. This store will be submitted for NSO Approval. Do you want to proceed?';
-    } else {
-      return 'The basic details are filled. A new store record will be created and the email notification will be sent. Do you want to proceed?';
-    }
-  };
 
   const getStatusAliases = (status) => {
     const norm = (status || '').trim().toUpperCase();

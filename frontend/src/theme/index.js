@@ -3,7 +3,6 @@ import { alpha, createTheme, responsiveFontSizes } from '@mui/material/styles';
 const primaryMain = '#38bdf8'; // Electric sky blue (bright Navy for dark theme)
 const primaryDark = '#0284c7';
 const primaryLight = '#7dd3fc';
-const primaryDeep = '#0f172a'; // Deep slate
 const surfaceBorder = 'rgba(255, 255, 255, 0.08)';
 const paperSurface = '#1C2438'; // Lightened slate card background
 const defaultBg = '#141C2E'; // Lightened Deep Navy

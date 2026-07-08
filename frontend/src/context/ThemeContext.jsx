@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useMemo } from 'react';
 import { ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material/styles';
 import { alpha } from '@mui/material/styles';
 
@@ -22,33 +22,6 @@ const lightThemeDefaults = {
   background: '#ffffff',
   paper: '#ffffff',
   primary: '#0A314D'
-};
-
-const systemDayThemeDefaults = {
-  text: '#334155', // Slate 700
-  border: 'rgba(0, 0, 0, 0.12)',
-  header: '#f59e0b', // Amber 500 (Sunny daytime)
-  background: '#fdfbf7', // Warm off-white
-  paper: '#ffffff',
-  primary: '#d97706' // Amber 600
-};
-
-const systemNightThemeDefaults = {
-  text: '#e0e7ff', // Indigo 100
-  border: 'rgba(255, 255, 255, 0.1)',
-  header: '#172554', // Blue 950
-  background: '#0f172a', // Slate 900
-  paper: '#1e1b4b', // Indigo 900
-  primary: '#818cf8' // Indigo 400
-};
-
-const systemRainThemeDefaults = {
-  text: '#f1f5f9', // Slate 100
-  border: 'rgba(255, 255, 255, 0.08)',
-  header: 'rgba(15, 23, 42, 0.7)', // Slate 900 highly transparent for video
-  background: 'transparent', // Transparent to see video
-  paper: 'rgba(51, 65, 85, 0.65)', // Slate 700 highly transparent
-  primary: '#38bdf8' // Light Blue 400
 };
 
 export const CustomThemeProvider = ({ children }) => {
@@ -90,10 +63,7 @@ export const CustomThemeProvider = ({ children }) => {
 
   const activeTheme = useMemo(() => {
     let text, border, headerBg, bgDefault, bgPaper, primaryMain;
-    let primaryDark = '#0284c7';
-    let primaryLight = '#7dd3fc';
-    let textSecondary = '#94A3B8';
-    let paletteMode = 'dark';
+    let primaryDark, primaryLight, textSecondary, paletteMode;
     if (themeMode === 'light') {
       text = lightThemeDefaults.text;
       border = lightThemeDefaults.border;

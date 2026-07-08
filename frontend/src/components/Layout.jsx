@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -35,7 +35,6 @@ import Settings from '@mui/icons-material/Settings';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import NotificationsActive from '@mui/icons-material/NotificationsActive';
 import LayersIcon from '@mui/icons-material/Layers';
-import GavelIcon from '@mui/icons-material/Gavel';
 import MailOutlineIcon from '@mui/icons-material/MailOutlined';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
@@ -43,7 +42,6 @@ import TuneIcon from '@mui/icons-material/Tune';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import ViewWeekIcon from '@mui/icons-material/ViewWeek';
 import SyncIcon from '@mui/icons-material/Sync';
-import CloudQueueIcon from '@mui/icons-material/CloudQueue';
 import Chip from '@mui/material/Chip';
 import PaletteIcon from '@mui/icons-material/Palette';
 import { useThemeMode } from '../context/ThemeContext';
@@ -56,7 +54,7 @@ const drawerWidth = 260;
 
 export default function Layout() {
   const theme = useTheme();
-  const { themeMode, setThemeMode, customColors, setCustomColors, customBgUrl, setCustomBgUrl } = useThemeMode();
+  const { themeMode, setThemeMode, customColors, customBgUrl, setCustomBgUrl } = useThemeMode();
   const isLight = theme.palette.mode === 'light';
 
   const glassPanelSx = {
@@ -76,26 +74,7 @@ export default function Layout() {
   };
 
   const [themeAnchorEl, setThemeAnchorEl] = useState(null);
-  const [customizeDialogOpen, setCustomizeDialogOpen] = useState(false);
   const [themeBgDialogOpen, setThemeBgDialogOpen] = useState(false);
-
-  // Custom theme color editor local state
-  const [customBg, setCustomBg] = useState(customColors?.background || '#0B0F19');
-  const [customHeader, setCustomHeader] = useState(customColors?.header || '#111827');
-  const [customText, setCustomText] = useState(customColors?.text || '#F8FAFC');
-  const [customBorder, setCustomBorder] = useState(customColors?.border || '#1e293b');
-  const [customPrimary, setCustomPrimary] = useState(customColors?.primary || '#38bdf8');
-
-  // Sync state when customColors changes
-  useEffect(() => {
-    if (customColors) {
-      setCustomBg(customColors.background || '#0B0F19');
-      setCustomHeader(customColors.header || '#111827');
-      setCustomText(customColors.text || '#F8FAFC');
-      setCustomBorder(customColors.border || '#1e293b');
-      setCustomPrimary(customColors.primary || '#38bdf8');
-    }
-  }, [customColors]);
 
   const handleThemeClick = (event) => {
     setThemeAnchorEl(event.currentTarget);
@@ -103,18 +82,6 @@ export default function Layout() {
 
   const handleThemeClose = () => {
     setThemeAnchorEl(null);
-  };
-
-  const handleSaveCustomTheme = () => {
-    setCustomColors({
-      background: customBg,
-      header: customHeader,
-      text: customText,
-      border: customBorder,
-      primary: customPrimary
-    });
-    setThemeMode('custom');
-    setCustomizeDialogOpen(false);
   };
 
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -383,21 +350,25 @@ export default function Layout() {
               {currentPage}
             </Typography>
           </Box>
-          <IconButton 
-            size="medium" 
+          <IconButton
+            size="medium"
             onClick={handleThemeClick}
             sx={{ mr: 1, color: 'text.secondary', border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}
-            title="Theme Options"
+            title="Theme options"
+            aria-label="Theme options"
           >
             <PaletteIcon sx={{ fontSize: 18 }} />
           </IconButton>
-          <IconButton size="medium" sx={{ mr: 1, color: 'text.secondary', border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+          <IconButton size="medium" aria-label="Notifications" title="Notifications" sx={{ mr: 1, color: 'text.secondary', border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
             <NotificationsActive sx={{ fontSize: 18 }} />
           </IconButton>
           <IconButton
             size="medium"
             onClick={handleMenu}
             color="inherit"
+            aria-label="Account menu"
+            aria-haspopup="true"
+            aria-expanded={Boolean(anchorEl)}
             sx={{ p: 0 }}
           >
             <Avatar sx={{ bgcolor: 'rgba(111, 205, 220, 0.24)', color: 'text.primary', width: 36, height: 36, fontWeight: 800, fontSize: '0.82rem', border: '1px solid rgba(63,174,191,0.18)', boxShadow: '0 8px 18px rgba(15,23,42,0.06)' }}>

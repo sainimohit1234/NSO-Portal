@@ -1,15 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Box, Typography, Card, CardContent, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, Paper, Chip, TextField, Grid, 
+  TableContainer, TableHead, TableRow, Chip, TextField, Grid,
   Button, MenuItem, Tooltip, Select, Dialog, DialogTitle, DialogContent, DialogActions, Alert
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
-import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ConstructionIcon from '@mui/icons-material/Construction';
-import LayersIcon from '@mui/icons-material/Layers';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -20,7 +18,6 @@ import { sortStoresByCurrentStatus } from '../utils/status';
 export default function UpcomingStores() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isUser = user?.role === 'USER';
   const hasUpcomingEditor = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.permissions?.includes('EDITOR');
 
   const [stores, setStores] = useState([]);
@@ -151,18 +148,6 @@ export default function UpcomingStores() {
     setUcDialogStore(null);
   };
 
-  const handleStatusChange = async (storeId, newStatus) => {
-    try {
-      await axios.put(`/api/stores/${storeId}`, { 
-        status: newStatus, 
-        isLocked: false, 
-        isLockedAutoApplied: false 
-      });
-      fetchStores();
-    } catch (err) {
-      console.error('Failed to update status', err);
-    }
-  };
 
   useEffect(() => {
     let result = stores;
@@ -595,9 +580,7 @@ export default function UpcomingStores() {
               ) : (
                 filteredStores.map((store) => {
                   const badgeStyle = getStatusChipStyle(store.status);
-                  const isStoreApproved = ['NSO_APPROVED', 'APPROVED', 'COMPLIANCE_APPROVED', 'LIVE'].includes(store.status);
-                  const isStoreEditable = store.status !== 'Ready for Construction';
-                  
+
                   return (
                     <TableRow 
                       key={store.id} 

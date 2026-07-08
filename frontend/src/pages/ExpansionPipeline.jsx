@@ -1,19 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Box, Typography, Card, CardContent, Grid, Chip, TextField, MenuItem, 
+  Box, Typography, Card, CardContent, Chip, TextField, MenuItem,
   Button, IconButton, Tooltip, Snackbar, Alert, CircularProgress,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Dialog, DialogTitle, DialogContent, DialogActions, Select, Link, InputAdornment,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Dialog, DialogTitle, DialogContent, DialogActions, Select, InputAdornment,
   Stack, Divider
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlined';
 import SaveIcon from '@mui/icons-material/Save';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import LinkIcon from '@mui/icons-material/Link';
 import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
 import LayersIcon from '@mui/icons-material/Layers';
@@ -21,7 +16,6 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import EngineeringIcon from '@mui/icons-material/Engineering';
-import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import DocumentManagerModal from '../components/DocumentManagerModal';
 
@@ -33,10 +27,7 @@ import { CAFE_MODELS } from '../constants/storeOptions';
 
 
 export default function ExpansionPipeline() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const isUser = user?.role === 'USER';
-  const isFinance = user?.role === 'FINANCE';
   const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'LEGAL', 'FINANCE'];
   const canModify = allowedRoles.includes(user?.role?.toUpperCase());
 
@@ -71,9 +62,7 @@ export default function ExpansionPipeline() {
   const [emailTemplates, setEmailTemplates] = useState({});
 
   // Upload Modal State
-  const [uploadStore, setUploadStore] = useState(null);
   const [uploadModalConfig, setUploadModalConfig] = useState(null);
-  const [selectedFiles, setSelectedFiles] = useState({ loi: null, budget: null, agreement: null });
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewName, setPreviewName] = useState('');
 
@@ -327,33 +316,6 @@ export default function ExpansionPipeline() {
     }
   };
 
-  // Delete Row / Store
-  const handleDeleteRow = async (store) => {
-    if (!canModify) return;
-    if (store.isTemp) {
-      setStores(prev => prev.filter(s => s.id !== store.id));
-      return;
-    }
-
-    const confirmDelete = window.confirm(`Are you sure you want to delete café "${store.cafeName || 'Untitled'}"?`);
-    if (!confirmDelete) return;
-
-    try {
-      setLoading(true);
-      await axios.delete(`/api/stores/${store.id}`);
-      setSnackbar({ open: true, message: 'Café removed successfully.', severity: 'success' });
-      loadData();
-    } catch (err) {
-      console.error(err);
-      setSnackbar({ 
-        open: true, 
-        message: err.response?.data?.error || 'Failed to delete café.', 
-        severity: 'error' 
-      });
-      setLoading(false);
-    }
-  };
-
   const getStatusAliases = (status) => {
     const norm = (status || '').trim().toUpperCase();
     if (norm === 'IN_PIPELINE' || norm === 'IN PIPELINE') {
@@ -449,26 +411,6 @@ export default function ExpansionPipeline() {
     }
   };
 
-  // Ready for Construction Flow Handlers
-  const handleStatusChangeToReady = (store) => {
-    const hasCode = !!(store.cafeCode && store.cafeCode.trim());
-    if (!hasCode) {
-      setConfirmDialog({
-        open: true,
-        store,
-        message: 'Are you sure you want to send this project to the NSO Team for further processing and send the Store Code Creation email?',
-        hasCode: false
-      });
-    } else {
-      setConfirmDialog({
-        open: true,
-        store,
-        message: 'Are you sure you want to send this project to the NSO Team for further processing?',
-        hasCode: true
-      });
-    }
-  };
-
   const handleConfirmYes = async () => {
     const store = confirmDialog.store;
     
@@ -539,170 +481,6 @@ export default function ExpansionPipeline() {
 
   const handleDraftModify = () => {
     setDraftDialog(prev => ({ ...prev, isEditable: true }));
-  };
-
-  // File selection slot update
-  const handleFileChangeForSlot = (e, slot) => {
-    const file = e.target.files[0];
-    if (file) {
-      const maxSize = 200 * 1024; // 200kb
-      if (file.size > maxSize) {
-        setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 200KB.', severity: 'error' });
-        e.target.value = ''; // clear input
-        return;
-      }
-      setSelectedFiles(prev => ({ ...prev, [slot]: file }));
-    }
-  };
-
-  // Upload file and update store doc
-  const handleSaveFileSlot = async (slot) => {
-    const file = selectedFiles[slot];
-    if (!file || !uploadStore) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setLoading(true);
-      const res = await axios.post(`/api/stores/upload-file?type=${slot}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      const fileUrl = res.data.url;
-
-      const updatedFields = { [`${slot}Url`]: fileUrl, [`${slot}FileName`]: file.name };
-      if (slot === 'loi') {
-        updatedFields.status = 'Agreement Signed';
-      }
-      
-      if (uploadStore.isTemp || String(uploadStore.id).startsWith('temp_')) {
-        // Unsaved Café row - only update local state
-        setStores(prev => prev.map(s => s.id === uploadStore.id ? { ...s, ...updatedFields } : s));
-        setUploadStore(prev => ({ ...prev, ...updatedFields }));
-        setSelectedFiles(prev => ({ ...prev, [slot]: null }));
-        setSnackbar({ open: true, message: `${slot.toUpperCase()} file uploaded. Click Save on the row to save details.`, severity: 'success' });
-      } else {
-        // Saved Café row - update Firestore via API
-        await axios.put(`/api/stores/${uploadStore.id}`, updatedFields);
-        setStores(prev => prev.map(s => s.id === uploadStore.id ? { ...s, ...updatedFields } : s));
-        setUploadStore(prev => ({ ...prev, ...updatedFields }));
-        setSelectedFiles(prev => ({ ...prev, [slot]: null }));
-        setSnackbar({ open: true, message: `${slot.toUpperCase()} file uploaded and saved.`, severity: 'success' });
-        loadData();
-      }
-    } catch (err) {
-      console.error(err);
-      setSnackbar({ 
-        open: true, 
-        message: err.response?.data?.message || err.response?.data?.error || 'Failed to upload file.', 
-        severity: 'error' 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Delete uploaded file slot
-  const handleDeleteFileSlot = async (slot) => {
-    if (!uploadStore) return;
-    const updatedFields = { [`${slot}Url`]: null, [`${slot}FileName`]: null };
-    if (slot === 'loi') {
-      updatedFields.status = 'In Pipeline';
-    }
-    
-    if (uploadStore.isTemp || String(uploadStore.id).startsWith('temp_')) {
-      // Unsaved Café row - only update local state
-      setStores(prev => prev.map(s => s.id === uploadStore.id ? { ...s, ...updatedFields } : s));
-      setUploadStore(prev => ({ ...prev, ...updatedFields }));
-      setSnackbar({ open: true, message: `${slot.toUpperCase()} file removed locally.`, severity: 'success' });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await axios.put(`/api/stores/${uploadStore.id}`, updatedFields);
-      setStores(prev => prev.map(s => s.id === uploadStore.id ? { ...s, ...updatedFields } : s));
-      setUploadStore(prev => ({ ...prev, ...updatedFields }));
-      setSnackbar({ open: true, message: `${slot.toUpperCase()} file deleted.`, severity: 'success' });
-      loadData();
-    } catch (err) {
-      console.error(err);
-      setSnackbar({ open: true, message: 'Failed to delete file.', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const performInlineUpload = async (store, slot, file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setLoading(true);
-      const res = await axios.post(`/api/stores/upload-file?type=${slot}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      const fileUrl = res.data.url;
-
-      const updatedFields = { [`${slot}Url`]: fileUrl, [`${slot}FileName`]: file.name };
-      if (slot === 'loi') {
-        updatedFields.status = 'Agreement Signed';
-      }
-
-      if (store.isTemp || String(store.id).startsWith('temp_')) {
-        setStores(prev => prev.map(s => s.id === store.id ? { ...s, ...updatedFields } : s));
-        setSnackbar({ open: true, message: `${slot.toUpperCase()} file uploaded. Click Save on the row to save details.`, severity: 'success' });
-      } else {
-        await axios.put(`/api/stores/${store.id}`, updatedFields);
-        setStores(prev => prev.map(s => s.id === store.id ? { ...s, ...updatedFields } : s));
-        setSnackbar({ open: true, message: `${slot.toUpperCase()} file uploaded and saved.`, severity: 'success' });
-        loadData();
-      }
-    } catch (err) {
-      console.error(err);
-      setSnackbar({
-        open: true,
-        message: err.response?.data?.message || err.response?.data?.error || 'Failed to upload file.',
-        severity: 'error'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const performInlineDelete = async (store, slot) => {
-    const updatedFields = { [`${slot}Url`]: null, [`${slot}FileName`]: null };
-    if (slot === 'loi') {
-      updatedFields.status = 'In Pipeline';
-    }
-
-    if (store.isTemp || String(store.id).startsWith('temp_')) {
-      setStores(prev => prev.map(s => s.id === store.id ? { ...s, ...updatedFields } : s));
-      setSnackbar({ open: true, message: `${slot.toUpperCase()} file removed locally.`, severity: 'success' });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await axios.put(`/api/stores/${store.id}`, updatedFields);
-      setStores(prev => prev.map(s => s.id === store.id ? { ...s, ...updatedFields } : s));
-      setSnackbar({ open: true, message: `${slot.toUpperCase()} file deleted.`, severity: 'success' });
-      loadData();
-    } catch (err) {
-      console.error(err);
-      setSnackbar({ open: true, message: 'Failed to delete file.', severity: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusLabel = (status) => {
-    if (status === 'INCOMPLETE_INFORMATION') return 'Incomplete';
-    if (status === 'PENDING_APPROVAL') return 'Pending Approval';
-    if (status === 'APPROVED' || status === 'NSO_APPROVED') return 'Approved';
-    if (status === 'COMPLIANCE_APPROVED') return 'Ready for Launch';
-    if (status === 'ON_HOLD') return 'On Hold';
-    return status;
   };
 
   const getStoreStatus = (store) => {
