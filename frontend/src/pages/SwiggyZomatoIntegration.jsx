@@ -82,13 +82,23 @@ const computeIntegrationStatus = (store) => {
       requiredRIDFields = ['blueTokaiZomatoRID', 'blueTokaiSwiggyRID'];
   }
 
-  // Treat existing stores (created before July 9, 2026) as 'Sent' by default if status is empty
-  const storeDate = new Date(store.createdAt || store.updatedAt || 0);
-  const isExistingLegacyStore = storeDate < new Date('2026-07-09T00:00:00Z');
+  // Parse date handling potential Firestore Timestamp objects
+  let parsedDate = 0;
+  if (store.createdAt) {
+    if (store.createdAt._seconds) parsedDate = store.createdAt._seconds * 1000;
+    else parsedDate = new Date(store.createdAt).getTime();
+  } else if (store.updatedAt) {
+    if (store.updatedAt._seconds) parsedDate = store.updatedAt._seconds * 1000;
+    else parsedDate = new Date(store.updatedAt).getTime();
+  }
+
+  const storeDate = new Date(parsedDate || 0);
+  // Default legacy if the date is invalid (NaN) or older than July 9, 2026
+  const isExistingLegacyStore = isNaN(storeDate.getTime()) || storeDate < new Date('2026-07-09T00:00:00Z');
 
   const checkMailStatus = (statusValue) => {
     if (statusValue === 'Sent' || statusValue === 'SENT') return true;
-    if (isExistingLegacyStore && (statusValue === undefined || statusValue === null || statusValue === '')) return true;
+    if (isExistingLegacyStore) return true;
     return false;
   };
 
