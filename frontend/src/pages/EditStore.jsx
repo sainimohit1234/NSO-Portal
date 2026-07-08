@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, useBlocker } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { 
@@ -8,14 +8,13 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   Select, InputAdornment, Autocomplete, Tabs, Tab, Stack, Backdrop
 } from '@mui/material';
-import EmailIcon from '@mui/icons-material/Email';
 import EditIcon from '@mui/icons-material/Edit';
 import SendIcon from '@mui/icons-material/Send';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import axios from '../utils/api';
 
 import { useAuth } from '../context/AuthContext';
-import { CAFE_MODELS, MENU_OPTIONS, INDIAN_STATES, INDIAN_CITIES, STATE_CITIES_MAP, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
+import { CAFE_MODELS, MENU_OPTIONS, MONTH_NAMES, LAUNCH_YEARS } from '../constants/storeOptions';
 import { normalizeListResponse } from '../utils/api';
 
 const ZONES = ['North', 'South', 'East', 'West'];
@@ -90,7 +89,7 @@ export default function EditStore() {
   const [showChangesDialog, setShowChangesDialog] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [showNsoConfirmDialog, setShowNsoConfirmDialog] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const [, setIsSaved] = useState(false);
   const [allStoresList, setAllStoresList] = useState([]);
   const isSavedRef = useRef(false);
   const pendingDataRef = useRef(null);
@@ -187,7 +186,7 @@ export default function EditStore() {
 
   
   const [ucDialogOpen, setUcDialogOpen] = useState(false);
-  const [ucDialogStore, setUcDialogStore] = useState(null);
+  const [, setUcDialogStore] = useState(null);
   const [ucStartDate, setUcStartDate] = useState('');
   const [ucHandoverDate, setUcHandoverDate] = useState('');
   const [ucDryLaunchDate, setUcDryLaunchDate] = useState('');
@@ -253,7 +252,7 @@ export default function EditStore() {
   const [emailMappings, setEmailMappings] = useState([]);
   const [emailTemplates, setEmailTemplates] = useState({});
   const [draftDialog, setDraftDialog] = useState({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
-  const [prevStatus, setPrevStatus] = useState('');
+  const [, setPrevStatus] = useState('');
   const [tempInStoreClosed, setTempInStoreClosed] = useState(false);
   const [tempDeliveryClosed, setTempDeliveryClosed] = useState(false);
   const [tempInStoreClosedDate, setTempInStoreClosedDate] = useState('');
@@ -325,7 +324,6 @@ export default function EditStore() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAdmin = user?.role === 'ADMIN';
   const isManager = user?.role === 'MANAGER';
-  const isFinance = user?.role === 'FINANCE';
   const isViewOnly = user?.role === 'USER';  // User Access Profile — view only
   const canApprove = isSuperAdmin || isAdmin || user?.permissions?.includes('APPROVER');
   const hasGoLiveAccess = user?.permissions?.includes('GO_LIVE') || isSuperAdmin;
@@ -462,7 +460,7 @@ export default function EditStore() {
       }
 
       reset(formattedStore);
-    }).catch(err => {
+    }).catch(() => {
       setErrorMsg('Failed to load store details.');
     });
   }, [id, navigate, reset, isSuperAdmin, isViewOnly]);
@@ -786,7 +784,7 @@ export default function EditStore() {
   // Human-readable field labels for the change summary
   const FIELD_LABELS = {
     cafeName: 'Café Name', cafeCode: 'Café Code', cafeModule: 'Café Module',
-    pricingVersion: 'Pricing Version', menu: 'Pricing Version',
+    pricingVersion: 'Pricing Version',
     indoorSeatingCount: 'Indoor Seating Count', outdoorSeatingCount: 'Outdoor Seating Count',
     totalNoOfTables: 'Total No. of Tables', copyMenuFrom: 'Copy Menu From',
     cafeAddress: 'Address', city: 'City', state: 'State', pinCode: 'Pin Code',
@@ -797,7 +795,7 @@ export default function EditStore() {
     deliveryClosed: 'Delivery Closed',
     inStoreClosedDate: 'In-Store Closed Date',
     deliveryClosedDate: 'Delivery Closed Date',
-    gstNo: 'GST No', gstCertificateLink: 'GST Certificate Link',
+    gstNo: 'GST No.', gstCertificateLink: 'GST Certificate Link',
     fssaiLicense: 'FSSAI License', fssaiNo: 'FSSAI No',
     cafePhoneNumber: 'Café Phone Number', cafeMailId: 'Café Mail ID',
     cafeManagerName: 'Café Manager Name', cafeManagerMailId: 'Café Manager Mail ID',
@@ -811,7 +809,7 @@ export default function EditStore() {
     suchaliSwiggyRID: 'Suchali Swiggy RID', suchaliZomatoRID: 'Suchali Zomato RID',
     gotTeaSwiggyRID: 'Got Tea Swiggy RID', gotTeaZomatoRID: 'Got Tea Zomato RID',
     newPricingCategory: 'New Pricing Category', newPricingSubCategory: 'New Pricing Sub Category',
-    cluster: 'Cluster', cafeLaunchMonth: 'Cafe Launch Month & Year', menu: 'Menu', cafeOpeningHr: 'Cafe Opening Hr',
+    cluster: 'Cluster', cafeLaunchMonth: 'Cafe Launch Month & Year', menu: 'Menu', cafeOpeningHr: 'Cafe Opening Hours',
     platformType: 'Platform Type', tradingArea: 'Trading Area', launchStatus: 'Launch Status',
     smokingZone: 'Smoking Zone', parkingOption: 'Parking Option',
     wheelchairAccessibility: 'Wheelchair Accessibility',
@@ -826,8 +824,6 @@ export default function EditStore() {
     expectedSales: 'Expected Sale',
     nearbyCafes: 'Nearby Cafe',
     cmMailId: 'CM Mail ID',
-    gstNo: 'GST No.',
-    cafeOpeningHr: 'Cafe Opening Hours',
     areaManagerId: 'Select Area Manager',
     cityHeadId: 'Select City Head',
     expectedSalesVal: 'Expected Sale',
@@ -1249,12 +1245,6 @@ export default function EditStore() {
     pendingDataRef.current = null;
   };
 
-  // Basic fields used only for legacy checks elsewhere
-  const mandatoryFields = [
-    'cafeName', 'cafeCode', 'pinCode', 'city', 'state', 'cafeAddress', 'zone', 
-    'cafeLocationGoogleLink', 'latitude', 'latt', 'long', 'cafeOpenTiming', 'cafeClosingTime', 
-    'actualClosingTime'
-  ];
 
   // All 30 NSO fields — required to enable "Sent to NSO Team for Approval"
   const nsoMandatoryFields = [

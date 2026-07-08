@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   Box, Typography, Card, CardContent, TextField, Button, IconButton,
   Tooltip, Snackbar, Alert, CircularProgress, Table, TableBody, TableCell,
@@ -17,79 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { fetchStoresFromFirestore } from '../services/storeService';
 
 // ─── HTML template parsing and compiling helpers ───────────────────────────────
-const htmlToTextMessage = (html) => {
-  if (!html) return '';
-  let txt = html.replace(/<br\s*\/?>/gi, '\n');
-  txt = txt.replace(/<\/p>|<\/div>/gi, '\n');
-  txt = txt.replace(/<[^>]*>/g, '');
-  const tempDoc = new DOMParser().parseFromString(txt, 'text/html');
-  return tempDoc.body.textContent || tempDoc.body.innerText || txt;
-};
 
-const parseTemplateBody = (bodyHtml) => {
-  if (!bodyHtml) return { intro: '', outro: '', tableData: null };
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(bodyHtml, 'text/html');
-  const table = doc.querySelector('table');
-  
-  let intro = '';
-  let outro = '';
-  let tableData = null;
-
-  if (table) {
-    let prev = table.previousSibling;
-    const intros = [];
-    while (prev) {
-      intros.unshift(prev.nodeType === Node.TEXT_NODE ? prev.textContent : (prev.outerHTML || prev.textContent || ''));
-      prev = prev.previousSibling;
-    }
-    intro = htmlToTextMessage(intros.join(''));
-
-    let next = table.nextSibling;
-    const outros = [];
-    while (next) {
-      outros.push(next.nodeType === Node.TEXT_NODE ? next.textContent : (next.outerHTML || next.textContent || ''));
-      next = next.nextSibling;
-    }
-    outro = htmlToTextMessage(outros.join(''));
-
-    const headers = [];
-    const theadRow = table.querySelector('thead tr') || table.querySelector('tr');
-    if (theadRow) {
-      const headerCells = theadRow.querySelectorAll('th, td');
-      headerCells.forEach(cell => {
-        headers.push({
-          text: cell.textContent?.trim() || '',
-          bgColor: cell.style.backgroundColor || '',
-          textColor: cell.style.color || ''
-        });
-      });
-    }
-
-    const rows = [];
-    const bodyRows = table.querySelectorAll('tbody tr').length > 0
-      ? table.querySelectorAll('tbody tr')
-      : Array.from(table.querySelectorAll('tr')).slice(1);
-
-    bodyRows.forEach(tr => {
-      const rowCells = [];
-      tr.querySelectorAll('td').forEach(td => {
-        rowCells.push({
-          text: td.textContent?.trim() || '',
-          bgColor: td.style.backgroundColor || '',
-          textColor: td.style.color || ''
-        });
-      });
-      rows.push(rowCells);
-    });
-
-    tableData = { headers, rows };
-  } else {
-    intro = htmlToTextMessage(bodyHtml);
-  }
-
-  return { intro: intro.trim(), outro: outro.trim(), tableData };
-};
 
 const compileVisualToHtml = (intro, outro, table) => {
   const formattedIntro = (intro || '').replace(/\n/g, '<br />');
@@ -198,7 +126,7 @@ export default function SwiggyZomatoIntegration() {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [emailMappings, setEmailMappings] = useState([]);
+  const [, setEmailMappings] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
   const [draftDialog, setDraftDialog] = useState({
@@ -270,63 +198,6 @@ export default function SwiggyZomatoIntegration() {
     }
   };
 
-  const handleOpenDraftDialog = async (store, brandKey, brandLabel, mappingId) => {
-    const isZomato = brandKey.toLowerCase().includes('zomato');
-    const mapping = emailMappings.find(m => m.id === mappingId);
-
-    let rawSubject = isZomato ? `Zomato Onboarding Request | [Store Name]` : `Swiggy Onboarding Request | [Store Name]`;
-    let rawBody = isZomato
-      ? `Hi Team,\n\nThis is regarding our new cafe onboarding on Zomato.\n\nPlease find below the cafe details and the attached onboarding form. Kindly initiate the process.\n\nThanks & Regards,\n[User Name]`
-      : `Hi Team,\n\nThis is regarding our new cafe onboarding.\n\nPlease find below the details and initiate the process for the same.\n\nThanks & Regards,\n[User Name]`;
-
-    try {
-      const templatesRes = await axios.get('/api/system/email-templates');
-      const templates = templatesRes.data || {};
-      if (mapping && mapping.subCategory) {
-        const matchedKey = Object.keys(templates).find(k => k.toLowerCase() === mapping.subCategory.toLowerCase());
-        if (matchedKey && templates[matchedKey]) {
-          rawSubject = templates[matchedKey].subject || rawSubject;
-          rawBody = templates[matchedKey].body || rawBody;
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load email templates, falling back to default:', err);
-    }
-
-    const brandLabelPretty = store.brand === 'BLUE_TOKAI_SUCHALI' 
-      ? "Blue Tokai / Suchali's Artisan Bakehouse" 
-      : (store.brand === 'GOT_TEA' ? "Got Tea" : (store.brand || ''));
-
-    const replaceText = (txt) => {
-      if (!txt) return '';
-      return txt
-        .replace(/{cafeName}|\[Store Name\]|\[Cafe Name\]/gi, store.cafeName || '')
-        .replace(/{brandName}|\[Brand Name\]|\[Brand\]/gi, brandLabelPretty)
-        .replace(/{city}|\[City\]/gi, store.city || '')
-        .replace(/{state}|\[State\]/gi, store.state || '')
-        .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
-        .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
-        .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
-        .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '')
-        .replace(/\[User Name\]/gi, user?.name || 'Operations Team');
-    };
-
-    const resolvedSubject = replaceText(rawSubject);
-    const resolvedBody = replaceText(rawBody);
-
-    const { intro, outro, tableData: parsedTable } = parseTemplateBody(resolvedBody);
-
-    setDraftDialog({
-      open: true, store, brandKey, brandLabel,
-      to: mapping && Array.isArray(mapping.to) ? mapping.to.join(', ') : '',
-      cc: mapping && Array.isArray(mapping.cc) ? mapping.cc.join(', ') : '',
-      subject: resolvedSubject,
-      body: compileVisualToHtml(intro, outro, parsedTable),
-      intro,
-      outro,
-      tableData: parsedTable
-    });
-  };
 
   const handleSendOnboardingEmail = async () => {
     const { store, brandKey, to, cc, subject, body } = draftDialog;

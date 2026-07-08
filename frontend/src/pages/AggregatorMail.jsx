@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Box, Typography, Card, CardContent, Grid, TextField, Button, Stack, 
-  Paper, Chip, CardHeader, Divider, Table, TableBody, TableCell, 
+  Box, Typography, Card, CardContent, Grid, TextField, Button, Stack,
+  Paper, CardHeader, Divider, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, IconButton, Alert, Dialog, 
   DialogTitle, DialogContent, DialogActions, MenuItem, useTheme,
   Tabs, Tab
@@ -242,57 +242,8 @@ export default function AggregatorMail() {
     setTemplateBody(compileVisualToHtml(introText, val, tableData));
   };
 
-  // Table creator state & handlers
-  const [tableDialogOpen, setTableDialogOpen] = useState(false);
-  const [tableCols, setTableCols] = useState(3);
-  const [tableRows, setTableRows] = useState(3);
   const bodyRef = React.useRef(null);
 
-  const handleInsertTable = () => {
-    let tableHtml = '\n<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">\n';
-    
-    // Header row
-    tableHtml += '  <thead>\n    <tr style="background-color: #f8fafc;">\n';
-    for (let c = 1; c <= tableCols; c++) {
-      tableHtml += `      <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-weight: bold; color: #334155;">Header ${c}</th>\n`;
-    }
-    tableHtml += '    </tr>\n  </thead>\n';
-
-    // Body rows
-    tableHtml += '  <tbody>\n';
-    for (let r = 1; r <= tableRows; r++) {
-      tableHtml += '    <tr>\n';
-      for (let c = 1; c <= tableCols; c++) {
-        tableHtml += `      <td style="border: 1px solid #cbd5e1; padding: 8px; color: #333333;">Row ${r} Col ${c}</td>\n`;
-      }
-      tableHtml += '    </tr>\n';
-    }
-    tableHtml += '  </tbody>\n</table>\n';
-
-    // Insert at cursor position if possible
-    const input = bodyRef.current;
-    if (input) {
-      const textarea = input.querySelector('textarea');
-      if (textarea) {
-        const startPos = textarea.selectionStart;
-        const endPos = textarea.selectionEnd;
-        const currentText = textarea.value;
-        const newText = currentText.substring(0, startPos) + tableHtml + currentText.substring(endPos);
-        setTemplateBody(newText);
-        
-        setTimeout(() => {
-          textarea.focus();
-          textarea.selectionStart = textarea.selectionEnd = startPos + tableHtml.length;
-        }, 0);
-      } else {
-        setTemplateBody(prev => prev + tableHtml);
-      }
-    } else {
-      setTemplateBody(prev => prev + tableHtml);
-    }
-
-    setTableDialogOpen(false);
-  };
 
   // New mapping form state
   const [newCategory, setNewCategory] = useState('');

@@ -5,7 +5,6 @@ import {
   Button, MenuItem, IconButton, Tooltip, Switch, Dialog, DialogTitle, 
   DialogContent, DialogActions, FormControlLabel
 } from '@mui/material';
-import EmailIcon from '@mui/icons-material/Email';
 import LockIcon from '@mui/icons-material/Lock';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
@@ -24,11 +23,6 @@ export default function Stores() {
     return String(now.getMonth() + 1).padStart(2, '0');
   };
 
-  const getCurrentMonthYearValue = () => {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    return `${now.getFullYear()}-${month}`;
-  };
 
   const MONTHS = [
     { value: '01', label: 'January' },
@@ -112,7 +106,6 @@ export default function Stores() {
   );
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isUser = user?.role === 'USER';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const hasGoLiveAccess = user?.permissions?.includes('GO_LIVE') || isSuperAdmin;
 
@@ -343,86 +336,6 @@ export default function Stores() {
 
 
 
-  const handleSendMail = async (store) => {
-    // Construct email body text
-    const mailBody = `Dear Operations Team,
-
-Please find the complete store details for ${store.cafeName || 'N/A'} (${store.cafeCode || 'N/A'}) below:
-
---- BASIC DETAILS ---
-Café Name: ${store.cafeName || 'N/A'}
-Café Code: ${store.cafeCode || 'N/A'}
-Café Module: ${store.cafeModule || store.cafeModel || 'N/A'}
-Address: ${store.cafeAddress || 'N/A'}
-City: ${store.city || 'N/A'}
-State: ${store.state || 'N/A'}
-Pin Code: ${store.pinCode || 'N/A'}
-Zone: ${store.zone || 'N/A'}
-Google Maps Link: ${store.cafeLocationGoogleLink || 'N/A'}
-Latitude: ${store.latitude || 'N/A'}
-Latt: ${store.latt || 'N/A'}
-Long: ${store.long || 'N/A'}
-Open Timing: ${store.cafeOpenTiming || 'N/A'}
-Closing Time: ${store.cafeClosingTime || 'N/A'}
-Actual Closing Time: ${store.actualClosingTime || 'N/A'}
-
---- GST & FSSAI DETAILS ---
-GST No: ${store.gstNo || 'N/A'}
-GST Certificate Link: ${store.gstCertificateLink || 'N/A'}
-FSSAI License: ${store.fssaiLicense || 'N/A'}
-FSSAI No: ${store.fssaiNo || 'N/A'}
-
---- CONTACT DETAILS ---
-Café Phone Number: ${store.cafePhoneNumber || 'N/A'}
-Café Mail ID: ${store.cafeMailId || 'N/A'}
-Café Manager Name: ${store.cafeManagerName || 'N/A'}
-Café Manager Mail ID: ${store.cafeManagerMailId || 'N/A'}
-Café Manager Phone: ${store.cafeManagerContactNo || 'N/A'}
-Area Manager Name: ${store.areaManagerName || 'N/A'}
-Area Manager Email: ${store.areaManagerEmail || 'N/A'}
-Area Manager Phone: ${store.areaManagerPhone || 'N/A'}
-City Head Name: ${store.cityHeadName || 'N/A'}
-City Head Email: ${store.cityHeadEmail || 'N/A'}
-City Head Phone: ${store.cityHeadPhone || 'N/A'}
-
---- SWIGGY / ZOMATO RID ---
-Blue Tokai Swiggy RID: ${store.blueTokaiSwiggyRID || 'N/A'}
-Blue Tokai Zomato RID: ${store.blueTokaiZomatoRID || 'N/A'}
-Suchali Swiggy RID: ${store.suchaliSwiggyRID || 'N/A'}
-Suchali Zomato RID: ${store.suchaliZomatoRID || 'N/A'}
-Got Tea Swiggy RID: ${store.gotTeaSwiggyRID || 'N/A'}
-Got Tea Zomato RID: ${store.gotTeaZomatoRID || 'N/A'}
-
---- OTHERS & OPERATIONS ---
-New Pricing Category: ${store.newPricingCategory || 'N/A'}
-New Pricing Sub Category: ${store.newPricingSubCategory || 'N/A'}
-Cluster: ${store.cluster || 'N/A'}
-Menu: ${store.menu || 'N/A'}
-Cafe Launch Month & Year: ${store.cafeLaunchMonth || 'N/A'}
-Cafe Opening Hr: ${store.cafeOpeningHr || 'N/A'}
-Platform Type: ${store.platformType || 'N/A'}
-Trading Area: ${store.tradingArea || 'N/A'}
-Launch Status: ${store.launchStatus || 'N/A'}
-Smoking Zone: ${store.smokingZone || 'N/A'}
-Parking Option: ${store.parkingOption || 'N/A'}
-Wheelchair Accessibility: ${store.wheelchairAccessibility || 'N/A'}
-
-Regards,
-Store Operations Portal`;
-
-    const subject = `Store Details: ${store.cafeName || ''} (${store.cafeCode || ''})`;
-    const to = "ms4391445@gmail.com";
-    const outlookUrl = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(mailBody)}`;
-    
-    window.open(outlookUrl, '_blank');
-
-    try {
-      await axios.put(`/api/stores/${store.id}`, { mailStatus: 'Mail sent' });
-      setStores(prev => prev.map(s => s.id === store.id ? { ...s, mailStatus: 'Mail sent' } : s));
-    } catch (err) {
-      console.error('Failed to update mail status:', err);
-    }
-  };
 
   return (
     <Box sx={{ py: 1 }}>

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useMemo } from 'react';
 import { ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material/styles';
 import { alpha } from '@mui/material/styles';
 
@@ -90,10 +90,7 @@ export const CustomThemeProvider = ({ children }) => {
 
   const activeTheme = useMemo(() => {
     let text, border, headerBg, bgDefault, bgPaper, primaryMain;
-    let primaryDark = '#0284c7';
-    let primaryLight = '#7dd3fc';
-    let textSecondary = '#94A3B8';
-    let paletteMode = 'dark';
+    let primaryDark, primaryLight, textSecondary, paletteMode;
     if (themeMode === 'light') {
       text = lightThemeDefaults.text;
       border = lightThemeDefaults.border;

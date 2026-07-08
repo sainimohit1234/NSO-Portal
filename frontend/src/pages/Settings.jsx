@@ -249,7 +249,7 @@ export default function Settings() {
     const globalPermsToAdd = new Set();
     list.forEach(p => {
       if (p.includes(':')) {
-        const [_, subPerm] = p.split(':');
+        const [, subPerm] = p.split(':');
         globalPermsToAdd.add(subPerm);
       }
     });

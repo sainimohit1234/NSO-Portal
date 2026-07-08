@@ -1,19 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { 
-  Box, Typography, Card, CardContent, Grid, Chip, TextField, MenuItem, 
+  Box, Typography, Card, CardContent, Chip, TextField, MenuItem,
   Button, IconButton, Tooltip, Snackbar, Alert, CircularProgress,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  Dialog, DialogTitle, DialogContent, DialogActions, Select, Link, InputAdornment,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Dialog, DialogTitle, DialogContent, DialogActions, Select, InputAdornment,
   Stack, Divider
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlined';
 import SaveIcon from '@mui/icons-material/Save';
-import DeleteIcon from '@mui/icons-material/Delete';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import LinkIcon from '@mui/icons-material/Link';
 import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
 import LayersIcon from '@mui/icons-material/Layers';
@@ -21,7 +16,6 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import EngineeringIcon from '@mui/icons-material/Engineering';
-import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import DocumentManagerModal from '../components/DocumentManagerModal';
 
@@ -33,10 +27,7 @@ import { CAFE_MODELS } from '../constants/storeOptions';
 
 
 export default function ExpansionPipeline() {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const isUser = user?.role === 'USER';
-  const isFinance = user?.role === 'FINANCE';
   const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'LEGAL', 'FINANCE'];
   const canModify = allowedRoles.includes(user?.role?.toUpperCase());
 
@@ -71,9 +62,7 @@ export default function ExpansionPipeline() {
   const [emailTemplates, setEmailTemplates] = useState({});
 
   // Upload Modal State
-  const [uploadStore, setUploadStore] = useState(null);
   const [uploadModalConfig, setUploadModalConfig] = useState(null);
-  const [selectedFiles, setSelectedFiles] = useState({ loi: null, budget: null, agreement: null });
   const [previewUrl, setPreviewUrl] = useState(null);
   const [previewName, setPreviewName] = useState('');
 
@@ -321,33 +310,6 @@ export default function ExpansionPipeline() {
     }
   };
 
-  // Delete Row / Store
-  const handleDeleteRow = async (store) => {
-    if (!canModify) return;
-    if (store.isTemp) {
-      setStores(prev => prev.filter(s => s.id !== store.id));
-      return;
-    }
-
-    const confirmDelete = window.confirm(`Are you sure you want to delete café "${store.cafeName || 'Untitled'}"?`);
-    if (!confirmDelete) return;
-
-    try {
-      setLoading(true);
-      await axios.delete(`/api/stores/${store.id}`);
-      setSnackbar({ open: true, message: 'Café removed successfully.', severity: 'success' });
-      loadData();
-    } catch (err) {
-      console.error(err);
-      setSnackbar({ 
-        open: true, 
-        message: err.response?.data?.error || 'Failed to delete café.', 
-        severity: 'error' 
-      });
-      setLoading(false);
-    }
-  };
-
   const getStatusAliases = (status) => {
     const norm = (status || '').trim().toUpperCase();
     if (norm === 'IN_PIPELINE' || norm === 'IN PIPELINE') {
@@ -440,26 +402,6 @@ export default function ExpansionPipeline() {
       });
     } else {
       handleFieldChange(store.id, 'status', newStatus);
-    }
-  };
-
-  // Ready for Construction Flow Handlers
-  const handleStatusChangeToReady = (store) => {
-    const hasCode = !!(store.cafeCode && store.cafeCode.trim());
-    if (!hasCode) {
-      setConfirmDialog({
-        open: true,
-        store,
-        message: 'Are you sure you want to send this project to the NSO Team for further processing and send the Store Code Creation email?',
-        hasCode: false
-      });
-    } else {
-      setConfirmDialog({
-        open: true,
-        store,
-        message: 'Are you sure you want to send this project to the NSO Team for further processing?',
-        hasCode: true
-      });
     }
   };
 

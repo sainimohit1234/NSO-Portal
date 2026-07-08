@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
-  Box, Grid, Card, CardContent, Typography, MenuItem, TextField, 
+  Box, Grid, Card, CardContent, Typography, TextField,
   Chip, CircularProgress, useTheme, IconButton, InputAdornment
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -10,7 +10,6 @@ import CheckCircle from '@mui/icons-material/CheckCircle';
 import Warning from '@mui/icons-material/Warning';
 import Description from '@mui/icons-material/Description';
 import People from '@mui/icons-material/People';
-import Inventory from '@mui/icons-material/Inventory';
 import CalendarToday from '@mui/icons-material/CalendarToday';
 import Upcoming from '@mui/icons-material/Upcoming';
 import Cancel from '@mui/icons-material/Cancel';
@@ -66,13 +65,6 @@ export default function Dashboard() {
   }, [stores]);
 
   // Helpers for Expired/Expiring soon logic
-  const isLicenseExpired = (s) => {
-    const todayStr = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
-    let expired = false;
-    if (s.fssaiExpiry && s.fssaiExpiry < todayStr) expired = true;
-    if (s.rentExpiry && s.rentExpiry < todayStr) expired = true;
-    return expired;
-  };
 
   const isFssaiExpiringThisMonth = (s) => {
     if (!s.fssaiExpiry) return false;

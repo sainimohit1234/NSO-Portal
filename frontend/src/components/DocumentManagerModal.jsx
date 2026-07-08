@@ -7,11 +7,8 @@ import {
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
-  CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
-  ExpandMore as ExpandMoreIcon,
-  FindReplace as FindReplaceIcon,
   Edit as EditIcon
 } from '@mui/icons-material';
 import axios from '../utils/api';
@@ -118,7 +115,7 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       setPreviewText('Loading preview...');
       axios.get(previewDoc.url, { responseType: 'text' })
         .then(res => setPreviewText(typeof res.data === 'string' ? res.data : JSON.stringify(res.data, null, 2)))
-        .catch(err => setPreviewText('Failed to load text preview.'));
+        .catch(() => setPreviewText('Failed to load text preview.'));
     } else if (previewDoc && type === 'csv') {
       setPreviewData(null);
       axios.get(previewDoc.url, { responseType: 'text' })
@@ -237,7 +234,7 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       setPreviewDoc(newDoc);
       setSnackbar({ open: true, message: `${docType} uploaded successfully.`, severity: 'success' });
       if (isMisc) setMiscInput('');
-    } catch (err) {
+    } catch {
       setSnackbar({ open: true, message: 'Failed to upload document.', severity: 'error' });
     } finally {
       setLoading(false);
@@ -314,8 +311,6 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
     });
   }
 
-  const overallStatus = uploadedCount === totalCount ? 'Completed' : 'Pending';
-
   const handleSaveAll = async () => {
     if (!store) return;
     
@@ -379,7 +374,7 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       }
       setHasUnsavedChanges(false);
       setIsEditMode(false);
-    } catch (err) {
+    } catch {
       setSnackbar({ open: true, message: 'Failed to save documents.', severity: 'error' });
     } finally {
       setLoading(false);
