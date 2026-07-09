@@ -1925,6 +1925,7 @@ const NewStore = () => {
         autoHideDuration={6000}
         onClose={() => setOpenSnackbar(false)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        sx={{ zIndex: 999999 }}
       >
         <Alert 
           onClose={() => setOpenSnackbar(false)} 

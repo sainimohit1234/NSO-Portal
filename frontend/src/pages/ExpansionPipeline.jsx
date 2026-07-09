@@ -1392,6 +1392,7 @@ export default function ExpansionPipeline() {
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        sx={{ zIndex: 999999 }}
       >
         <Alert 
           onClose={() => setSnackbar({ ...snackbar, open: false })} 
