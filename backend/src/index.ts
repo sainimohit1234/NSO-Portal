@@ -26,6 +26,7 @@ const allowedOrigins = [
   'https://nso-portal.firebaseapp.com',
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://nso.bluetokaicoffee.com',
   ...(process.env.CORS_ALLOWED_ORIGINS
     ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
     : []),
