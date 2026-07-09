@@ -24,8 +24,9 @@ const firebaseConfig = {
   appId: '1:413592965093:web:6ec023c3f3fdeb8438a90c'
 };
 
-const syncEmail = process.env.FIREBASE_SYNC_EMAIL || 'admin@bluetokaicoffee.com';
-const syncPassword = process.env.FIREBASE_SYNC_PASSWORD || 'Bluetokai@123';
+// Renamed from FIREBASE_SYNC_* — Firebase Functions deploy rejects env keys with the reserved FIREBASE_ prefix.
+const syncEmail = process.env.SYNC_FIRESTORE_EMAIL || process.env.FIREBASE_SYNC_EMAIL || 'admin@bluetokaicoffee.com';
+const syncPassword = process.env.SYNC_FIRESTORE_PASSWORD || process.env.FIREBASE_SYNC_PASSWORD || 'Bluetokai@123';
 
 function normalizeString(value) {
   if (value === null || value === undefined) return null;

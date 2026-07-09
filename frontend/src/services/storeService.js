@@ -5,6 +5,8 @@ import { auth, firestore } from '../lib/firebase';
 const STORE_DEBUG_PREFIX = '[StoreService]';
 
 function logStoreDebug(message, details) {
+  // Only log in development — these lines include emails/UIDs and must not leak in production.
+  if (!import.meta.env.DEV) return;
   if (details !== undefined) {
     console.log(`${STORE_DEBUG_PREFIX} ${message}`, details);
     return;

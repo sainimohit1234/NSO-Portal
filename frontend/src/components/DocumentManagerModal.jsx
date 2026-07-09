@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid, Box, Typography,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip,
   IconButton, Link, Switch, TextField, Accordion, AccordionSummary, AccordionDetails,
-  Backdrop, CircularProgress, Tooltip, Portal, Snackbar, Alert
+  Backdrop, CircularProgress, Tooltip, Portal
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
@@ -790,17 +790,6 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
         <Button onClick={async () => { setShowConfirmClose(false); await handleSaveAll(); }} color="success" variant="contained">Yes, Save</Button>
       </DialogActions>
     </Dialog>
-    
-    <Snackbar 
-      open={snackbar.open} 
-      autoHideDuration={6000} 
-      onClose={() => setSnackbar({ ...snackbar, open: false })}
-      anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-    >
-      <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity || 'info'} sx={{ width: '100%', fontWeight: 600 }}>
-        {snackbar.message}
-      </Alert>
-    </Snackbar>
     </>
   );
 }

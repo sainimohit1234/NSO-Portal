@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
@@ -587,17 +587,10 @@ export default function Layout() {
         }}
         sx={{ mt: 1 }}
       >
-        <MenuItem 
-          onClick={() => { setThemeMode('dark'); handleThemeClose(); }} 
-          selected={themeMode === 'dark'} 
+        <MenuItem
+          onClick={() => { setThemeMode('light'); handleThemeClose(); }}
+          selected={themeMode === 'light'}
           sx={{ fontWeight: 600, minWidth: 165 }}
-        >
-          Dark Theme
-        </MenuItem>
-        <MenuItem 
-          onClick={() => { setThemeMode('light'); handleThemeClose(); }} 
-          selected={themeMode === 'light'} 
-          sx={{ fontWeight: 600 }}
         >
           Light Theme
         </MenuItem>

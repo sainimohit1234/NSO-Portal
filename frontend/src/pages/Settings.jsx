@@ -592,7 +592,6 @@ export default function Settings() {
     const matchPhone = (user.phone || '').toLowerCase().includes((filters.phone || '').toLowerCase());
     const matchRole = !filters.role || user.role === filters.role;
     const isMatched = matchName && matchEmail && matchPhone && matchRole;
-    console.log(`Settings.jsx: Filtering user ${user.email} (role: ${user.role}):`, { matchName, matchEmail, matchPhone, matchRole, isMatched });
     return isMatched;
   });
   console.log("Settings.jsx: filteredUsers result:", filteredUsers);
