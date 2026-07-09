@@ -423,7 +423,7 @@ async function extractOrGenerateGstNo(filename: string, fileBuffer: Buffer | nul
 }
 
 // POST /upload-file (Upload a compliance document)
-router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), parseMultipartMiddleware(true), async (req: any, res) => {
+router.post('/upload-file', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE', 'LEGAL'), parseMultipartMiddleware(true), async (req: any, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });

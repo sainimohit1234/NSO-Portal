@@ -235,8 +235,9 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       setPreviewDoc(newDoc);
       setSnackbar({ open: true, message: `${docType} uploaded successfully.`, severity: 'success' });
       if (isMisc) setMiscInput('');
-    } catch {
-      setSnackbar({ open: true, message: 'Failed to upload document.', severity: 'error' });
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || 'Failed to upload document.';
+      setSnackbar({ open: true, message: errorMsg, severity: 'error' });
     } finally {
       setLoading(false);
       setLoadingMessage('');
