@@ -69,6 +69,10 @@ export default function ExpansionPipeline() {
   // Alert State
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // Upload Store State
+  const [uploadStore, setUploadStore] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState({});
+
   // Ready for Construction Flow States
   const [confirmDialog, setConfirmDialog] = useState({ open: false, store: null, message: '', hasCode: false });
   const [draftDialog, setDraftDialog] = useState({ open: false, store: null, to: '', cc: '', subject: '', body: '', isEditable: false });
