@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   Box, Typography, Card, CardContent, TextField, Button, IconButton,
   Tooltip, Snackbar, Alert, CircularProgress, LinearProgress, Table, TableBody, TableCell,
@@ -12,6 +12,9 @@ import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import SyncIcon from '@mui/icons-material/Sync';
 import BlockIcon from '@mui/icons-material/Block';
+import DescriptionIcon from '@mui/icons-material/Description';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import EditIcon from '@mui/icons-material/Edit';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { fetchStoresFromFirestore } from '../services/storeService';
@@ -172,8 +175,10 @@ export default function SwiggyZomatoIntegration() {
   
   const [draftDialog, setDraftDialog] = useState({
     open: false, store: null, brandKey: '', brandLabel: '', to: '', cc: '', subject: '', body: '',
-    intro: '', outro: '', tableData: null
+    intro: '', outro: '', tableData: null, attachments: []
   });
+  const [isDraftEditing, setIsDraftEditing] = useState(false);
+  const bodyRef = useRef(null);
 
   const loadData = () => {
     setLoading(true);
@@ -250,9 +255,11 @@ export default function SwiggyZomatoIntegration() {
 
   const handleSendOnboardingEmail = async () => {
     const { store, brandKey, to, cc, subject, body } = draftDialog;
+    const currentBody = bodyRef.current ? bodyRef.current.innerHTML : body;
+    const draftLabel = draftDialog.brandLabel;
     try {
       setLoading(true);
-      await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { brand: brandKey, to, cc, subject, body });
+      await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { brand: brandKey, to, cc, subject, body: currentBody, draftLabel });
       setSnackbar({ open: true, message: 'Onboarding email sent successfully.', severity: 'success' });
       setDraftDialog(prev => ({ ...prev, open: false, store: null }));
       loadData();
@@ -514,114 +521,81 @@ export default function SwiggyZomatoIntegration() {
             <Typography variant="h6" sx={{ fontWeight: 800 }}>Draft Email Preview</Typography>
             <Typography variant="caption" color="text.secondary">Platform: <strong>{draftDialog.brandLabel} Onboarding</strong></Typography>
           </Box>
-          <IconButton onClick={() => setDraftDialog(prev => ({ ...prev, open: false }))}><CloseIcon /></IconButton>
+          <Box>
+            {!isDraftEditing && (
+              <Button 
+                variant="outlined" 
+                startIcon={<EditIcon />} 
+                onClick={() => setIsDraftEditing(true)} 
+                sx={{ mr: 2, borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+              >
+                Edit
+              </Button>
+            )}
+            <IconButton onClick={() => setDraftDialog(prev => ({ ...prev, open: false }))}><CloseIcon /></IconButton>
+          </Box>
         </DialogTitle>
         <DialogContent dividers sx={{ py: 2 }}>
           <Stack spacing={2.5}>
-            <TextField label="To" fullWidth size="small" value={draftDialog.to} onChange={(e) => setDraftDialog(prev => ({ ...prev, to: e.target.value }))} />
-            <TextField label="Cc" fullWidth size="small" value={draftDialog.cc} onChange={(e) => setDraftDialog(prev => ({ ...prev, cc: e.target.value }))} />
-            <TextField label="Subject" fullWidth size="small" value={draftDialog.subject} onChange={(e) => setDraftDialog(prev => ({ ...prev, subject: e.target.value }))} />
+            <TextField label="To" fullWidth size="small" disabled={!isDraftEditing} value={draftDialog.to} onChange={(e) => setDraftDialog(prev => ({ ...prev, to: e.target.value }))} />
+            <TextField label="Cc" fullWidth size="small" disabled={!isDraftEditing} value={draftDialog.cc} onChange={(e) => setDraftDialog(prev => ({ ...prev, cc: e.target.value }))} />
+            <TextField label="Subject" fullWidth size="small" disabled={!isDraftEditing} value={draftDialog.subject} onChange={(e) => setDraftDialog(prev => ({ ...prev, subject: e.target.value }))} />
             
-            <Typography variant="subtitle2" sx={{ fontWeight: 800, mt: 1 }}>Email Body Customization</Typography>
-            
-            <TextField
-              label="Intro Message"
-              fullWidth
-              multiline
-              rows={3}
-              size="small"
-              value={draftDialog.intro}
-              onChange={(e) => {
-                const newIntro = e.target.value;
-                setDraftDialog(prev => {
-                  const updatedBody = compileVisualToHtml(newIntro, prev.outro, prev.tableData);
-                  return { ...prev, intro: newIntro, body: updatedBody };
-                });
-              }}
-            />
-
-            {draftDialog.tableData && (
-              <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '8px', p: 1.5, bgcolor: '#ffffff', overflowX: 'auto' }}>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 'bold' }}>
-                  Cafe Details Table
-                </Typography>
-                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #cbd5e1' }}>
-                  <thead>
-                    <tr>
-                      {draftDialog.tableData.headers.map((h, cIdx) => (
-                        <th key={cIdx} style={{ border: '1px solid #cbd5e1', padding: '8px', backgroundColor: h.bgColor || '#f8fafc', color: h.textColor || '#334155', textAlign: 'left', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                          {h.text}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {draftDialog.tableData.rows.map((row, rIdx) => (
-                      <tr key={rIdx}>
-                        {row.map((cell, cIdx) => (
-                          <td key={cIdx} style={{ border: '1px solid #cbd5e1', padding: '8px', backgroundColor: cell.bgColor || '#ffffff', color: cell.textColor || '#333333' }}>
-                            <input
-                              value={cell.text}
-                              onChange={(e) => {
-                                const newVal = e.target.value;
-                                setDraftDialog(prev => {
-                                  const updatedRows = [...prev.tableData.rows];
-                                  updatedRows[rIdx] = [...updatedRows[rIdx]];
-                                  updatedRows[rIdx][cIdx] = { ...updatedRows[rIdx][cIdx], text: newVal };
-                                  const updatedTable = { ...prev.tableData, rows: updatedRows };
-                                  const updatedBody = compileVisualToHtml(prev.intro, prev.outro, updatedTable);
-                                  return { ...prev, tableData: updatedTable, body: updatedBody };
-                                });
-                              }}
-                              style={{ border: 'none', background: 'transparent', width: '100%', fontSize: '0.8rem', outline: 'none', color: 'inherit' }}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Box>
-            )}
-
-            <TextField
-              label="Outro Message"
-              fullWidth
-              multiline
-              rows={3}
-              size="small"
-              value={draftDialog.outro}
-              onChange={(e) => {
-                const newOutro = e.target.value;
-                setDraftDialog(prev => {
-                  const updatedBody = compileVisualToHtml(prev.intro, newOutro, prev.tableData);
-                  return { ...prev, outro: newOutro, body: updatedBody };
-                });
-              }}
-            />
-
-            <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', bgcolor: '#ffffff', minHeight: '150px', mt: 2, overflow: 'hidden' }}>
-              <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
+            <Box sx={{ border: '1px solid', borderColor: isDraftEditing ? 'primary.main' : 'divider', borderRadius: '12px', bgcolor: '#ffffff', minHeight: '300px', mt: 2, overflow: 'hidden', position: 'relative' }}>
+              <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary' }}>
-                  Email Preview (Live Render)
+                  Email Body
                 </Typography>
+                {isDraftEditing && <Typography variant="caption" color="primary">Editing Mode Active</Typography>}
               </Box>
               <Box sx={{ p: 2 }}>
                 <div 
+                  ref={bodyRef}
+                  contentEditable={isDraftEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => setDraftDialog(prev => ({ ...prev, body: e.target.innerHTML }))}
                   dangerouslySetInnerHTML={{ __html: draftDialog.body || '' }} 
                   style={{
                     fontSize: '0.875rem',
                     color: '#334155',
-                    lineHeight: '1.6'
+                    lineHeight: '1.6',
+                    outline: 'none',
+                    minHeight: '250px'
                   }}
                 />
               </Box>
             </Box>
           </Stack>
         </DialogContent>
+
+        {/* Attachments Section */}
+        {draftDialog.attachments && draftDialog.attachments.length > 0 && (
+          <Box sx={{ px: 3, py: 1.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <DescriptionIcon sx={{ fontSize: 16 }} /> Auto-Attachments ({draftDialog.attachments.length} file{draftDialog.attachments.length > 1 ? 's' : ''} from Images & Docs)
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+              {draftDialog.attachments.map((doc, idx) => (
+                <Chip 
+                  key={idx}
+                  icon={<DescriptionIcon sx={{ fontSize: 14 }} />}
+                  label={doc.fileName || 'Attachment'}
+                  size="small"
+                  component="a"
+                  href={doc.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  clickable
+                  sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 600, fontSize: '0.7rem', borderRadius: '6px', maxWidth: 220, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )}
+
         <DialogActions sx={{ p: 2 }}>
-          <Button variant="outlined" onClick={() => setDraftDialog(prev => ({ ...prev, open: false }))} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>Cancel</Button>
-          <Button variant="contained" onClick={handleSendOnboardingEmail} startIcon={<SendIcon />} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>Send Email</Button>
+          <Button variant="outlined" onMouseDown={(e) => { e.preventDefault(); setDraftDialog(prev => ({ ...prev, open: false })); }} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>Cancel</Button>
+          <Button variant="contained" onMouseDown={(e) => { e.preventDefault(); handleSendOnboardingEmail(); }} startIcon={<SendIcon />} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>OK — Send Email</Button>
         </DialogActions>
       </Dialog>
 
