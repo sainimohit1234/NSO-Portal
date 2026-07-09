@@ -50,6 +50,7 @@ export const DOCUMENT_CONFIG = [
   {
     name: 'Financial Documents',
     docs: [
+      { type: 'GST Certificate', mandatory: true },
       { type: 'Budget Approval', mandatory: true },
       { type: 'Financial Projection', mandatory: true },
       { type: 'Cost Sheet', mandatory: true },
@@ -654,6 +655,18 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                      <Typography variant="h6" fontWeight={800} sx={{ mt: 0.5 }}>{previewDoc.type}</Typography>
+                     {(previewDoc.type === 'GST Docs' || previewDoc.type === 'GST Certificate') && (
+                       <TextField
+                         label="GST Number" size="small"
+                         value={gstNo}
+                         onChange={(e) => {
+                           setGstNo(e.target.value);
+                           setHasUnsavedChanges(true);
+                         }}
+                         disabled={!canModify || !isEditMode}
+                         sx={{ width: 316 }}
+                       />
+                     )}
                      {getRequiredTypes().find(rt => rt.type === previewDoc.type)?.requiresDates && (
                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                          {previewDoc.type === 'FSSAI License' && (
@@ -661,18 +674,6 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
                              label="FSSAI Number" size="small"
                              value={previewDoc.metadata?.fssaiNumber || ''}
                              onChange={(e) => handleUpdateMetadata(previewDoc.id, 'fssaiNumber', e.target.value)}
-                             disabled={!canModify || !isEditMode}
-                             sx={{ width: 316 }}
-                           />
-                         )}
-                         {previewDoc.type === 'GST Docs' && (
-                           <TextField
-                             label="GST Number" size="small"
-                             value={gstNo}
-                             onChange={(e) => {
-                               setGstNo(e.target.value);
-                               setHasUnsavedChanges(true);
-                             }}
                              disabled={!canModify || !isEditMode}
                              sx={{ width: 316 }}
                            />
