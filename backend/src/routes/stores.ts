@@ -2848,7 +2848,7 @@ end tell
 // POST /:id/send-swiggy-onboarding-email
 router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: any, res) => {
   const storeId = req.params.id;
-  const { brand: brandParam, to, cc, subject, body } = req.body;
+  const { brand: brandParam, to, cc, subject, body, attachmentUrls } = req.body;
   if (!storeId) {
     return res.status(400).json({ error: 'Invalid store ID.' });
   }
@@ -3000,31 +3000,22 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       }];
     }
 
-    // Fetch and attach State GST if available
-    if (store.state) {
-      try {
-        const db = firebaseAdmin.firestore();
-        const gstQuery = await db.collection('globalDocuments')
-          .where('category', '==', 'State GST')
-          .where('fileName', '==', store.state)
-          .limit(1)
-          .get();
-        if (!gstQuery.empty) {
-          const gstDoc = gstQuery.docs[0].data();
-          if (gstDoc.fileUrl) {
-            const fileRes = await fetch(gstDoc.fileUrl);
-            if (fileRes.ok) {
-              const arrayBuffer = await fileRes.arrayBuffer();
-              attachments.push({
-                filename: `GST_Certificate_${store.state}.pdf`,
-                content: Buffer.from(arrayBuffer)
-              });
-            }
+    // Download and attach files passed from the frontend (General category + State GST)
+    if (Array.isArray(attachmentUrls) && attachmentUrls.length > 0) {
+      await Promise.all(attachmentUrls.map(async (attachment: { fileName: string; fileUrl: string; isGST?: boolean }) => {
+        try {
+          const fileRes = await fetch(attachment.fileUrl);
+          if (fileRes.ok) {
+            const arrayBuffer = await fileRes.arrayBuffer();
+            attachments.push({
+              filename: attachment.fileName,
+              content: Buffer.from(arrayBuffer)
+            });
           }
+        } catch (err) {
+          console.error(`Failed to download attachment ${attachment.fileName}:`, err);
         }
-      } catch (err) {
-        console.error('Failed to attach State GST:', err);
-      }
+      }));
     }
 
     const smtpConfig = await getSMTPConfig();

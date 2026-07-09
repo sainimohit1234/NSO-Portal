@@ -266,12 +266,14 @@ export default function SwiggyZomatoIntegration() {
 
 
   const handleSendOnboardingEmail = async () => {
-    const { store, brandKey, to, cc, subject, body } = draftDialog;
+    const { store, brandKey, to, cc, subject, body, attachments } = draftDialog;
     const currentBody = bodyRef.current ? bodyRef.current.innerHTML : body;
     const draftLabel = draftDialog.brandLabel;
+    // Pass attachment URLs so backend can fetch and embed them
+    const attachmentUrls = (attachments || []).map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl, isGST: !!a._isGST }));
     try {
       setLoading(true);
-      await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { brand: brandKey, to, cc, subject, body: currentBody, draftLabel });
+      await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { brand: brandKey, to, cc, subject, body: currentBody, draftLabel, attachmentUrls });
       setSnackbar({ open: true, message: 'Onboarding email sent successfully.', severity: 'success' });
       setDraftDialog(prev => ({ ...prev, open: false, store: null }));
       loadData();
@@ -486,16 +488,39 @@ export default function SwiggyZomatoIntegration() {
                       const toList = (mapping?.to || []).join(', ');
                       const ccList = (mapping?.cc || []).join(', ');
 
-                      let autoAttachments = [];
+                      // Fetch General category attachments + State GST
+                      let generalAttachments = [];
+                      let gstAttachment = null;
+                      let gstMissing = false;
+
                       try {
                         const globalDocsRes = await axios.get('/api/global-docs');
                         const allDocs = globalDocsRes.data || [];
-                        autoAttachments = allDocs.filter(
-                          d => d.category?.toLowerCase() === subCategoryKey.toLowerCase()
+
+                        // Attach all files from the General category
+                        generalAttachments = allDocs.filter(
+                          d => d.category?.toLowerCase() === 'general'
                         );
+
+                        // Attach State GST based on cafe's state
+                        if (currentStore.state) {
+                          const stateGst = allDocs.find(
+                            d => d.category === 'State GST' && d.fileName === currentStore.state
+                          );
+                          if (stateGst) {
+                            gstAttachment = { ...stateGst, _isGST: true };
+                          } else {
+                            gstMissing = true;
+                          }
+                        }
                       } catch (docsErr) {
                         console.warn('Could not fetch auto-attachments:', docsErr);
                       }
+
+                      const autoAttachments = [
+                        ...generalAttachments,
+                        ...(gstAttachment ? [gstAttachment] : [])
+                      ];
 
                       setIsDraftEditing(false);
                       setDraftDialog({
@@ -511,6 +536,7 @@ export default function SwiggyZomatoIntegration() {
                         outro: '',
                         tableData: null,
                         attachments: autoAttachments,
+                        gstMissing,
                       });
                     } catch (err) {
                       console.error(err);
@@ -689,27 +715,39 @@ export default function SwiggyZomatoIntegration() {
         </DialogContent>
 
         {/* Attachments Section */}
-        {draftDialog.attachments && draftDialog.attachments.length > 0 && (
+        {(draftDialog.gstMissing || (draftDialog.attachments && draftDialog.attachments.length > 0)) && (
           <Box sx={{ px: 3, py: 1.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <DescriptionIcon sx={{ fontSize: 16 }} /> Auto-Attachments ({draftDialog.attachments.length} file{draftDialog.attachments.length > 1 ? 's' : ''} from Images & Docs)
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-              {draftDialog.attachments.map((doc, idx) => (
-                <Chip 
-                  key={idx}
-                  icon={<DescriptionIcon sx={{ fontSize: 14 }} />}
-                  label={doc.fileName || 'Attachment'}
-                  size="small"
-                  component="a"
-                  href={doc.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  clickable
-                  sx={{ bgcolor: '#e0f2fe', color: '#0369a1', fontWeight: 600, fontSize: '0.7rem', borderRadius: '6px', maxWidth: 220, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
-                />
-              ))}
-            </Stack>
+            {/* GST Missing Warning */}
+            {draftDialog.gstMissing && (
+              <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1, bgcolor: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', px: 2, py: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#c2410c', fontSize: '0.78rem' }}>
+                  ⚠️ State GST file is missing.
+                </Typography>
+              </Box>
+            )}
+            {draftDialog.attachments && draftDialog.attachments.length > 0 && (
+              <>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <DescriptionIcon sx={{ fontSize: 16 }} /> Auto-Attachments ({draftDialog.attachments.length} file{draftDialog.attachments.length > 1 ? 's' : ''})
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                  {draftDialog.attachments.map((doc, idx) => (
+                    <Chip 
+                      key={idx}
+                      icon={<DescriptionIcon sx={{ fontSize: 14 }} />}
+                      label={doc._isGST ? `GST: ${doc.fileName}` : (doc.fileName || 'Attachment')}
+                      size="small"
+                      component="a"
+                      href={doc.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      clickable
+                      sx={{ bgcolor: doc._isGST ? '#dcfce7' : '#e0f2fe', color: doc._isGST ? '#166534' : '#0369a1', fontWeight: 600, fontSize: '0.7rem', borderRadius: '6px', maxWidth: 220, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                    />
+                  ))}
+                </Stack>
+              </>
+            )}
           </Box>
         )}
 
