@@ -236,8 +236,9 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       setSnackbar({ open: true, message: `${docType} uploaded successfully.`, severity: 'success' });
       if (isMisc) setMiscInput('');
     } catch (error) {
-      const errorMsg = error.response?.data?.message || 'Failed to upload document.';
-      setSnackbar({ open: true, message: errorMsg, severity: 'error' });
+      console.error("Upload error:", error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to upload document.';
+      setSnackbar({ open: true, message: `Error: ${errorMsg}`, severity: 'error' });
     } finally {
       setLoading(false);
       setLoadingMessage('');
