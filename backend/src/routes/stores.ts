@@ -2741,7 +2741,7 @@ function buildHtmlTable(data: string[][]) {
   const boldRows   = new Set([12]);  // "Partner app training requirement*"
 
   let html = `<div style="font-family: Arial, sans-serif; margin: 20px 0; max-width: 100%; overflow-x: auto;">`;
-  html += `<table style="border-collapse: collapse; width: 100%; min-width: 700px; font-size: 13px; text-align: left;">`;
+  html += `<table style="border-collapse: collapse; width: 50%; min-width: 400px; font-size: 13px; text-align: left;">`;
 
   data.forEach((row, rowIndex) => {
     html += `<tr>`;

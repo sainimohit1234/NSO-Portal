@@ -53,7 +53,13 @@ const systemRainThemeDefaults = {
 
 export const CustomThemeProvider = ({ children }) => {
   const [themeMode, setThemeModeState] = useState(() => {
-    return localStorage.getItem('themeMode') || 'light';
+    const saved = localStorage.getItem('themeMode');
+    // Dark theme has been removed — migrate any existing 'dark' preference to 'light'.
+    if (saved === 'dark') {
+      localStorage.setItem('themeMode', 'light');
+      return 'light';
+    }
+    return saved || 'light';
   });
 
   const [customColors, setCustomColorsState] = useState(() => {
@@ -553,6 +559,15 @@ export const CustomThemeProvider = ({ children }) => {
               border: `1px solid ${border}`,
               background: bgPaper,
               boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+            }
+          }
+        },
+        // Toast notifications must always sit above dialogs, drawers and the
+        // full-screen loading backdrops (which use zIndex.modal + 9999).
+        MuiSnackbar: {
+          styleOverrides: {
+            root: {
+              zIndex: 13000
             }
           }
         }

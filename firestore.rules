@@ -50,6 +50,14 @@ service cloud.firestore {
       allow create, update, delete: if isSuperAdmin();
     }
 
+    // Read-only cache-invalidation metadata (e.g. store_updates.lastUpdated).
+    // Signed-in clients read this to decide whether their local IndexedDB store
+    // cache is fresh. Writes happen server-side only (backend API).
+    match /metadata/{docId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

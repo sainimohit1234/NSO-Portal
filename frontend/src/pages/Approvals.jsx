@@ -3,7 +3,7 @@ import {
   Box, Typography, Card, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Paper, Chip, Button, Stack, Dialog, DialogTitle, 
   DialogContent, DialogActions, List, ListItem, ListItemText, ListItemIcon,
-  TextField, InputAdornment, MenuItem, Alert
+  TextField, InputAdornment, MenuItem, Alert, CircularProgress
 } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutlined';
 import SearchIcon from '@mui/icons-material/Search';
@@ -30,6 +30,7 @@ export default function Approvals() {
   const [emailTemplates, setEmailTemplates] = useState({});
   const [draftDialog, setDraftDialog] = useState({ open: false, store: null, status: '', to: '', cc: '', subject: '', body: '', isEditable: false, remarks: '' });
   const [loading, setLoading] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [remarksText, setRemarksText] = useState('');
   const [remarksError, setRemarksError] = useState(false);
   const [selectedStoreForRemarks, setSelectedStoreForRemarks] = useState(null);
@@ -797,12 +798,12 @@ export default function Approvals() {
               size="small"
               variant="contained"
               color="success"
-              startIcon={<SendIcon sx={{ fontSize: 16 }} />}
+              startIcon={sendingEmail ? <CircularProgress size={14} color="inherit" /> : <SendIcon sx={{ fontSize: 16 }} />}
               onClick={handleSendEmail}
-              disabled={loading}
+              disabled={loading || sendingEmail}
               sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
             >
-              Send
+              {sendingEmail ? 'Sending…' : 'Send'}
             </Button>
           </Stack>
         </DialogTitle>

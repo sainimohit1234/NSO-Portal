@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   Box, Typography, Card, CardContent, TextField, Button, IconButton,
-  Tooltip, Snackbar, Alert, CircularProgress, Table, TableBody, TableCell,
+  Tooltip, Snackbar, Alert, CircularProgress, LinearProgress, Table, TableBody, TableCell,
   TableContainer, TableRow, TableHead, Paper, Dialog, DialogTitle,
   DialogContent, DialogActions, InputAdornment, Stack, Chip
 } from '@mui/material';
@@ -15,6 +15,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { fetchStoresFromFirestore } from '../services/storeService';
+import InteractiveLoader from '../components/InteractiveLoader';
 
 // ─── HTML template parsing and compiling helpers ───────────────────────────────
 
@@ -64,8 +65,38 @@ const getBrandLabel = (brand) => {
   return 'Blue Tokai';
 };
 
+// ─── Mail-status helpers (shared by status computation and row rendering) ─────
+// Business rule: stores created before 8 Jul 2026 (IST) are pre-existing legacy
+// stores that are already integrated — they always show as "Integration
+// Completed". Stores created on/after 8 Jul 2026 follow the standard onboarding
+// flow (Pending → Mail Sent → Needs Follow-up → Integration Completed).
+const INTEGRATION_FLOW_START = new Date('2026-07-08T00:00:00+05:30').getTime();
+
+const isExistingLegacyStore = (store) => {
+  // Existing cafes are synced from Redshift and have NO createdAt (only a recent
+  // updatedAt). A store is "new/standard flow" ONLY if it was created in the
+  // portal on/after 8 Jul 2026. Anything without a createdAt, or created before
+  // the cutoff, is a pre-existing cafe and is already integrated.
+  // NOTE: never fall back to updatedAt — it changes on every edit.
+  if (!store.createdAt) return true;
+  const parsedDate = store.createdAt._seconds
+    ? store.createdAt._seconds * 1000
+    : new Date(store.createdAt).getTime();
+  return isNaN(parsedDate) || parsedDate < INTEGRATION_FLOW_START;
+};
+
+const isMailSent = (store, statusValue) => {
+  if (statusValue === 'Sent' || statusValue === 'SENT') return true;
+  return isExistingLegacyStore(store);
+};
+
 // ─── Integration status computation ──────────────────────────────────────────
 const computeIntegrationStatus = (store) => {
+  // Legacy stores (created before the flow start date) are already integrated.
+  if (isExistingLegacyStore(store)) {
+    return { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7', border: '#86efac' };
+  }
+
   const brandType = getBrandType(store.brand);
   let requiredEmailFields, requiredRIDFields;
   switch (brandType) {
@@ -82,28 +113,8 @@ const computeIntegrationStatus = (store) => {
       requiredRIDFields = ['blueTokaiZomatoRID', 'blueTokaiSwiggyRID'];
   }
 
-  // Parse date handling potential Firestore Timestamp objects
-  let parsedDate = 0;
-  if (store.createdAt) {
-    if (store.createdAt._seconds) parsedDate = store.createdAt._seconds * 1000;
-    else parsedDate = new Date(store.createdAt).getTime();
-  } else if (store.updatedAt) {
-    if (store.updatedAt._seconds) parsedDate = store.updatedAt._seconds * 1000;
-    else parsedDate = new Date(store.updatedAt).getTime();
-  }
-
-  const storeDate = new Date(parsedDate || 0);
-  // Default legacy if the date is invalid (NaN) or older than July 9, 2026
-  const isExistingLegacyStore = isNaN(storeDate.getTime()) || storeDate < new Date('2026-07-09T00:00:00Z');
-
-  const checkMailStatus = (statusValue) => {
-    if (statusValue === 'Sent' || statusValue === 'SENT') return true;
-    if (isExistingLegacyStore) return true;
-    return false;
-  };
-
   const allEmailsSent = requiredEmailFields.every(
-    f => checkMailStatus(store[f])
+    f => isMailSent(store, store[f])
   );
 
   if (!allEmailsSent) {
@@ -136,6 +147,15 @@ const computeIntegrationStatus = (store) => {
   return { label: `Mail Sent · ${daysRemaining}d left`, color: '#1e3a8a', bg: '#dbeafe', border: '#93c5fd' };
 };
 
+// Collapse the granular status label into one of the four filter categories.
+const getStatusCategory = (store) => {
+  const label = computeIntegrationStatus(store).label;
+  if (label.startsWith('Needs Follow-up')) return 'Needs Follow-up with S/Z';
+  if (label.startsWith('Mail Sent')) return 'Mail Sent';
+  if (label.startsWith('Integration Completed')) return 'Integration Completed';
+  return 'Pending';
+};
+
 
 export default function SwiggyZomatoIntegration() {
   const { user } = useAuth();
@@ -146,6 +166,7 @@ export default function SwiggyZomatoIntegration() {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(null);
   const [, setEmailMappings] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
@@ -180,16 +201,25 @@ export default function SwiggyZomatoIntegration() {
 
   const handleSnackbarClose = () => setSnackbar(prev => ({ ...prev, open: false }));
 
+  // Count of stores in each status category (drives the filter chip badges).
+  const statusCounts = useMemo(() => {
+    const counts = { 'Pending': 0, 'Mail Sent': 0, 'Needs Follow-up with S/Z': 0, 'Integration Completed': 0 };
+    stores.forEach(s => { counts[getStatusCategory(s)] = (counts[getStatusCategory(s)] || 0) + 1; });
+    return counts;
+  }, [stores]);
+
   const filteredStores = useMemo(() =>
     stores.filter(s => {
       const q = searchQuery.toLowerCase().trim();
-      return (
+      const matchesSearch = (
         (s.cafeName || '').toLowerCase().includes(q) ||
         (s.cafeCode || '').toLowerCase().includes(q) ||
         (s.city || '').toLowerCase().includes(q)
       );
+      const matchesStatus = !statusFilter || getStatusCategory(s) === statusFilter;
+      return matchesSearch && matchesStatus;
     }),
-    [stores, searchQuery]
+    [stores, searchQuery, statusFilter]
   );
 
   const handleRIDChange = (storeId, field, rawValue) => {
@@ -249,11 +279,15 @@ export default function SwiggyZomatoIntegration() {
             Manage onboarding triggers, platforms communications, and restaurant ID records for Approved cafes.
           </Typography>
         </Box>
-        <Button variant="outlined" startIcon={<SyncIcon />} onClick={loadData}
+        <Button variant="outlined" disabled={loading}
+          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SyncIcon />} onClick={loadData}
           sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
-          Refresh Data
+          {loading ? 'Refreshing…' : 'Refresh Data'}
         </Button>
       </Stack>
+
+      {/* Slim progress bar during any load/refresh, even when rows are already shown */}
+      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 999, height: 4 }} />}
 
       {/* Search */}
       <Card sx={{ borderRadius: '12px', mb: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
@@ -264,17 +298,47 @@ export default function SwiggyZomatoIntegration() {
         </CardContent>
       </Card>
 
-      {/* Status Legend */}
-      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }} alignItems="center">
+      {/* Status Filters — click a chip to filter the table by that status */}
+      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }} alignItems="center">
         {[
           { label: 'Pending', color: '#92400e', bg: '#fef3c7' },
           { label: 'Mail Sent', color: '#1e3a8a', bg: '#dbeafe' },
           { label: 'Needs Follow-up with S/Z', color: '#7f1d1d', bg: '#fee2e2' },
           { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7' },
-        ].map(s => (
-          <Chip key={s.label} label={s.label} size="small"
-            sx={{ bgcolor: s.bg, color: s.color, fontWeight: 700, fontSize: '0.72rem', borderRadius: '6px' }} />
-        ))}
+        ].map(s => {
+          const active = statusFilter === s.label;
+          return (
+            <Chip
+              key={s.label}
+              label={`${s.label} (${statusCounts[s.label] || 0})`}
+              size="small"
+              clickable
+              onClick={() => setStatusFilter(active ? null : s.label)}
+              sx={{
+                bgcolor: s.bg,
+                color: s.color,
+                fontWeight: 700,
+                fontSize: '0.72rem',
+                borderRadius: '6px',
+                border: active ? `2px solid ${s.color}` : '2px solid transparent',
+                boxShadow: active ? `0 0 0 3px ${s.bg}` : 'none',
+                opacity: statusFilter && !active ? 0.55 : 1,
+                transition: 'all 0.15s ease',
+                '&:hover': { bgcolor: s.bg, opacity: 1 }
+              }}
+            />
+          );
+        })}
+        {statusFilter && (
+          <Chip
+            label="Clear filter"
+            size="small"
+            variant="outlined"
+            onDelete={() => setStatusFilter(null)}
+            onClick={() => setStatusFilter(null)}
+            sx={{ fontWeight: 700, fontSize: '0.72rem', borderRadius: '6px' }}
+          />
+        )}
         <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
           · 4-day countdown starts when all required emails are sent
         </Typography>
@@ -313,10 +377,21 @@ export default function SwiggyZomatoIntegration() {
               </TableHead>
               <TableBody>
                 {loading && stores.length === 0 ? (
-                  <TableRow><TableCell colSpan={22} align="center" sx={{ py: 8 }}><CircularProgress size={32} /></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={22} align="center" sx={{ py: 4 }}>
+                    <InteractiveLoader messages={[
+                      'Warming up the espresso machine…',
+                      'Grinding the freshest beans…',
+                      'Fetching approved stores…',
+                      'Checking Swiggy & Zomato status…',
+                      'Plating the details…',
+                      'Almost ready to serve ☕',
+                    ]} />
+                  </TableCell></TableRow>
                 ) : filteredStores.length === 0 ? (
                   <TableRow><TableCell colSpan={22} align="center" sx={{ py: 8, color: 'text.secondary', fontStyle: 'italic' }}>
-                    {searchQuery ? 'No approved stores found matching search query.' : 'No approved stores available.'}
+                    {searchQuery || statusFilter
+                      ? 'No stores match the current search / filter.'
+                      : 'No approved stores available.'}
                   </TableCell></TableRow>
                 ) : filteredStores.map((store, index) => {
                   const brandType = getBrandType(store.brand);
@@ -331,7 +406,7 @@ export default function SwiggyZomatoIntegration() {
 
                   const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled) => {
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
-                    const isSent = checkMailStatus(statusVal);
+                    const isSent = isMailSent(store, statusVal);
                     if (isSent) return <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />;
                     return (
                       <Chip 

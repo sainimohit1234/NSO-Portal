@@ -1071,7 +1071,7 @@ export default function EditStore() {
         deliveryLive: watch('deliveryLive'),
         deliveryLiveDate: watch('deliveryLiveDate'),
       };
-      await storesService.updateStore(store.id, payload);
+      await axios.put(`/api/stores/${id}`, payload);
       setSuccessMsg('Go-Live configuration saved successfully.');
       setTimeout(() => setSuccessMsg(''), 3000);
       setIsSaved(true);
