@@ -378,7 +378,7 @@ const baseTheme = createTheme({
     MuiSnackbar: {
       styleOverrides: {
         root: {
-          zIndex: 9999
+          zIndex: 13000
         },
         anchorOriginTopRight: {
           marginTop: '68px'
