@@ -38,8 +38,9 @@ const parseMultipart = (req: any, writeToDisk: boolean = false): Promise<{ field
 
         file.on('end', () => {
           const buffer = Buffer.concat(chunks);
+          const os = require('os');
           if (writeToDisk) {
-            const uploadDir = path.resolve(process.cwd(), 'uploads');
+            const uploadDir = path.resolve(os.tmpdir(), 'uploads');
             if (!fs.existsSync(uploadDir)) {
               fs.mkdirSync(uploadDir, { recursive: true });
             }

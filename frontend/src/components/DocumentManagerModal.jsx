@@ -197,6 +197,8 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       if (docType === 'Letter of Intent (LOI)') typeParam = 'loi';
       if (docType === 'Budget Approval') typeParam = 'budget';
       if (docType === 'Lease / Rental Agreement') typeParam = 'agreement';
+      if (docType === 'GST Certificate') typeParam = 'gst';
+      if (docType === 'FSSAI License') typeParam = 'fssai';
 
       const res = await axios.post(`/api/stores/upload-file?type=${typeParam}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
