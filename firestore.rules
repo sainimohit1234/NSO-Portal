@@ -15,10 +15,34 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN';
     }
 
+    // The privileged fields that determine a user's access level. A user must
+    // never be able to grant these to themselves from the client; they are only
+    // set on the server (backend API via firebase-admin) or by a SUPER_ADMIN.
+    function privilegedFieldsUnchanged() {
+      return request.resource.data.role == resource.data.role
+        && request.resource.data.permissions == resource.data.permissions
+        && request.resource.data.approved == resource.data.approved
+        && request.resource.data.registrationStatus == resource.data.registrationStatus;
+    }
+
     match /users/{userId} {
-      allow create: if isOwner(userId);
       allow read: if isOwner(userId) || isSuperAdmin();
-      allow update: if isOwner(userId) || isSuperAdmin();
+
+      // Self-registration / first-login profile creation is allowed only as an
+      // unprivileged, unapproved USER. The seed admin email may bootstrap itself,
+      // and a SUPER_ADMIN may create any profile.
+      allow create: if isSuperAdmin()
+        || (isOwner(userId)
+            && request.resource.data.role == 'USER'
+            && request.resource.data.approved == false)
+        || (isOwner(userId) && request.auth.token.email == 'admin@bluetokaicoffee.com');
+
+      // Owners may edit their own profile (name, phone, …) but may NOT change any
+      // privileged field. SUPER_ADMIN retains full control (approvals, roles).
+      allow update: if isSuperAdmin()
+        || (isOwner(userId) && privilegedFieldsUnchanged());
+
+      // Deletes are server-side only (backend API).
     }
 
     match /stores/{storeId} {

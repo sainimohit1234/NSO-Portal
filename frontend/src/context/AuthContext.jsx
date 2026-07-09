@@ -25,6 +25,8 @@ function normalizeUserEmail(email = '') {
 }
 
 function logAuthDebug(message, details) {
+  // Only log in development — these lines include emails/UIDs and must not leak in production.
+  if (!import.meta.env.DEV) return;
   if (details !== undefined) {
     console.log(`${AUTH_DEBUG_PREFIX} ${message}`, details);
     return;

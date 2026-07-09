@@ -16,8 +16,41 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 
+// The SPA calls the API same-origin via the Firebase Hosting rewrite, so only a
+// small set of origins ever legitimately makes cross-origin calls. Extra origins
+// (e.g. a custom domain) can be added via the CORS_ALLOWED_ORIGINS env var
+// (comma-separated). Requests with no Origin header (same-origin, curl,
+// server-to-server) are always allowed.
+const allowedOrigins = [
+  'https://nso-portal.web.app',
+  'https://nso-portal.firebaseapp.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  ...(process.env.CORS_ALLOWED_ORIGINS
+    ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+    : []),
+];
 
-app.use(cors());
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
+  })
+);
+
+// Baseline security headers (dependency-free; equivalent to the parts of helmet
+// that are safe for a JSON API).
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
 
 app.get('/uploads/:filename', async (req, res) => {
@@ -57,13 +90,8 @@ app.get('/uploads/:filename', async (req, res) => {
 import storeRoutes from './routes/stores';
 import userRoutes from './routes/users';
 import contactRoutes from './routes/contacts';
-import authRoutes from './routes/auth';
 import systemRoutes from './routes/system';
 import globalDocsRoutes from './routes/globalDocs';
-import { hashPassword } from './utils/auth';
-
-const DEFAULT_SEED_PASSWORD = process.env.DEFAULT_SEED_PASSWORD || 'Bluetokai@123';
-const LEGACY_ADMIN_PASSWORD = '11111';
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {
@@ -71,39 +99,9 @@ app.get('/api/health', (req, res) => {
 });
 
 
-
-app.get('/api/temp-live-codes', async (req, res) => {
-  try {
-    const db = firebaseAdmin.firestore();
-    const snapshot = await db.collection('stores').get();
-    const liveStores = [];
-    
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      const code = (data.cafeCode || '').toUpperCase();
-      const isTarget = code.startsWith('CA') || code.startsWith('GOT') || code.startsWith('CAGT');
-      const isActive = data.isActive !== false;
-      const isLive = data.status === 'LIVE';
-
-      if (isActive && isTarget && isLive) {
-        liveStores.push({
-          cafeCode: data.cafeCode,
-          cafeName: data.cafeName
-        });
-      }
-    });
-
-    liveStores.sort((a, b) => a.cafeCode.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
-    res.json({ count: liveStores.length, codes: liveStores });
-  } catch (err) {
-    res.status(500).json({ error: String(err) });
-  }
-});
-
 app.use('/api/stores', storeRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/contacts', contactRoutes);
-app.use('/api/auth', authRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/global-docs', globalDocsRoutes);
 
