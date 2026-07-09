@@ -525,9 +525,7 @@ const NewStore = () => {
     if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT' || norm === 'UNDER CONSTRUCTION') {
       return ['Under Construction'];
     }
-    if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
-      return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
-    }
+
     if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
       return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
     }
@@ -602,7 +600,7 @@ const NewStore = () => {
         ...pendingSubmitData,
         cafeCode: finalCafeCode,
         cafeName: finalCafeName,
-        status: isComplete ? 'PENDING_APPROVAL' : 'INCOMPLETE_INFORMATION',
+        status: 'PENDING_APPROVAL',
         cafeLaunchMonth: pendingSubmitData.cafeLaunchMonth && pendingSubmitData.cafeLaunchYear
           ? `${pendingSubmitData.cafeLaunchMonth} ${pendingSubmitData.cafeLaunchYear}`
           : pendingSubmitData.cafeLaunchMonth || '',
@@ -658,7 +656,7 @@ const NewStore = () => {
 
   const onSubmit = (data) => {
     setPendingSubmitData(data);
-    const targetStatus = checkIsComplete(data) ? 'PENDING_APPROVAL' : 'INCOMPLETE_INFORMATION';
+    const targetStatus = 'PENDING_APPROVAL';
     const config = getMappedConfigForStatus(targetStatus);
     
     if (config) {
@@ -708,7 +706,7 @@ const NewStore = () => {
         ...pendingSubmitData,
         cafeCode: finalCafeCode,
         cafeName: finalCafeName,
-        status: isComplete ? 'PENDING_APPROVAL' : 'INCOMPLETE_INFORMATION',
+        status: 'PENDING_APPROVAL',
         // Combine month + year into single "Month Year" string
         cafeLaunchMonth: pendingSubmitData.cafeLaunchMonth && pendingSubmitData.cafeLaunchYear
           ? `${pendingSubmitData.cafeLaunchMonth} ${pendingSubmitData.cafeLaunchYear}`
@@ -1926,7 +1924,8 @@ const NewStore = () => {
         open={openSnackbar}
         autoHideDuration={6000}
         onClose={() => setOpenSnackbar(false)}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        sx={{ zIndex: 9999 }}
       >
         <Alert 
           onClose={() => setOpenSnackbar(false)} 

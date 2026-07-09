@@ -67,8 +67,6 @@ export default function Approvals() {
         return { bgcolor: 'rgba(249, 115, 22, 0.12)', color: '#c2410c', border: '1px solid rgba(249, 115, 22, 0.3)' };      // Orange
       case 'ON_HOLD':
         return { bgcolor: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', border: '1px solid rgba(239, 68, 68, 0.3)' };        // Red
-      case 'INCOMPLETE_INFORMATION':
-        return { bgcolor: 'rgba(100, 116, 139, 0.10)', color: '#475569', border: '1px solid rgba(100, 116, 139, 0.25)' };   // Grey
       default:
         return { bgcolor: 'rgba(100, 116, 139, 0.10)', color: '#475569', border: '1px solid rgba(100, 116, 139, 0.25)' };
     }
@@ -77,7 +75,7 @@ export default function Approvals() {
   const fetchStores = () => {
     const filterStore = (s) => {
       const status = (s.status || '').toUpperCase().trim().replace(/ /g, '_');
-      return ['PENDING_APPROVAL', 'APPROVAL_PENDING', 'NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE', 'ON_HOLD', 'INCOMPLETE_INFORMATION', 'CLOSED'].includes(status) || !!s.sentToNsoBy;
+      return ['PENDING_APPROVAL', 'APPROVAL_PENDING', 'NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE', 'ON_HOLD', 'CLOSED'].includes(status) || !!s.sentToNsoBy;
     };
 
     fetchStoresFromFirestore()
@@ -120,9 +118,7 @@ export default function Approvals() {
     if (norm === 'UNDER_DEVELOPMENT' || norm === 'UNDER DEVELOPMENT' || norm === 'UNDER CONSTRUCTION') {
       return ['Under Construction'];
     }
-    if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
-      return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
-    }
+
     if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
       return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
     }
@@ -384,7 +380,7 @@ export default function Approvals() {
             sx={{ width: 160, bgcolor: 'background.paper' }}
           >
             <MenuItem value="ALL">All Statuses</MenuItem>
-            <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
+            <MenuItem value="PENDING_APPROVAL">Sent to NSO Team for Approval</MenuItem>
             <MenuItem value="NSO_APPROVED">Approved</MenuItem>
             <MenuItem value="ON_HOLD">On Hold</MenuItem>
           </TextField>
@@ -513,8 +509,7 @@ export default function Approvals() {
                             label={
                               store.status === 'NSO_APPROVED' || store.status === 'APPROVED' ? 'Approved'
                               : store.status === 'READY_TO_GO_LIVE' ? 'Ready to Go Live'
-                              : store.status === 'INCOMPLETE_INFORMATION' ? 'Incomplete Information'
-                              : store.status === 'PENDING_APPROVAL' ? 'Approval Pending'
+                              : store.status === 'PENDING_APPROVAL' ? 'Pending Approval'
                               : store.status === 'ON_HOLD' ? 'On Hold'
                               : store.status === 'LIVE' ? 'Live'
                               : store.status
@@ -540,7 +535,7 @@ export default function Approvals() {
                             <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
                             {canApprove && <MenuItem value="APPROVED">Approved</MenuItem>}
                             {canApprove && <MenuItem value="ON_HOLD">On Hold</MenuItem>}
-                            {canApprove && <MenuItem value="INCOMPLETE_INFORMATION">Incomplete Information</MenuItem>}
+
                           </TextField>
                         )}
                       </TableCell>

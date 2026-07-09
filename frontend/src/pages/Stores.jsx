@@ -11,7 +11,14 @@ import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
 import { fetchStoresFromFirestore } from '../services/storeService';
-import { getCurrentStatus, getCurrentStatusDotColor, getCurrentStatusChipStyle, getStatusRgb, sortStoresByCurrentStatus } from '../utils/status';
+import { 
+  getCurrentStatus, 
+  getCurrentStatusDotColor, 
+  getCurrentStatusChipStyle, 
+  getStatusRgb, 
+  sortStoresByCurrentStatus,
+  computeIntegrationStatus
+} from '../utils/status';
 import GoLiveDialog from '../components/GoLiveDialog';
 
 export default function Stores() {
@@ -237,8 +244,6 @@ export default function Stores() {
           result = result.filter(s => s.status === 'APPROVED' || s.status === 'NSO_APPROVED');
         } else if (filters.launchStatusType === 'pending_approval') {
           result = result.filter(s => s.status === 'PENDING_APPROVAL');
-        } else if (filters.launchStatusType === 'incomplete_information') {
-          result = result.filter(s => s.status === 'INCOMPLETE_INFORMATION');
         } else if (filters.launchStatusType === 'on_hold') {
           result = result.filter(s => s.status === 'ON_HOLD');
         }
@@ -273,9 +278,16 @@ export default function Stores() {
       }
     }
 
-    // Mail Status Filter
-    if (filters.mailStatus) {
-      result = result.filter(s => (s.mailStatus || 'Pending for S/Z') === filters.mailStatus);
+    // Integration Status Filter
+    if (filters.integrationStatus) {
+      result = result.filter(s => {
+        const intStatus = computeIntegrationStatus(s);
+        if (filters.integrationStatus === 'Integration Completed') return intStatus.label === 'Integration Completed';
+        if (filters.integrationStatus === 'Pending') return intStatus.label === 'Pending';
+        if (filters.integrationStatus === 'Mail Sent') return intStatus.label.startsWith('Mail Sent') || intStatus.label.startsWith('Follow-up');
+        if (filters.integrationStatus === 'Needs Follow-up') return intStatus.label.startsWith('Needs Follow-up');
+        return true;
+      });
     }
     const sortedResult = sortStoresByCurrentStatus(result);
     setFilteredStores(sortedResult);
@@ -292,7 +304,7 @@ export default function Stores() {
       searchQuery: '',
       expiryType: '', 
       expiryMonth: getCurrentMonthValue(), 
-      mailStatus: '',
+      integrationStatus: '',
       launchStatusType: '',
       launchMonthYear: ''
     });
@@ -311,7 +323,7 @@ export default function Stores() {
         return { bgcolor: '#f1f3f4', color: '#5f6368', borderColor: '#dadce0' }; // Match Under Construction
       case 'ON_HOLD':
         return { bgcolor: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', borderColor: 'rgba(239, 68, 68, 0.3)' };   // Red
-      case 'INCOMPLETE_INFORMATION':
+
         return { bgcolor: 'rgba(100, 116, 139, 0.10)', color: '#475569', borderColor: 'rgba(100, 116, 139, 0.25)' }; // Grey
       case 'UPCOMING':
         return { bgcolor: '#e0f7fa', color: '#006064', borderColor: '#b2ebf2' };
@@ -321,16 +333,6 @@ export default function Stores() {
         return { bgcolor: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', borderColor: 'rgba(239, 68, 68, 0.3)' };
       default:
         return { bgcolor: '#f1f3f4', color: '#5f6368', borderColor: '#dadce0' };
-    }
-  };
-
-  const getMailStatusChipStyle = (status) => {
-    switch(status) {
-      case 'Mail sent':
-        return { bgcolor: '#e6f4ea', color: '#137333', borderColor: '#ceead6' };
-      case 'Pending for S/Z':
-      default:
-        return { bgcolor: '#fef7e0', color: '#b06000', borderColor: '#feebc8' };
     }
   };
 
@@ -359,8 +361,8 @@ export default function Stores() {
       </Box>
 
       <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
-        <CardContent>
-          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 700 }}>Filter Stores</Typography>
+        <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Filter Stores</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
             {/* Brand Filter */}
             <TextField
@@ -402,22 +404,22 @@ export default function Stores() {
               sx={{ minWidth: 200 }}
             />
 
-            {/* Mail Status filter — Super Admin only */}
-            {isSuperAdmin && (
-              <TextField
-                select
-                size="small"
-                label="Mail Status"
-                name="mailStatus"
-                value={filters.mailStatus}
-                onChange={handleFilterChange}
-                sx={{ minWidth: 160 }}
-              >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="Pending for S/Z">Pending for S/Z</MenuItem>
-                <MenuItem value="Mail sent">Mail sent</MenuItem>
-              </TextField>
-            )}
+            {/* Integration Status filter */}
+            <TextField
+              select
+              size="small"
+              label="Integration Status"
+              name="integrationStatus"
+              value={filters.integrationStatus || ''}
+              onChange={handleFilterChange}
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="Integration Completed">Integration Completed</MenuItem>
+              <MenuItem value="Pending">Pending</MenuItem>
+              <MenuItem value="Mail Sent">Mail Sent</MenuItem>
+              <MenuItem value="Needs Follow-up">Needs Follow-up with S/Z</MenuItem>
+            </TextField>
 
             {/* Filter Expiries */}
             <TextField
@@ -464,8 +466,8 @@ export default function Stores() {
               <MenuItem value="newly_launched">Newly Launch Stores</MenuItem>
               <MenuItem value="live">Live Stores</MenuItem>
               <MenuItem value="approved">Approved Stores</MenuItem>
-              <MenuItem value="pending_approval">Approval Pending</MenuItem>
-              <MenuItem value="incomplete_information">Incomplete Information Stores</MenuItem>
+              <MenuItem value="pending_approval">Sent to NSO Team for Approval</MenuItem>
+
               <MenuItem value="on_hold">On Hold Stores</MenuItem>
               <MenuItem value="upcoming">Upcoming Stores</MenuItem>
               <MenuItem value="closed">Closed Stores</MenuItem>
@@ -480,7 +482,7 @@ export default function Stores() {
               value={filters.launchMonthYear}
               onChange={handleFilterChange}
               InputLabelProps={{ shrink: true }}
-              disabled={!['live', 'upcoming', 'closed', 'approved', 'pending_approval', 'incomplete_information', 'on_hold'].includes(filters.launchStatusType)}
+              disabled={!['live', 'upcoming', 'closed', 'approved', 'pending_approval', 'on_hold'].includes(filters.launchStatusType)}
               sx={{ minWidth: 190 }}
             />
 
@@ -502,22 +504,22 @@ export default function Stores() {
 
       <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden' }}>
         <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
-          <Table stickyHeader>
+          <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Brand</TableCell>
-                <TableCell>Current Status</TableCell>
-                <TableCell>Cafe Code</TableCell>
-                <TableCell>Cafe Name</TableCell>
-                <TableCell>Address</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Live Date</TableCell>
-                <TableCell>Closure Date</TableCell>
-                <TableCell>Day Count</TableCell>
-                {filters.expiryType === 'fssai' && <TableCell>FSSAI Expiry</TableCell>}
-                {filters.expiryType === 'rent' && <TableCell>Rent Expiry</TableCell>}
-                {isSuperAdmin && <TableCell>Mail Status</TableCell>}
-                <TableCell align="center">Locked</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Brand</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Current Status</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Cafe Code</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Cafe Name</TableCell>
+                <TableCell sx={{ px: 1, py: 1, fontSize: '0.75rem', minWidth: 150 }}>Address</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Status</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Live Date</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Closure Date</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Day Count</TableCell>
+                {filters.expiryType === 'fssai' && <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>FSSAI Expiry</TableCell>}
+                {filters.expiryType === 'rent' && <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Rent Expiry</TableCell>}
+                <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Integration Status</TableCell>
+                <TableCell align="center" sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Locked</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -530,7 +532,7 @@ export default function Stores() {
               ) : (
                 filteredStores.map((store) => {
                   const badgeStyle = getStatusChipStyle(store.status);
-                  const mailBadgeStyle = getMailStatusChipStyle(store.mailStatus);
+                  const intStatus = computeIntegrationStatus(store);
                   const currentStatusVal = getCurrentStatus(store);
                   const currentStatusColor = getCurrentStatusDotColor(currentStatusVal);
                   const currentStatusRgb = getStatusRgb(currentStatusVal);
@@ -546,10 +548,10 @@ export default function Stores() {
                         cursor: 'pointer' 
                       }}
                     >
-                      <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.825rem' }}>
+                      <TableCell sx={{ fontWeight: 600, color: 'text.secondary', fontSize: '0.75rem', px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                         {store.brand === 'BLUE_TOKAI_SUCHALI' ? "Blue Tokai / Suchali's" : store.brand === 'GOT_TEA' ? 'Got Tea' : (store.brand || '—')}
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                         <Chip 
                           icon={
                             <Box 
@@ -580,7 +582,7 @@ export default function Stores() {
                             />
                           }
                           label={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                               <span>{currentStatusVal}</span>
                               {store.inStoreLive && !store.inStoreClosed && (
                                 <Tooltip title="In-Store Live">
@@ -625,20 +627,20 @@ export default function Stores() {
                           size="small" 
                           sx={{ 
                             fontWeight: 700, 
-                            fontSize: '0.75rem',
+                            fontSize: '0.7rem',
                             bgcolor: getCurrentStatusChipStyle(currentStatusVal).bgcolor,
                             color: getCurrentStatusChipStyle(currentStatusVal).color,
                             border: '1px solid',
                             borderColor: getCurrentStatusChipStyle(currentStatusVal).borderColor,
                             borderRadius: '6px',
-                            px: 0.5,
-                            width: 190,
+                            px: 0.25,
+                            width: 140,
                             justifyContent: 'center'
                           }} 
                         />
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 800, color: 'primary.main' }}>{store.cafeCode}</TableCell>
-                      <TableCell sx={{ fontWeight: 700, color: 'text.primary' }}>
+                      <TableCell sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.75rem', px: 1, py: 0.75, whiteSpace: 'nowrap' }}>{store.cafeCode}</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.75rem', px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           {store.cafeName}
                           {store.isLocked && (
@@ -648,7 +650,7 @@ export default function Stores() {
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.825rem', fontWeight: 800 }}>
+                      <TableCell sx={{ color: 'text.secondary', fontSize: '0.75rem', fontWeight: 600, px: 1, py: 0.75, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {(() => {
                           const addr = store.cafeAddress || store.address || '';
                           const city = store.city || '';
@@ -667,7 +669,7 @@ export default function Stores() {
                           return result || 'N/A';
                         })()}
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell onClick={(e) => e.stopPropagation()} sx={{ px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                         {((store.status === 'APPROVED' || store.status === 'NSO_APPROVED' || store.status === 'READY_TO_GO_LIVE') && hasGoLiveAccess) ? (
                           <TextField
                             select
@@ -680,7 +682,7 @@ export default function Stores() {
                               }
                             }}
                             sx={{ 
-                              width: 190,
+                              width: 140,
                               '& .MuiOutlinedInput-root': { 
                                 height: 26, 
                                 fontSize: '0.75rem', 
@@ -743,9 +745,7 @@ export default function Stores() {
                               ) : undefined
                             }
                             label={
-                              store.status === 'PENDING_APPROVAL' ? 'Under Construction' : 
-                              store.status === 'INCOMPLETE_INFORMATION' ? 'INCOMPLETE INFORMATION' : 
-                              store.status === 'ON_HOLD' ? 'ON HOLD' : 
+                              store.status === 'PENDING_APPROVAL' ? 'PENDING APPROVAL' : 
                               (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'Ready to Go Live' :
                               (store.status ? store.status.replace(/_/g, ' ') : '')
                             }
@@ -757,95 +757,91 @@ export default function Stores() {
                             sx={{ 
                               cursor: ((store.status === 'LIVE' || store.status === 'CLOSED') && hasGoLiveAccess) ? 'pointer' : 'default',
                               fontWeight: 700, 
-                              fontSize: '0.75rem',
+                              fontSize: '0.7rem',
                               bgcolor: badgeStyle.bgcolor,
                               color: badgeStyle.color,
                               border: '1px solid',
                               borderColor: badgeStyle.borderColor,
                               borderRadius: '6px',
-                              px: 0.5,
-                              width: 190,
+                              px: 0.25,
+                              width: 140,
                               justifyContent: 'center'
                             }} 
                           />
                         )}
                       </TableCell>
 
-                      <TableCell sx={{ fontSize: '0.825rem', fontWeight: 800 }}>
+                      <TableCell sx={{ fontSize: '0.75rem', fontWeight: 700, px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                           {store.inStoreLive && (
-                            <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                            <Box sx={{ color: 'text.secondary' }}>
                               <span style={{ fontWeight: 800 }}>In-Store:</span> {formatDateString(store.inStoreLiveDate)}
                             </Box>
                           )}
                           {store.deliveryLive && (
-                            <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                            <Box sx={{ color: 'text.secondary' }}>
                               <span style={{ fontWeight: 800 }}>Delivery:</span> {formatDateString(store.deliveryLiveDate)}
                             </Box>
                           )}
                           {!store.inStoreLive && !store.deliveryLive && '—'}
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ fontSize: '0.825rem', fontWeight: 800 }}>
+                      <TableCell sx={{ fontSize: '0.75rem', fontWeight: 700, px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                           {store.inStoreClosed && (
-                            <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                            <Box sx={{ color: 'text.secondary' }}>
                               <span style={{ fontWeight: 800 }}>In-Store:</span> {formatDateString(store.inStoreClosedDate)}
                             </Box>
                           )}
                           {store.deliveryClosed && (
-                            <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                            <Box sx={{ color: 'text.secondary' }}>
                               <span style={{ fontWeight: 800 }}>Delivery:</span> {formatDateString(store.deliveryClosedDate)}
                             </Box>
                           )}
                           {!store.inStoreClosed && !store.deliveryClosed && '—'}
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ fontSize: '0.825rem', fontWeight: 800 }}>
+                      <TableCell sx={{ fontSize: '0.75rem', fontWeight: 700, px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                          <Box sx={{ color: 'text.secondary' }}>
                             <span style={{ fontWeight: 800 }}>In-Store:</span> {getDayCount(store.inStoreLiveDate, store.inStoreClosedDate, store.inStoreLive, store.inStoreClosed)}
                           </Box>
-                          <Box sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                          <Box sx={{ color: 'text.secondary' }}>
                             <span style={{ fontWeight: 800 }}>Delivery:</span> {getDayCount(store.deliveryLiveDate, store.deliveryClosedDate, store.deliveryLive, store.deliveryClosed)}
                           </Box>
                         </Box>
                       </TableCell>
                       {filters.expiryType === 'fssai' && (
-                        <TableCell sx={{ fontWeight: 800, color: 'error.main' }}>
+                        <TableCell sx={{ fontWeight: 800, color: 'error.main', fontSize: '0.75rem', px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                           {formatDateString(store.fssaiExpiry)}
                         </TableCell>
                       )}
                       {filters.expiryType === 'rent' && (
-                        <TableCell sx={{ fontWeight: 800, color: 'error.main' }}>
+                        <TableCell sx={{ fontWeight: 800, color: 'error.main', fontSize: '0.75rem', px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                           {formatDateString(store.rentExpiry)}
                         </TableCell>
                       )}
-                      {isSuperAdmin && (
-                        <TableCell>
-                          {store.status !== 'REJECTED' ? (
-                            <Chip 
-                              label={store.mailStatus || 'Pending for S/Z'} 
-                              size="small" 
-                              sx={{ 
-                                fontWeight: 700, 
-                                fontSize: '0.75rem',
-                                bgcolor: mailBadgeStyle.bgcolor,
-                                color: mailBadgeStyle.color,
-                                border: '1px solid',
-                                borderColor: mailBadgeStyle.borderColor,
-                                borderRadius: '6px',
-                                px: 0.5
-                              }} 
-                            />
-                          ) : (
-                            ''
-                          )}
-                        </TableCell>
-                      )}
-                      <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                      <TableCell sx={{ px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
+                        <Chip 
+                          label={intStatus.label} 
+                          size="small" 
+                          sx={{ 
+                            fontWeight: 700, 
+                            fontSize: '0.7rem',
+                            bgcolor: intStatus.bg,
+                            color: intStatus.color,
+                            border: '1px solid',
+                            borderColor: intStatus.border,
+                            borderRadius: '6px',
+                            px: 0.5,
+                            width: 140,
+                            justifyContent: 'center'
+                          }} 
+                        />
+                      </TableCell>
+                      <TableCell align="center" sx={{ px: 1, py: 0.75, whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                         <Switch
-                          checked={store.isLocked}
+                          checked={store.isLocked || false}
                           onChange={(e) => handleToggleLock(store.id, e.target.checked)}
                           disabled={!isSuperAdmin}
                           color="success"

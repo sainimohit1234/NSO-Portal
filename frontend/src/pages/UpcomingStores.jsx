@@ -253,8 +253,6 @@ export default function UpcomingStores() {
         return { bgcolor: 'rgba(249, 115, 22, 0.12)', color: '#c2410c', borderColor: 'rgba(249, 115, 22, 0.3)' }; // Orange
       case 'ON_HOLD':
         return { bgcolor: 'rgba(239, 68, 68, 0.12)', color: '#dc2626', borderColor: 'rgba(239, 68, 68, 0.3)' };   // Red
-      case 'INCOMPLETE_INFORMATION':
-        return { bgcolor: 'rgba(100, 116, 139, 0.10)', color: '#475569', borderColor: 'rgba(100, 116, 139, 0.25)' }; // Grey
       case 'DRAFT':
         return { bgcolor: '#f5f5f5', color: '#616161', borderColor: '#e0e0e0' };
       case 'REJECTED':
@@ -517,10 +515,10 @@ export default function UpcomingStores() {
                 <MenuItem value="In Pipeline">In Pipeline</MenuItem>
                 <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
                 <MenuItem value="Under Construction">Under Construction</MenuItem>
-                <MenuItem value="PENDING_APPROVAL">Approval Pending</MenuItem>
+                <MenuItem value="PENDING_APPROVAL">Sent to NSO Team for Approval</MenuItem>
                 <MenuItem value="APPROVED">Approved</MenuItem>
                 <MenuItem value="ON_HOLD">On Hold</MenuItem>
-                <MenuItem value="INCOMPLETE_INFORMATION">Incomplete Information</MenuItem>
+
                 <MenuItem value="READY_TO_GO_LIVE">Ready to Go Live</MenuItem>
                 <MenuItem value="UPCOMING">Upcoming</MenuItem>
                 <MenuItem value="LIVE">Live</MenuItem>
@@ -693,7 +691,6 @@ export default function UpcomingStores() {
                             }
                             label={
                               store.status === 'PENDING_APPROVAL' ? 'APPROVAL PENDING' : 
-                              store.status === 'INCOMPLETE_INFORMATION' ? 'INCOMPLETE INFORMATION' : 
                               store.status === 'ON_HOLD' ? 'ON HOLD' : 
                               (store.status === 'APPROVED' || store.status === 'NSO_APPROVED') ? 'APPROVED' : 
                               (store.status ? store.status.replace(/_/g, ' ') : '')

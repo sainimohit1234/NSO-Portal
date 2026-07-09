@@ -953,8 +953,8 @@ export default function EditStore() {
     if (norm === 'UNDER_CONSTRUCTION' || norm === 'UNDER CONSTRUCTION' || norm === 'UNDER CONSTRUCTION') {
       return ['Under Construction'];
     }
-    if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
-      return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
+    if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL PENDING' || norm === 'APPROVAL_PENDING') {
+      return ['Pending Approval', 'Approval Pending', 'PENDING_APPROVAL'];
     }
     if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
       return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
@@ -1088,7 +1088,6 @@ export default function EditStore() {
     setErrorMsg('');
 
     // Block status change to PENDING_APPROVAL if any NSO mandatory fields are missing.
-    // Users can still save freely when status remains INCOMPLETE_INFORMATION.
     if (data.status === 'PENDING_APPROVAL') {
       const missingNso = nsoMandatoryFields.filter(field => {
         const val = data[field];
@@ -1285,14 +1284,14 @@ export default function EditStore() {
   }
 
   const isNsoFlow = store && ['PENDING_APPROVAL', 'APPROVED', 'NSO_APPROVED', 'ON_HOLD'].includes(store.status);
-  // Finance & Legal is read-only for ALL users in NSO flow or Upcoming (INCOMPLETE_INFORMATION) flow
-  const isFinanceReadOnly = isNsoFlow || (store?.status === 'INCOMPLETE_INFORMATION');
+  // Finance & Legal is read-only for ALL users in NSO flow
+  const isFinanceReadOnly = isNsoFlow;
   const isReadyToGoLiveOrLive = store && ['READY_TO_GO_LIVE', 'LIVE'].includes(store.status);
 
   const baseOptions = isSuperAdmin 
     ? [
-        { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
-        { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable },
+
+        { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable },
         { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled },
         { value: 'ON_HOLD', label: 'On Hold' },
         ...((isReadyToGoLiveOrLive || store?.status === 'APPROVED' || store?.status === 'NSO_APPROVED') ? [{ value: 'READY_TO_GO_LIVE', label: 'Ready to Go Live' }] : []),
@@ -1306,8 +1305,8 @@ export default function EditStore() {
         ]
       : isNsoFlow 
         ? [
-            { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
-            { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable },
+
+            { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable },
             ...((canApprove || isApprovedStatus) ? [
               { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled }
             ] : []),
@@ -1317,8 +1316,8 @@ export default function EditStore() {
             ...(hasGoLiveAccess ? [{ value: 'LIVE', label: 'Live' }] : [])
           ]
         : [
-            { value: 'INCOMPLETE_INFORMATION', label: 'Incomplete Information' },
-            { value: 'PENDING_APPROVAL', label: 'Approval Pending', disabled: !isApprovedSelectable }
+
+            { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable }
           ];
 
   let statusOptions = [...baseOptions];
@@ -1342,7 +1341,7 @@ export default function EditStore() {
   }
 
   if (store?.status === 'Under Construction') {
-    statusOptions = statusOptions.filter(opt => !['INCOMPLETE_INFORMATION', 'Ready for Construction'].includes(opt.value));
+    statusOptions = statusOptions.filter(opt => !['Ready for Construction'].includes(opt.value));
     const pendingOptIndex = statusOptions.findIndex(opt => opt.value === 'PENDING_APPROVAL');
     if (pendingOptIndex !== -1) {
       const pendingOpt = statusOptions.splice(pendingOptIndex, 1)[0];
@@ -1428,7 +1427,7 @@ export default function EditStore() {
                       return !(isSuperAdmin || isAdmin || hasEditStores);
                     }
                     if (!isSuperAdmin && !isAdmin && !canEditBasicDetails) return true;
-                    if (store && store.status !== 'INCOMPLETE_INFORMATION' && !isSuperAdmin && !user?.permissions?.includes('APPROVER')) return true;
+                    if (store && !isSuperAdmin && !user?.permissions?.includes('APPROVER')) return true;
                     return false;
                   })()
                 }
@@ -1597,7 +1596,7 @@ export default function EditStore() {
               '& .MuiAlert-message': { fontWeight: 700, color: '#000' }
             }}
           >
-            To enable the <strong>"Approval Pending"</strong> action, please complete all mandatory fields:{' '}
+            To enable the <strong>"Sent to NSO Team for Approval"</strong> action, please complete all mandatory fields:{' '}
             <strong>
               {nsoMandatoryFields.filter(f => {
                 const val = watch(f);
@@ -1755,7 +1754,7 @@ export default function EditStore() {
                       <TextField 
                         fullWidth 
                         label="Café Name **" 
-                        {...register('cafeName', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('cafeName', { required: 'Required' })} 
                         error={!!errors.cafeName}
                         helperText={errors.cafeName?.message}
                         disabled={!canEditBasicDetails} 
@@ -1765,7 +1764,7 @@ export default function EditStore() {
                       <TextField 
                         fullWidth 
                         label="Café Code **" 
-                        {...register('cafeCode', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('cafeCode', { required: 'Required' })} 
                         error={!!errors.cafeCode}
                         helperText={errors.cafeCode?.message}
                         disabled={!canEditBasicDetails} 
@@ -1775,7 +1774,7 @@ export default function EditStore() {
                       <TextField 
                         fullWidth 
                         label="Pin Code **" 
-                        {...register('pinCode', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('pinCode', { required: 'Required' })} 
                         error={!!errors.pinCode}
                         helperText={errors.pinCode?.message}
                         disabled={!canEditBasicDetails} 
@@ -1808,7 +1807,7 @@ export default function EditStore() {
                       <TextField 
                         fullWidth 
                         label="Café Address **" 
-                        {...register('cafeAddress', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('cafeAddress', { required: 'Required' })} 
                         error={!!errors.cafeAddress}
                         helperText={errors.cafeAddress?.message}
                         disabled={!canEditBasicDetails} 
@@ -1821,7 +1820,7 @@ export default function EditStore() {
                         fullWidth 
                         label="Café Location Google Link **" 
                         placeholder="e.g. https://maps.google.com/..." 
-                        {...register('cafeLocationGoogleLink', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('cafeLocationGoogleLink', { required: 'Required' })} 
                         error={!!errors.cafeLocationGoogleLink}
                         helperText={errors.cafeLocationGoogleLink?.message}
                         disabled={!canEditBasicDetails} 
@@ -1832,7 +1831,7 @@ export default function EditStore() {
                         fullWidth
                         label="Lat, Long **"
                         placeholder="e.g. 28.6139, 77.2090"
-                        {...register('latitude', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })}
+                        {...register('latitude', { required: 'Required' })}
                         error={!!errors.latitude}
                         disabled={!canEditBasicDetails}
                         helperText={errors.latitude?.message || "Latitude, Longitude"}
@@ -1844,7 +1843,7 @@ export default function EditStore() {
                         label="Latitude **"
                         InputLabelProps={{ shrink: true }}
                         InputProps={{ readOnly: true }}
-                        {...register('latt', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })}
+                        {...register('latt', { required: 'Required' })}
                         error={!!errors.latt}
                         helperText={errors.latt?.message || "Auto-filled"}
                         disabled={!canEditBasicDetails}
@@ -1856,7 +1855,7 @@ export default function EditStore() {
                         label="Longitude **"
                         InputLabelProps={{ shrink: true }}
                         InputProps={{ readOnly: true }}
-                        {...register('long', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })}
+                        {...register('long', { required: 'Required' })}
                         error={!!errors.long}
                         helperText={errors.long?.message || "Auto-filled"}
                         disabled={!canEditBasicDetails}
@@ -1868,7 +1867,7 @@ export default function EditStore() {
                         select 
                         fullWidth 
                         label="Zone **" 
-                        {...register('zone', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('zone', { required: 'Required' })} 
                         error={!!errors.zone}
                         value={watch('zone') || ''}
                         disabled={!canEditBasicDetails}
@@ -1885,7 +1884,7 @@ export default function EditStore() {
                         type="time"
                         InputLabelProps={{ shrink: true }}
                         label="Café Opening Time **" 
-                        {...register('cafeOpenTiming', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('cafeOpenTiming', { required: 'Required' })} 
                         error={!!errors.cafeOpenTiming}
                         helperText={errors.cafeOpenTiming?.message}
                         disabled={!canEditBasicDetails} 
@@ -1897,7 +1896,7 @@ export default function EditStore() {
                         type="time"
                         InputLabelProps={{ shrink: true }}
                         label="Café Closing Time **" 
-                        {...register('cafeClosingTime', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('cafeClosingTime', { required: 'Required' })} 
                         error={!!errors.cafeClosingTime}
                         helperText={errors.cafeClosingTime?.message}
                         disabled={!canEditBasicDetails} 
@@ -1909,7 +1908,7 @@ export default function EditStore() {
                         type="time"
                         InputLabelProps={{ shrink: true }}
                         label="Actual Closing Time **" 
-                        {...register('actualClosingTime', { required: watch('status') !== 'INCOMPLETE_INFORMATION' ? 'Required' : false })} 
+                        {...register('actualClosingTime', { required: 'Required' })} 
                         error={!!errors.actualClosingTime}
                         helperText={errors.actualClosingTime?.message}
                         disabled={!canEditBasicDetails} 

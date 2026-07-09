@@ -141,7 +141,7 @@ export async function getEmailMappings(): Promise<EmailMapping[]> {
   let config = [...DEFAULT_MAPPINGS];
   try {
     const doc = await firebaseAdmin.firestore().collection('system').doc('email_recipients').get();
-    if (doc.exists && doc.data()?.mappings) {
+    if (doc.exists && Array.isArray(doc.data()?.mappings)) {
       config = doc.data()?.mappings || [];
     } else {
       await saveEmailMappings(config);

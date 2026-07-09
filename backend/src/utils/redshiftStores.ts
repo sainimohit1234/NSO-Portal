@@ -208,8 +208,7 @@ function mapSourceStatusToAppStatus(row: RedshiftStoreRow, currentStatus?: strin
     'PENDING_APPROVAL',
     'NSO_APPROVED',
     'APPROVED',
-    'ON_HOLD',
-    'INCOMPLETE_INFORMATION'
+    'ON_HOLD'
   ];
 
   if (currentStatus && preservedWorkflowStatuses.includes(currentStatus)) {

@@ -125,3 +125,84 @@ export const sortStoresByCurrentStatus = (stores) => {
     return nameA.localeCompare(nameB);
   });
 };
+
+export const getBrandType = (brand) => {
+  const b = (brand || '').toLowerCase();
+  if (b.includes('got tea') || b.includes('gottea')) return 'gotTea';
+  if (b.includes('suchali')) return 'suchali';
+  return 'blueTokkai';
+};
+
+export const isLegacyStore = (store) => {
+  if (store.sourceSystem === 'redshift') return true;
+  if (!store?.createdAt) return true;
+
+  let parsedDate = 0;
+  if (store.createdAt._seconds) parsedDate = store.createdAt._seconds * 1000;
+  else if (store.createdAt.seconds) parsedDate = store.createdAt.seconds * 1000;
+  else parsedDate = new Date(store.createdAt).getTime();
+
+  const storeDate = new Date(parsedDate || 0);
+  return isNaN(storeDate.getTime()) || storeDate < new Date('2026-07-07T00:00:00Z');
+};
+
+export const checkMailStatus = (statusValue, store) => {
+  if (statusValue === 'Sent' || statusValue === 'SENT') return true;
+  if (isLegacyStore(store)) return true;
+  return false;
+};
+
+export const computeIntegrationStatus = (store) => {
+  if (isLegacyStore(store)) {
+    return { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7', border: '#86efac' };
+  }
+
+  const brandType = getBrandType(store.brand);
+  let requiredEmailFields, requiredRIDFields;
+  switch (brandType) {
+    case 'gotTea':
+      requiredEmailFields = ['gotTeaZomatoMailStatus', 'gotTeaSwiggyMailStatus'];
+      requiredRIDFields = ['gotTeaZomatoRID', 'gotTeaSwiggyRID'];
+      break;
+    case 'suchali':
+      requiredEmailFields = ['suchaliZomatoMailStatus', 'suchaliSwiggyMailStatus'];
+      requiredRIDFields = ['suchaliZomatoRID', 'suchaliSwiggyRID'];
+      break;
+    default:
+      requiredEmailFields = ['btZomatoMailStatus', 'btSwiggyMailStatus'];
+      requiredRIDFields = ['blueTokaiZomatoRID', 'blueTokaiSwiggyRID'];
+  }
+
+  const allEmailsSent = requiredEmailFields.every(
+    f => checkMailStatus(store[f], store)
+  );
+
+  if (!allEmailsSent) {
+    return { label: 'Pending', color: '#92400e', bg: '#fef3c7', border: '#fcd34d' };
+  }
+
+  const allRIDsFilled = requiredRIDFields.every(
+    f => store[f] && String(store[f]).trim() !== ''
+  );
+
+  if (allRIDsFilled) {
+    return { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7', border: '#86efac' };
+  }
+
+  const mailSentAt = store.integrationMailSentAt
+    ? new Date(store.integrationMailSentAt)
+    : null;
+
+  if (!mailSentAt) {
+    return { label: 'Mail Sent', color: '#1e3a8a', bg: '#dbeafe', border: '#93c5fd' };
+  }
+
+  const daysSinceSent = (Date.now() - mailSentAt.getTime()) / (1000 * 60 * 60 * 24);
+
+  if (daysSinceSent >= 4) {
+    return { label: 'Needs Follow-up with S/Z', color: '#7f1d1d', bg: '#fee2e2', border: '#fca5a5' };
+  }
+
+  const daysRemaining = Math.ceil(4 - daysSinceSent);
+  return { label: `Follow-up in ${daysRemaining} day(s)`, color: '#1e3a8a', bg: '#dbeafe', border: '#93c5fd' };
+};

@@ -46,6 +46,7 @@
     "node_modules",
     "prisma.config.ts",
     "dist",
-    "scratch"
+    "scratch",
+    "scripts"
   ]
 }

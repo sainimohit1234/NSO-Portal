@@ -328,9 +328,7 @@ export default function ExpansionPipeline() {
     if (norm === 'UNDER_CONSTRUCTION' || norm === 'UNDER CONSTRUCTION') {
       return ['Under Construction'];
     }
-    if (norm === 'INCOMPLETE_INFORMATION' || norm === 'INCOMPLETE' || norm === 'INCOMPLETE INFORMATION') {
-      return ['Incomplete Information', 'Incomplete', 'INCOMPLETE_INFORMATION'];
-    }
+
     if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
       return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
     }
@@ -637,7 +635,7 @@ export default function ExpansionPipeline() {
   };
 
   const getStatusLabel = (status) => {
-    if (status === 'INCOMPLETE_INFORMATION') return 'Incomplete';
+
     if (status === 'PENDING_APPROVAL') return 'Pending Approval';
     if (status === 'APPROVED' || status === 'NSO_APPROVED') return 'Approved';
     if (status === 'READY_TO_GO_LIVE') return 'Ready to Go Live';
@@ -1393,7 +1391,8 @@ export default function ExpansionPipeline() {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        sx={{ zIndex: 9999 }}
       >
         <Alert 
           onClose={() => setSnackbar({ ...snackbar, open: false })} 

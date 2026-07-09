@@ -223,19 +223,21 @@ export default function Layout() {
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', ...(themeMode === 'customize' ? { background: 'transparent' } : glassPanelSx) }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', px: 2, pt: 2.75, pb: 2, gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 46, width: 46, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
-          <img src={suchaliLogo} alt="Suchali's" style={{ height: 46, width: 46, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
-          <img src={gotTeaLogo} alt="Got Tea" style={{ height: 46, width: 46, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+          <img src={suchaliLogo} alt="Suchali's" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+          <img src={gotTeaLogo} alt="Got Tea" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
         </Box>
-        <Typography variant="h5" noWrap component="div" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '0.94rem', letterSpacing: '0.06em' }}>
+        <Typography variant="h5" noWrap component="div" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '1.5rem', letterSpacing: '0.06em' }}>
           NSO PORTAL
         </Typography>
         <Chip
           label="Store Management Console"
-          size="small"
+          size="medium"
           sx={{
-            height: 28,
+            height: 32,
+            fontSize: '0.875rem',
+            fontWeight: 600,
             bgcolor: alpha(theme.palette.primary.main, 0.1),
             color: theme.palette.primary.main,
             border: `1px solid ${alpha(theme.palette.primary.main, 0.25)}`
@@ -243,7 +245,7 @@ export default function Layout() {
         />
       </Box>
       <Divider sx={{ mb: 1.5, borderColor: 'divider' }} />
-      <List sx={{ px: 1.5, flexGrow: 1 }}>
+      <List sx={{ px: 1.5, flexGrow: 1, overflowY: 'auto', '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px' } }}>
         {filteredMenuItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (

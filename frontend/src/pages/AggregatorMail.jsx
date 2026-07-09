@@ -25,7 +25,13 @@ const STATUS_OPTIONS = [
   'On Hold',
   'Compliance Approved',
   'Closed',
-  'Live'
+  'Live',
+  'Draft a mail for BTC | Zomato',
+  'Draft a mail for BTC | Swiggy',
+  'Draft a mail for SAB | Zomato',
+  'Draft a mail for SAB | Swiggy',
+  'Draft a mail for GT | Zomato',
+  'Draft a mail for GT | Swiggy',
 ];
 
 const htmlToTextMessage = (html) => {
@@ -108,7 +114,7 @@ const compileVisualToHtml = (intro, outro, table) => {
   
   let html = formattedIntro;
   if (table) {
-    html += '<table style="width: 100%; border-collapse: collapse; margin: 15px 0;">';
+    html += '<table style="width: 50%; border-collapse: collapse; margin: 15px 0; text-align: left;">';
     html += '<thead><tr style="background-color: #f8fafc;">';
     table.headers.forEach(h => {
       const bgStyle = h.bgColor ? ` background-color: ${h.bgColor};` : '';
@@ -1251,49 +1257,113 @@ export default function AggregatorMail() {
                       <DialogTitle sx={{ fontWeight: 800 }}>Cell Color & Styling</DialogTitle>
                       <DialogContent dividers>
                         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Cell Background Color</Typography>
-                        <Stack direction="row" spacing={1} sx={{ mb: 3, flexWrap: 'wrap', gap: 1 }}>
+                        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap', gap: 0.75 }}>
                           {[
-                            { name: 'Default', value: '' },
+                            { name: 'Default (White)', value: '' },
+                            // Reds
+                            { name: 'Light Pink', value: '#fce7f3' },
                             { name: 'Light Red', value: '#fee2e2' },
-                            { name: 'Light Yellow', value: '#fef3c7' },
+                            { name: 'Red', value: '#fca5a5' },
+                            { name: 'Deep Red', value: '#f87171' },
+                            // Oranges
+                            { name: 'Light Orange', value: '#ffedd5' },
+                            { name: 'Orange', value: '#fed7aa' },
+                            { name: 'Amber', value: '#fde68a' },
+                            // Yellows
+                            { name: 'Light Yellow', value: '#fef9c3' },
+                            { name: 'Yellow', value: '#fef08a' },
+                            { name: 'Light Amber', value: '#fef3c7' },
+                            // Greens
+                            { name: 'Mint', value: '#d1fae5' },
                             { name: 'Light Green', value: '#dcfce7' },
+                            { name: 'Green', value: '#bbf7d0' },
+                            { name: 'Teal', value: '#ccfbf1' },
+                            { name: 'Emerald', value: '#a7f3d0' },
+                            // Blues
+                            { name: 'Sky', value: '#e0f2fe' },
                             { name: 'Light Blue', value: '#dbeafe' },
+                            { name: 'Blue', value: '#bfdbfe' },
+                            { name: 'Indigo', value: '#e0e7ff' },
+                            { name: 'Violet', value: '#ede9fe' },
+                            { name: 'Purple', value: '#f3e8ff' },
+                            // Grays
                             { name: 'Light Gray', value: '#f1f5f9' },
-                          ].map(color => (
-                            <Box
-                              key={color.name}
-                              onClick={() => {
-                                if (selectedCell) {
-                                  updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'bgColor', color.value);
-                                }
-                              }}
-                              sx={{
-                                width: 32,
-                                height: 32,
-                                borderRadius: '50%',
-                                bgcolor: color.value || '#ffffff',
-                                border: '2px solid',
-                                borderColor: selectedCell && (selectedCell.type === 'header' 
-                                  ? tableData.headers[selectedCell.colIndex]?.bgColor === color.value
-                                  : tableData.rows[selectedCell.rowIndex]?.[selectedCell.colIndex]?.bgColor === color.value)
-                                    ? 'primary.main' 
-                                    : '#cbd5e1',
-                                cursor: 'pointer',
-                                boxShadow: 'inset 0 0 2px rgba(0,0,0,0.1)'
-                              }}
-                              title={color.name}
-                            />
-                          ))}
+                            { name: 'Gray', value: '#e2e8f0' },
+                            { name: 'Dark Gray', value: '#cbd5e1' },
+                            // Darks
+                            { name: 'Dark Blue', value: '#1e3a5f' },
+                            { name: 'Dark Green', value: '#14532d' },
+                            { name: 'Black', value: '#0f172a' },
+                          ].map(color => {
+                            const isSelected = selectedCell && (selectedCell.type === 'header'
+                              ? tableData.headers[selectedCell.colIndex]?.bgColor === color.value
+                              : tableData.rows[selectedCell.rowIndex]?.[selectedCell.colIndex]?.bgColor === color.value);
+                            return (
+                              <Box
+                                key={color.name}
+                                onClick={() => {
+                                  if (selectedCell) {
+                                    updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'bgColor', color.value);
+                                  }
+                                }}
+                                sx={{
+                                  width: 28,
+                                  height: 28,
+                                  borderRadius: '50%',
+                                  bgcolor: color.value || '#ffffff',
+                                  // White inner border makes dark swatches pop on the white dialog background
+                                  border: '2px solid white',
+                                  // Outer ring: blue if selected, gray otherwise
+                                  boxShadow: isSelected
+                                    ? '0 0 0 2px #2563eb'
+                                    : '0 0 0 1.5px #94a3b8',
+                                  cursor: 'pointer',
+                                  '&:hover': { transform: 'scale(1.2)', transition: 'transform 0.15s', boxShadow: '0 0 0 2px #2563eb' }
+                                }}
+                                title={color.name}
+                              />
+                            );
+                          })}
                         </Stack>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                          <Typography variant="caption" color="text.secondary">Custom:</Typography>
+                          <input
+                            type="color"
+                            style={{ width: 32, height: 32, border: 'none', borderRadius: '4px', cursor: 'pointer', padding: 0 }}
+                            onChange={(e) => {
+                              if (selectedCell) {
+                                updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'bgColor', e.target.value);
+                              }
+                            }}
+                          />
+                          <Typography variant="caption" color="text.secondary">Pick any colour</Typography>
+                        </Box>
 
                         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Text Color</Typography>
-                        <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap', gap: 0.75 }}>
                           {[
-                            { name: 'Default', value: '' },
+                            { name: 'Default (Dark)', value: '' },
+                            { name: 'Black', value: '#0f172a' },
+                            { name: 'Slate', value: '#475569' },
+                            { name: 'Gray', value: '#6b7280' },
+                            { name: 'Dark Red', value: '#991b1b' },
                             { name: 'Red', value: '#dc2626' },
+                            { name: 'Rose', value: '#e11d48' },
+                            { name: 'Pink', value: '#db2777' },
+                            { name: 'Dark Orange', value: '#c2410c' },
                             { name: 'Orange', value: '#d97706' },
+                            { name: 'Amber', value: '#d97706' },
+                            { name: 'Yellow', value: '#ca8a04' },
+                            { name: 'Dark Green', value: '#15803d' },
                             { name: 'Green', value: '#16a34a' },
+                            { name: 'Emerald', value: '#059669' },
+                            { name: 'Teal', value: '#0d9488' },
+                            { name: 'Cyan', value: '#0891b2' },
+                            { name: 'Sky', value: '#0284c7' },
                             { name: 'Blue', value: '#2563eb' },
+                            { name: 'Indigo', value: '#4338ca' },
+                            { name: 'Violet', value: '#7c3aed' },
+                            { name: 'Purple', value: '#9333ea' },
                             { name: 'White', value: '#ffffff' },
                           ].map(color => (
                             <Box
@@ -1304,22 +1374,36 @@ export default function AggregatorMail() {
                                 }
                               }}
                               sx={{
-                                width: 32,
-                                height: 32,
+                                width: 28,
+                                height: 28,
                                 borderRadius: '50%',
                                 bgcolor: color.value || '#334155',
                                 border: '2px solid',
-                                borderColor: selectedCell && (selectedCell.type === 'header' 
+                                borderColor: selectedCell && (selectedCell.type === 'header'
                                   ? tableData.headers[selectedCell.colIndex]?.textColor === color.value
                                   : tableData.rows[selectedCell.rowIndex]?.[selectedCell.colIndex]?.textColor === color.value)
-                                    ? 'primary.main' 
+                                    ? 'primary.main'
                                     : '#cbd5e1',
-                                cursor: 'pointer'
+                                cursor: 'pointer',
+                                '&:hover': { transform: 'scale(1.2)', transition: 'transform 0.15s' }
                               }}
                               title={color.name}
                             />
                           ))}
                         </Stack>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <Typography variant="caption" color="text.secondary">Custom:</Typography>
+                          <input
+                            type="color"
+                            style={{ width: 32, height: 32, border: 'none', borderRadius: '4px', cursor: 'pointer', padding: 0 }}
+                            onChange={(e) => {
+                              if (selectedCell) {
+                                updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'textColor', e.target.value);
+                              }
+                            }}
+                          />
+                          <Typography variant="caption" color="text.secondary">Pick any colour</Typography>
+                        </Box>
                       </DialogContent>
                       <DialogActions sx={{ p: 1.5 }}>
                         <Button variant="contained" onClick={() => setSelectedCell(null)} sx={{ borderRadius: '8px', textTransform: 'none' }}>
