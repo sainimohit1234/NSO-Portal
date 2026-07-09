@@ -71,7 +71,7 @@ router.post('/add-link', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asyn
 router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req, res) => {
   const { id } = req.params;
   try {
-    const { category, linkName, linkUrl } = req.body;
+    const { category, linkName, linkUrl, gstNumber } = req.body;
     if (!category) {
       return res.status(400).json({ error: 'Category is required' });
     }
@@ -79,11 +79,14 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req
       return res.status(400).json({ error: 'Link URL is required' });
     }
 
-    const updates = {
+    const updates: any = {
       category,
       fileName: linkName || linkUrl,
       fileUrl: linkUrl
     };
+    if (gstNumber !== undefined) {
+      updates.gstNumber = gstNumber;
+    }
 
     await db.collection('globalDocuments').doc(id).update(updates);
     
