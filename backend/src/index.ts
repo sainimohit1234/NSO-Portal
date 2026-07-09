@@ -55,6 +55,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 
 app.get('/uploads/:filename', async (req, res) => {
+  res.removeHeader('X-Frame-Options');
   const { filename } = req.params;
   const localPath = path.resolve(process.cwd(), 'uploads', filename);
 

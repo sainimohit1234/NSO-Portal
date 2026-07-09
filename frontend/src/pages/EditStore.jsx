@@ -1179,7 +1179,7 @@ export default function EditStore() {
       navigate(fromPath);
     } catch (err) {
       console.error(err);
-      let finalError = err.response?.data?.error || 'Failed to update store.';
+      let finalError = err.response?.data?.message || err.response?.data?.error || err.message || JSON.stringify(err) || 'Failed to update store.';
       if (err.response?.data?.missingFields?.length > 0) {
         finalError += ': ' + err.response.data.missingFields.map(f => FIELD_LABELS[f] || f).join(', ');
       }
@@ -1221,7 +1221,7 @@ export default function EditStore() {
       navigate('/approvals', { state: { successMessage: `${data.cafeName} Café has been approved successfully.` } });
     } catch (err) {
       console.error(err);
-      let finalError = err.response?.data?.error || 'Failed to update store.';
+      let finalError = err.response?.data?.message || err.response?.data?.error || err.message || JSON.stringify(err) || 'Failed to update store.';
       if (err.response?.data?.missingFields?.length > 0) {
         finalError += ': ' + err.response.data.missingFields.map(f => FIELD_LABELS[f] || f).join(', ');
       }
