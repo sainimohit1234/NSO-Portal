@@ -319,16 +319,29 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
   const handleSaveAll = async () => {
     if (!store) return;
     
-    // VALIDATION: Require FSSAI Number and Dates if FSSAI doc is uploaded
+    // VALIDATION: Require FSSAI Number and Dates if FSSAI doc is uploaded and being currently modified
     const fssaiDoc = documents.find(d => d.type === 'FSSAI License');
     if (fssaiDoc && fssaiDoc.url) {
-      if (!fssaiDoc.metadata || !fssaiDoc.metadata.fssaiNumber || fssaiDoc.metadata.fssaiNumber.trim() === '') {
-        setSnackbar({ open: true, message: 'Please update the FSSAI Number before saving.', severity: 'error' });
-        return;
-      }
-      if (!fssaiDoc.metadata || !fssaiDoc.metadata.fssaiIssuedOn || !fssaiDoc.metadata.fssaiValidUntil) {
-        setSnackbar({ open: true, message: 'Please update the FSSAI Issued On and Valid Until dates before saving.', severity: 'error' });
-        return;
+      const originalDocs = Array.isArray(store.documents) ? store.documents : [];
+      const originalFssai = originalDocs.find(d => d.type === 'FSSAI License');
+      const isNewlyUploaded = !originalFssai || originalFssai.url !== fssaiDoc.url;
+      const isMetadataModified = originalFssai && fssaiDoc.metadata && (
+          originalFssai.metadata?.fssaiNumber !== fssaiDoc.metadata?.fssaiNumber ||
+          originalFssai.metadata?.issuedOn !== fssaiDoc.metadata?.issuedOn ||
+          originalFssai.metadata?.validUntil !== fssaiDoc.metadata?.validUntil
+      );
+      
+      // We only validate if the user is actively working on the FSSAI License
+      // If they are just saving some other document (like GST), we let it pass.
+      if (isNewlyUploaded || isMetadataModified) {
+        if (!fssaiDoc.metadata || !fssaiDoc.metadata.fssaiNumber || fssaiDoc.metadata.fssaiNumber.trim() === '') {
+          setSnackbar({ open: true, message: 'Please update the FSSAI Number in the Legal Documents tab before saving.', severity: 'error' });
+          return;
+        }
+        if (!fssaiDoc.metadata || !fssaiDoc.metadata.issuedOn || !fssaiDoc.metadata.validUntil) {
+          setSnackbar({ open: true, message: 'Please update the FSSAI Issued On and Valid Until dates in the Legal Documents tab before saving.', severity: 'error' });
+          return;
+        }
       }
     }
 
