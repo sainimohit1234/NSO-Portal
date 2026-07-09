@@ -18,7 +18,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { fetchStoresFromFirestore } from '../services/storeService';
-import InteractiveLoader from '../components/InteractiveLoader';
+import FullScreenLoader from '../components/FullScreenLoader';
 
 // ─── HTML template parsing and compiling helpers ───────────────────────────────
 
@@ -397,8 +397,7 @@ export default function SwiggyZomatoIntegration() {
               <TableBody>
                 {loading && stores.length === 0 ? (
                   <TableRow><TableCell colSpan={22} align="center" sx={{ py: 4, borderBottom: 'none' }}>
-                    <Box sx={{ position: 'sticky', left: '50%', transform: 'translateX(-50%)', display: 'inline-block' }}>
-                      <InteractiveLoader messages={[
+                      <FullScreenLoader messages={[
                         'Warming up the espresso machine…',
                         'Grinding the freshest beans…',
                         'Fetching approved stores…',
@@ -406,7 +405,6 @@ export default function SwiggyZomatoIntegration() {
                         'Plating the details…',
                         'Almost ready to serve ☕',
                       ]} />
-                    </Box>
                   </TableCell></TableRow>
                 ) : filteredStores.length === 0 ? (
                   <TableRow><TableCell colSpan={22} align="center" sx={{ py: 8, color: 'text.secondary', fontStyle: 'italic', borderBottom: 'none' }}>

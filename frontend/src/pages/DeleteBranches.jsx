@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { 
   Box, Typography, Card, CardContent, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Paper, Chip, TextField, Grid, 
-  Button, CircularProgress, Alert, Dialog, DialogTitle,
+  Button, Alert, Dialog, DialogTitle,
   DialogContent, DialogActions, InputAdornment, MenuItem, Switch
 } from '@mui/material';
+import FullScreenLoader from '../components/FullScreenLoader';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningIcon from '@mui/icons-material/Warning';
 import SearchIcon from '@mui/icons-material/Search';
@@ -159,11 +160,13 @@ export default function DeleteBranches() {
   }
 
   if (loading && stores.length === 0) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', p: 8 }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <FullScreenLoader messages={[
+      'Warming up the espresso machine…',
+      'Grinding the freshest beans…',
+      'Loading active branches…',
+      'Plating the details…',
+      'Almost ready to serve ☕',
+    ]} />;
   }
 
   return (

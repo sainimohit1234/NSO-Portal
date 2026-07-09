@@ -8,6 +8,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   Select, InputAdornment, Autocomplete, Tabs, Tab, Stack, Backdrop
 } from '@mui/material';
+import FullScreenLoader from '../components/FullScreenLoader';
 import EditIcon from '@mui/icons-material/Edit';
 import SendIcon from '@mui/icons-material/Send';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -1280,7 +1281,13 @@ export default function EditStore() {
         </Box>
       );
     }
-    return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+    return <FullScreenLoader messages={[
+      'Warming up the espresso machine…',
+      'Grinding the freshest beans…',
+      'Loading store details…',
+      'Plating the details…',
+      'Almost ready to serve ☕',
+    ]} />;
   }
 
   const isNsoFlow = store && ['PENDING_APPROVAL', 'APPROVED', 'NSO_APPROVED', 'ON_HOLD'].includes(store.status);
@@ -2903,10 +2910,13 @@ export default function EditStore() {
         </DialogContent>
       </Dialog>
       
-      <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={loading}>
-        <CircularProgress color="inherit" />
-        <Typography variant="h6" sx={{ color: 'inherit' }}>Processing...</Typography>
-      </Backdrop>
+      {loading && <FullScreenLoader messages={[
+        'Warming up the espresso machine…',
+        'Grinding the freshest beans…',
+        'Updating store configuration…',
+        'Plating the details…',
+        'Almost ready to serve ☕',
+      ]} blocking={true} />}
     </Box>
   );
 }

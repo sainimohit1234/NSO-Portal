@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Box, Typography, Card, CardContent, Chip, TextField, MenuItem,
-  Button, IconButton, Tooltip, Snackbar, Alert, CircularProgress,
+  Button, IconButton, Tooltip, Snackbar, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions, Select, InputAdornment,
   Stack, Divider
@@ -18,6 +18,7 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import axios from '../utils/api';
 import DocumentManagerModal from '../components/DocumentManagerModal';
+import FullScreenLoader from '../components/FullScreenLoader';
 
 import { useAuth } from '../context/AuthContext';
 import { normalizeListResponse } from '../utils/api';
@@ -893,7 +894,15 @@ export default function ExpansionPipeline() {
               {loading && stores.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6 }}>
-                    <CircularProgress size={32} />
+                    <Box sx={{ py: 8 }}>
+                      <FullScreenLoader messages={[
+                        'Warming up the espresso machine…',
+                        'Grinding the freshest beans…',
+                        'Loading the expansion pipeline…',
+                        'Plating the details…',
+                        'Almost ready to serve ☕',
+                      ]} />
+                    </Box>
                   </TableCell>
                 </TableRow>
               ) : stores.length === 0 ? (

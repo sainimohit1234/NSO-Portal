@@ -5,6 +5,7 @@ import {
   CircularProgress, List, ListItem, ListItemButton, ListItemIcon, 
   ListItemText, Divider, Alert, Snackbar, Paper, Backdrop, Portal
 } from '@mui/material';
+import FullScreenLoader from '../components/FullScreenLoader';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import ImageIcon from '@mui/icons-material/Image';
@@ -232,7 +233,13 @@ export default function ImagesDocs() {
 
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-                  <CircularProgress size={40} />
+                  <FullScreenLoader messages={[
+                    'Warming up the espresso machine…',
+                    'Grinding the freshest beans…',
+                    'Gathering the document library…',
+                    'Plating the details…',
+                    'Almost ready to serve ☕',
+                  ]} subtle />
                 </Box>
               ) : docs.length === 0 ? (
                 <Box sx={{ p: 8, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.02)' }}>
@@ -524,10 +531,13 @@ export default function ImagesDocs() {
       </Snackbar>
 
       <Portal>
-        <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={uploading}>
-          <CircularProgress variant={uploadProgress > 0 ? "determinate" : "indeterminate"} value={uploadProgress} color="inherit" size={60} />
-          <Typography variant="h6">Processing Document... {uploadProgress > 0 ? `${uploadProgress}%` : ''}</Typography>
-        </Backdrop>
+        {uploading && <FullScreenLoader messages={[
+          'Warming up the espresso machine…',
+          'Grinding the freshest beans…',
+          'Uploading your document securely…',
+          'Plating the details…',
+          'Almost ready to serve ☕',
+        ]} blocking={true} />}
       </Portal>
     </Box>
   );

@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Box, Grid, Card, CardContent, Typography, TextField,
-  Chip, CircularProgress, useTheme, IconButton, InputAdornment
+  Chip, useTheme, IconButton, InputAdornment
 } from '@mui/material';
+import FullScreenLoader from '../components/FullScreenLoader';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import Storefront from '@mui/icons-material/Storefront';
@@ -246,7 +247,13 @@ export default function Dashboard() {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', minHeight: '80vh', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress size={50} />
+        <FullScreenLoader messages={[
+          'Warming up the espresso machine…',
+          'Grinding the freshest beans…',
+          'Fetching dashboard analytics…',
+          'Plating the details…',
+          'Almost ready to serve ☕',
+        ]} subtle />
       </Box>
     );
   }

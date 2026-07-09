@@ -3,8 +3,9 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid, Box, Typography,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip,
   IconButton, Link, Switch, TextField, Accordion, AccordionSummary, AccordionDetails,
-  Backdrop, CircularProgress, Tooltip, Portal
+  CircularProgress, Tooltip, Portal
 } from '@mui/material';
+import FullScreenLoader from './FullScreenLoader';
 import {
   CloudUpload as CloudUploadIcon,
   Delete as DeleteIcon,
@@ -787,15 +788,15 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
       </DialogActions>
     </Dialog>
     
-    <Portal>
-      <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={loading}>
-        <CircularProgress variant={uploadProgress > 0 && loadingMessage.includes('Uploading') ? "determinate" : "indeterminate"} value={uploadProgress} color="inherit" size={60} />
-        <Typography variant="h6">
-          {loadingMessage || 'Processing Document...'} 
-          {uploadProgress > 0 && loadingMessage.includes('Uploading') ? ` ${uploadProgress}%` : ''}
-        </Typography>
-      </Backdrop>
-    </Portal>
+      <Portal>
+        {loading && <FullScreenLoader messages={[
+          'Warming up the espresso machine…',
+          'Grinding the freshest beans…',
+          'Saving document changes…',
+          'Plating the details…',
+          'Almost ready to serve ☕',
+        ]} blocking={true} />}
+      </Portal>
 
     <Dialog open={showConfirmClose} onClose={() => setShowConfirmClose(false)} PaperProps={{ sx: { borderRadius: '12px' } }}>
       <DialogTitle sx={{ fontWeight: 800, borderBottom: '1px solid', borderColor: 'divider' }}>Unsaved Document Warning</DialogTitle>

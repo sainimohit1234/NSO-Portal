@@ -8,8 +8,11 @@ import {
   Chip,
   CircularProgress,
   Stack,
+  TableContainer,
+  Paper,
   Typography
 } from '@mui/material';
+import FullScreenLoader from '../components/FullScreenLoader';
 import { collection, getDocs, query, updateDoc, where, doc } from 'firebase/firestore';
 import { firestore } from '../lib/firebase';
 
@@ -78,9 +81,13 @@ export default function UserRegistrations() {
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress />
-        </Box>
+        <FullScreenLoader messages={[
+          'Warming up the espresso machine…',
+          'Grinding the freshest beans…',
+          'Fetching user requests…',
+          'Plating the details…',
+          'Almost ready to serve ☕',
+        ]} />
       ) : pendingUsers.length === 0 ? (
         <Card sx={{ borderRadius: '24px' }}>
           <CardContent>

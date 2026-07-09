@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, useLocation } from 'react-router-dom';
-import { CssBaseline, Box, CircularProgress } from '@mui/material';
+import { CssBaseline, Box } from '@mui/material';
+import FullScreenLoader from './components/FullScreenLoader';
 import { CustomThemeProvider } from './context/ThemeContext';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -24,9 +25,13 @@ const UserRegistrations = React.lazy(() => import('./pages/UserRegistrations'));
 const SwiggyZomatoIntegration = React.lazy(() => import('./pages/SwiggyZomatoIntegration'));
 
 const PageLoader = () => (
-  <Box sx={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
-    <CircularProgress />
-  </Box>
+  <FullScreenLoader messages={[
+    'Warming up the espresso machine…',
+    'Grinding the freshest beans…',
+    'Loading App…',
+    'Plating the details…',
+    'Almost ready to serve ☕',
+  ]} />
 );
 
 function ProtectedRoute({ children, allowedRoles }) {
@@ -34,11 +39,13 @@ function ProtectedRoute({ children, allowedRoles }) {
   const location = useLocation();
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <FullScreenLoader messages={[
+      'Warming up the espresso machine…',
+      'Grinding the freshest beans…',
+      'Authenticating…',
+      'Plating the details…',
+      'Almost ready to serve ☕',
+    ]} />;
   }
 
   if (!isAuthenticated) {

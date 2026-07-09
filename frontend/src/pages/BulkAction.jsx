@@ -27,9 +27,9 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Backdrop,
   Portal
 } from '@mui/material';
+import FullScreenLoader from '../components/FullScreenLoader';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -415,10 +415,13 @@ export default function BulkAction() {
       </Card>
 
       <Portal>
-        <Backdrop sx={{ color: 'primary.contrastText', zIndex: (theme) => theme.zIndex.modal + 9999, display: 'flex', flexDirection: 'column', gap: 2 }} open={uploadLoading}>
-          <CircularProgress variant={uploadProgress > 0 ? "determinate" : "indeterminate"} value={uploadProgress} color="inherit" size={60} />
-          <Typography variant="h6">Processing Document... {uploadProgress > 0 ? `${uploadProgress}%` : ''}</Typography>
-        </Backdrop>
+        {uploadLoading && <FullScreenLoader messages={[
+          'Warming up the espresso machine…',
+          'Grinding the freshest beans…',
+          'Processing bulk action…',
+          'Applying updates…',
+          'Almost ready to serve ☕',
+        ]} blocking={true} />}
       </Portal>
     </Box>
   );
