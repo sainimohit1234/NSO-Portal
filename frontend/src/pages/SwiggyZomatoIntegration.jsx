@@ -436,24 +436,119 @@ export default function SwiggyZomatoIntegration() {
                       storeData.pinCode
                     ].filter(Boolean).join(', ');
 
+                    // Lat/Long — store has multiple field names
+                    const lat = storeData.latitude || storeData.latt || storeData.lat || '';
+                    const lng = storeData.long || storeData.lng || '';
+                    const latLng = storeData.lattLong || (lat && lng ? `${lat}, ${lng}` : lat || lng || '');
+
+                    // Timings
+                    const openingTime = storeData.cafeOpenTiming || storeData.openingTime || storeData.cafeOpeningHr || '';
+                    const closingTime = storeData.cafeClosingTime || storeData.actualClosingTime || storeData.closingTime || '';
+
                     const placeholderMap = {
+                      // Basic cafe info
                       '[Cafe Name]': storeData.cafeName || '',
+                      '[Café Name]': storeData.cafeName || '',
+                      '[Display Name]': storeData.cafeName || '',
                       '[Cafe Code]': storeData.cafeCode || '',
+                      '[Café Code]': storeData.cafeCode || '',
+
+                      // Location
                       '[City]': storeData.city || '',
                       '[State]': storeData.state || '',
                       '[Pin Code]': storeData.pinCode || '',
                       '[PinCode]': storeData.pinCode || '',
+                      '[Pincode]': storeData.pinCode || '',
                       '[Address]': completeAddress || '',
                       '[Cafe Address]': completeAddress || '',
+                      '[Café Address]': completeAddress || '',
+                      '[Complete Address]': completeAddress || '',
+                      '[New Outlet City]': storeData.city || '',
+                      '[New Outlet City*]': storeData.city || '',
+
+                      // Lat/Long
+                      '[Latitude]': String(lat || ''),
+                      '[Longitude]': String(lng || ''),
+                      '[Lat]': String(lat || ''),
+                      '[Long]': String(lng || ''),
+                      '[Lat & Long]': latLng,
+                      '[Lat Long]': latLng,
+                      '[LatLong]': latLng,
+                      '[Lat & long]': latLng,
+
+                      // Timings
+                      '[Café Opening Time]': openingTime,
+                      '[Cafe Opening Time]': openingTime,
+                      '[Opening Time]': openingTime,
+                      '[Café Closing Time]': closingTime,
+                      '[Cafe Closing Time]': closingTime,
+                      '[Closing Time]': closingTime,
+                      '[Restaurant Timings]': openingTime && closingTime ? `${openingTime} - ${closingTime}` : openingTime || closingTime || '',
+
+                      // Contact
+                      '[Phone]': storeData.cafePhoneNumber || storeData.phone || '',
+                      '[Cafe Phone]': storeData.cafePhoneNumber || storeData.phone || '',
+                      '[Café Phone]': storeData.cafePhoneNumber || storeData.phone || '',
+                      '[Café Phone Number]': storeData.cafePhoneNumber || storeData.phone || '',
+                      '[Cafe Phone Number]': storeData.cafePhoneNumber || storeData.phone || '',
+                      '[Owner Phone Number]': storeData.cafePhoneNumber || storeData.phone || '',
+                      '[Email]': storeData.cafeMailId || storeData.email || '',
+                      '[Cafe Email]': storeData.cafeMailId || storeData.email || '',
+                      '[Café Email]': storeData.cafeMailId || storeData.email || '',
+                      '[Café Mail ID]': storeData.cafeMailId || storeData.email || '',
+                      '[Cafe Mail ID]': storeData.cafeMailId || storeData.email || '',
+                      '[Order Notification Email ID]': storeData.cafeMailId || storeData.email || '',
+                      '[Café Mail Id]': storeData.cafeMailId || storeData.email || '',
+                      '[Order Manager Number]': storeData.cafePhoneNumber || storeData.cafeManagerContactNo || storeData.phone || '',
+
+                      // Manager details
+                      '[Cafe Manager]': storeData.cafeManagerName || '',
+                      '[Café Manager]': storeData.cafeManagerName || '',
+                      '[Cafe Manager Name]': storeData.cafeManagerName || '',
+                      '[Café Manager Name]': storeData.cafeManagerName || '',
+                      '[Cafe Manager Email]': storeData.cafeManagerMailId || '',
+                      '[Café Manager Email]': storeData.cafeManagerMailId || '',
+                      '[Cafe Manager Phone]': storeData.cafeManagerContactNo || '',
+                      '[Café Manager Phone]': storeData.cafeManagerContactNo || '',
+
+                      // GST / FSSAI
                       '[Brand]': storeData.brand || '',
                       '[GST Number]': storeData.gstNo || '',
                       '[GST No]': storeData.gstNo || '',
+                      '[GST No.]': storeData.gstNo || '',
                       '[FSSAI Number]': storeData.fssaiNo || '',
                       '[FSSAI No]': storeData.fssaiNo || '',
-                      '[Phone]': storeData.cafePhoneNumber || '',
-                      '[Cafe Phone]': storeData.cafePhoneNumber || '',
-                      '[Email]': storeData.cafeMailId || '',
-                      '[Cafe Email]': storeData.cafeMailId || '',
+                      '[FSSAI No.]': storeData.fssaiNo || '',
+                      '[FSSAI License]': storeData.fssaiLicense || storeData.fssaiNo || '',
+
+                      // Google/Map link
+                      '[Café Location Google Link]': storeData.cafeLocationGoogleLink || '',
+                      '[Cafe Location Google Link]': storeData.cafeLocationGoogleLink || '',
+                      '[Google Link]': storeData.cafeLocationGoogleLink || '',
+                      '[Map Link]': storeData.cafeLocationGoogleLink || '',
+                      '[Location Link]': storeData.cafeLocationGoogleLink || '',
+
+                      // Store type / city type
+                      '[City Type]': storeData.storeType || storeData.platformType || storeData.tradingArea || '',
+                      '[Store Type]': storeData.storeType || '',
+                      '[Cafe Type]': storeData.storeType || '',
+                      '[Café Type]': storeData.storeType || '',
+                      '[Cafe Model]': storeData.cafeModel || '',
+                      '[Café Model]': storeData.cafeModel || '',
+
+                      // Swiggy / Zomato IDs
+                      '[Swiggy ID]': storeData.swiggyId || storeData.blueTokaiSwiggyRID || '',
+                      '[Zomato ID]': storeData.zomatoId || storeData.blueTokaiZomatoRID || '',
+                      '[RID]': storeData.blueTokaiSwiggyRID || storeData.swiggyId || '',
+
+                      // Zone / cluster
+                      '[Zone]': storeData.zone || '',
+                      '[Cluster]': storeData.cluster || '',
+                      '[Location]': storeData.location || completeAddress || '',
+
+                      // Launch / other
+                      '[Launch Date]': storeData.launchDate ? new Date(storeData.launchDate).toLocaleDateString('en-IN') : '',
+                      '[Launch Month]': storeData.cafeLaunchMonth || '',
                     };
 
                     let result = text;
