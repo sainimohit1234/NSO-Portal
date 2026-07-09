@@ -3000,6 +3000,33 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       }];
     }
 
+    // Fetch and attach State GST if available
+    if (store.state) {
+      try {
+        const db = firebaseAdmin.firestore();
+        const gstQuery = await db.collection('globalDocuments')
+          .where('category', '==', 'State GST')
+          .where('fileName', '==', store.state)
+          .limit(1)
+          .get();
+        if (!gstQuery.empty) {
+          const gstDoc = gstQuery.docs[0].data();
+          if (gstDoc.fileUrl) {
+            const fileRes = await fetch(gstDoc.fileUrl);
+            if (fileRes.ok) {
+              const arrayBuffer = await fileRes.arrayBuffer();
+              attachments.push({
+                filename: `GST_Certificate_${store.state}.pdf`,
+                content: Buffer.from(arrayBuffer)
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to attach State GST:', err);
+      }
+    }
+
     const smtpConfig = await getSMTPConfig();
     const transporter = nodemailer.createTransport({
       host: smtpConfig.smtpHost,

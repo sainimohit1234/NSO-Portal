@@ -205,7 +205,7 @@ export default function ImagesDocs() {
   // Compute unique categories dynamically
   const categories = React.useMemo(() => {
     const cats = docs.map(d => d.category || 'General');
-    const uniqueCats = Array.from(new Set(cats));
+    const uniqueCats = Array.from(new Set([...cats, 'State GST'])); // Always include State GST
     uniqueCats.sort((a, b) => a.localeCompare(b));
     return uniqueCats;
   }, [docs]);

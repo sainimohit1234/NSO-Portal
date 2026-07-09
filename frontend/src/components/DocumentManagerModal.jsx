@@ -178,6 +178,56 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
     }
   }, [store]);
 
+  const gstFetchAttempted = React.useRef(false);
+
+  // Auto-fetch GST certificate from State GST if missing
+  useEffect(() => {
+    if (!open) {
+      gstFetchAttempted.current = false;
+      return;
+    }
+    if (!store?.state || gstFetchAttempted.current) return;
+    
+    const hasGst = documents.some(d => d.type === 'GST Certificate' || d.type === 'GST Docs');
+    if (hasGst) return;
+
+    let isMounted = true;
+    gstFetchAttempted.current = true;
+    
+    const fetchGlobalGst = async () => {
+      try {
+        const res = await axios.get('/api/global-docs');
+        if (!isMounted) return;
+        const stateGst = res.data.find(d => d.category === 'State GST' && d.fileName === store.state);
+        
+        if (stateGst) {
+          const newGst = {
+            id: Date.now() + Math.random(),
+            type: 'GST Certificate',
+            category: 'Financial Documents',
+            url: stateGst.fileUrl,
+            fileName: stateGst.fileName + ' GST.pdf',
+            uploadedBy: 'System Auto-Attach',
+            uploadedAt: new Date().toISOString(),
+            metadata: {}
+          };
+          setDocuments(prev => {
+            if (prev.some(d => d.type === 'GST Certificate' || d.type === 'GST Docs')) return prev;
+            return [...prev, newGst];
+          });
+          setHasUnsavedChanges(true);
+          setSnackbar({ open: true, message: `Auto-attached ${store.state} GST Certificate from Global Library. Please save changes.`, severity: 'info' });
+        }
+      } catch (err) {
+        console.error('Failed to auto-fetch State GST:', err);
+      }
+    };
+
+    fetchGlobalGst();
+
+    return () => { isMounted = false; };
+  }, [open, store?.state, documents]);
+
   const handleFileUpload = async (file, docType, metadata = {}, category = 'Miscellaneous Documents', isMisc = false, isExtra = false, subcategory = null, extraName = '') => {
     if (!file) return;
     const maxSize = 500 * 1024; // 500kb
