@@ -16,6 +16,8 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import AddIcon from '@mui/icons-material/Add';
 import DescriptionIcon from '@mui/icons-material/Description';
 import EditIcon from '@mui/icons-material/Edit';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import axios from '../utils/api';
 
@@ -230,6 +232,40 @@ export default function ImagesDocs() {
     setSnackbar({ open: true, message, severity });
   };
 
+  // Category rename state
+  const [renamingCategory, setRenamingCategory] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+
+  const handleStartRename = (cat) => {
+    setRenamingCategory(cat);
+    setRenameValue(cat);
+  };
+
+  const handleCancelRename = () => {
+    setRenamingCategory(null);
+    setRenameValue('');
+  };
+
+  const handleSaveRename = async () => {
+    if (!renameValue.trim() || renameValue.trim() === renamingCategory) {
+      handleCancelRename();
+      return;
+    }
+    try {
+      await axios.patch('/api/global-docs/rename-category', {
+        oldCategory: renamingCategory,
+        newCategory: renameValue.trim()
+      });
+      showNotification(`Category renamed to "${renameValue.trim()}"`);
+      setActiveCategory(renameValue.trim());
+      handleCancelRename();
+      fetchDocs();
+    } catch (err) {
+      console.error('Failed to rename category:', err);
+      showNotification('Failed to rename category.', 'error');
+    }
+  };
+
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
@@ -346,7 +382,7 @@ export default function ImagesDocs() {
 
   return (
     <Box sx={{ maxWidth: 1600, mx: 'auto', p: 1 }}>
-      <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em', mb: 3.5 }}>
+      <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em', mb: 2.5 }}>
         Images and Other Docs
       </Typography>
 
@@ -354,16 +390,17 @@ export default function ImagesDocs() {
         {/* Left Half: File Upload Section & Uploaded Files List */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', minHeight: 600, position: 'relative' }}>
-            <CardContent sx={{ p: 4 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary' }}>
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '0.95rem' }}>
                   Document Library
                 </Typography>
                 <Button 
                   variant="contained" 
+                  size="small"
                   startIcon={<AddIcon />} 
                   onClick={handleOpenDialog}
-                  sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+                  sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', py: 0.6, px: 1.5 }}
                 >
                   Add New
                 </Button>
@@ -388,45 +425,71 @@ export default function ImagesDocs() {
                   </Typography>
                 </Box>
               ) : (
-                <Grid container spacing={0} sx={{ mt: 1, minHeight: 480 }}>
+                <Grid container spacing={0} sx={{ mt: 0.5, minHeight: 480 }}>
                   {/* Category Column */}
-                  <Grid size={{ xs: 12, sm: 4 }} sx={{ borderRight: '1px solid', borderColor: 'divider', pr: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                  <Grid size={{ xs: 12, sm: 4 }} sx={{ borderRight: '1px solid', borderColor: 'divider', pr: 1.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 800, mb: 1, display: 'block', color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.06em' }}>
                       Category
                     </Typography>
-                    <List sx={{ width: '100%', py: 0 }}>
+                    <List sx={{ width: '100%', py: 0 }} dense>
                       {categories.map((cat) => (
-                        <ListItemButton
+                        <ListItem
                           key={cat}
-                          selected={activeCategory === cat}
-                          onClick={() => setActiveCategory(cat)}
-                          sx={{
-                            py: 1.25,
-                            px: 2,
-                            borderRadius: '8px',
-                            mb: 0.5,
-                            '&.Mui-selected': {
-                              bgcolor: 'rgba(111, 205, 220, 0.15)',
-                              color: 'primary.main',
-                              fontWeight: 700,
-                              '&:hover': { bgcolor: 'rgba(111, 205, 220, 0.22)' }
-                            }
-                          }}
+                          disablePadding
+                          secondaryAction={
+                            cat !== 'State GST' && activeCategory === cat && renamingCategory !== cat ? (
+                              <IconButton edge="end" size="small" onClick={(e) => { e.stopPropagation(); handleStartRename(cat); }} sx={{ opacity: 0.5, '&:hover': { opacity: 1 }, p: 0.3 }}>
+                                <EditIcon sx={{ fontSize: 14 }} />
+                              </IconButton>
+                            ) : null
+                          }
                         >
-                          <ListItemText 
-                            primary={cat} 
-                            primaryTypographyProps={{ 
-                              variant: 'body2', 
-                              sx: { fontWeight: activeCategory === cat ? 700 : 500 } 
-                            }} 
-                          />
-                        </ListItemButton>
+                          {renamingCategory === cat ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%', py: 0.3, px: 1 }}>
+                              <TextField
+                                value={renameValue}
+                                onChange={(e) => setRenameValue(e.target.value)}
+                                size="small"
+                                autoFocus
+                                variant="standard"
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRename(); if (e.key === 'Escape') handleCancelRename(); }}
+                                sx={{ flexGrow: 1, '& .MuiInput-input': { fontSize: '0.75rem', py: 0.3 } }}
+                              />
+                              <IconButton size="small" onClick={handleSaveRename} color="success" sx={{ p: 0.3 }}><CheckIcon sx={{ fontSize: 15 }} /></IconButton>
+                              <IconButton size="small" onClick={handleCancelRename} color="error" sx={{ p: 0.3 }}><CloseIcon sx={{ fontSize: 15 }} /></IconButton>
+                            </Box>
+                          ) : (
+                            <ListItemButton
+                              selected={activeCategory === cat}
+                              onClick={() => setActiveCategory(cat)}
+                              sx={{
+                                py: 0.7,
+                                px: 1.5,
+                                borderRadius: '6px',
+                                mb: 0.3,
+                                '&.Mui-selected': {
+                                  bgcolor: 'rgba(111, 205, 220, 0.15)',
+                                  color: 'primary.main',
+                                  fontWeight: 700,
+                                  '&:hover': { bgcolor: 'rgba(111, 205, 220, 0.22)' }
+                                }
+                              }}
+                            >
+                              <ListItemText 
+                                primary={cat} 
+                                primaryTypographyProps={{ 
+                                  sx: { fontWeight: activeCategory === cat ? 700 : 500, fontSize: '0.78rem' } 
+                                }} 
+                              />
+                            </ListItemButton>
+                          )}
+                        </ListItem>
                       ))}
                     </List>
                   </Grid>
 
                   {/* Uploaded Files Column */}
-                  <Grid size={{ xs: 12, sm: 8 }} sx={{ pl: 3.5 }}>
+                  <Grid size={{ xs: 12, sm: 8 }} sx={{ pl: 2.5 }}>
                     {activeCategory === 'State GST' ? (
                       <StateGSTManager 
                         docs={filteredDocs} 
@@ -437,7 +500,7 @@ export default function ImagesDocs() {
                       />
                     ) : (
                       <>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 800, mb: 1, display: 'block', color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.06em' }}>
                           Uploaded Files
                         </Typography>
                         {filteredDocs.length === 0 ? (
@@ -462,27 +525,27 @@ export default function ImagesDocs() {
                                     selected={selectedDoc?.id === doc.id}
                                     onClick={() => setSelectedDoc(doc)}
                                     sx={{
-                                      py: 1.5,
-                                      px: 1.5,
-                                      borderRadius: '8px',
-                                      mb: 0.5,
+                                      py: 0.8,
+                                      px: 1,
+                                      borderRadius: '6px',
+                                      mb: 0.3,
                                       '&.Mui-selected': {
                                         bgcolor: 'rgba(111, 205, 220, 0.1)',
                                         '&:hover': { bgcolor: 'rgba(111, 205, 220, 0.15)' }
                                       }
                                     }}
                                   >
-                                    <ListItemIcon sx={{ minWidth: 40 }}>
+                                    <ListItemIcon sx={{ minWidth: 32 }}>
                                       {getFileIcon(doc.fileUrl)}
                                     </ListItemIcon>
                                     <ListItemText 
                                       primary={
-                                        <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', pr: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        <Typography sx={{ fontWeight: 600, color: 'text.primary', pr: 3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '0.78rem' }}>
                                           {doc.fileName}
                                         </Typography>
                                       }
                                       secondary={
-                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, display: 'block', fontSize: '0.65rem' }}>
                                           {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-IN') : 'Unknown Date'}
                                         </Typography>
                                       }
@@ -506,8 +569,8 @@ export default function ImagesDocs() {
         {/* Right Half: Live Document Preview Panel */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', minHeight: 600, display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ p: 4, display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', mb: 3 }}>
+            <CardContent sx={{ p: 3, display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary', mb: 2, fontSize: '0.95rem' }}>
                 Document Preview
               </Typography>
 

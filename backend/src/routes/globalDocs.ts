@@ -95,6 +95,35 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req
   }
 });
 
+// Rename a category (bulk update all docs in that category)
+router.patch('/rename-category', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req: any, res) => {
+  try {
+    const { oldCategory, newCategory } = req.body;
+    if (!oldCategory || !newCategory) {
+      return res.status(400).json({ error: 'Both oldCategory and newCategory are required' });
+    }
+    if (oldCategory === newCategory) {
+      return res.json({ success: true, updated: 0 });
+    }
+
+    const snapshot = await db.collection('globalDocuments').where('category', '==', oldCategory).get();
+    if (snapshot.empty) {
+      return res.status(404).json({ error: 'No documents found in the specified category' });
+    }
+
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+      batch.update(db.collection('globalDocuments').doc(doc.id), { category: newCategory });
+    });
+    await batch.commit();
+
+    res.json({ success: true, updated: snapshot.size });
+  } catch (error) {
+    console.error('Failed to rename category:', error);
+    res.status(500).json({ error: 'Failed to rename category' });
+  }
+});
+
 // Delete a document/link
 router.delete('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req, res) => {
   const { id } = req.params;
