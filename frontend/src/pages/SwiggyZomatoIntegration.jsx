@@ -396,21 +396,25 @@ export default function SwiggyZomatoIntegration() {
               </TableHead>
               <TableBody>
                 {loading && stores.length === 0 ? (
-                  <TableRow><TableCell colSpan={22} align="center" sx={{ py: 4 }}>
-                    <InteractiveLoader messages={[
-                      'Warming up the espresso machine…',
-                      'Grinding the freshest beans…',
-                      'Fetching approved stores…',
-                      'Checking Swiggy & Zomato status…',
-                      'Plating the details…',
-                      'Almost ready to serve ☕',
-                    ]} />
+                  <TableRow><TableCell colSpan={22} align="center" sx={{ py: 4, borderBottom: 'none' }}>
+                    <Box sx={{ position: 'sticky', left: '50%', transform: 'translateX(-50%)', display: 'inline-block' }}>
+                      <InteractiveLoader messages={[
+                        'Warming up the espresso machine…',
+                        'Grinding the freshest beans…',
+                        'Fetching approved stores…',
+                        'Checking Swiggy & Zomato status…',
+                        'Plating the details…',
+                        'Almost ready to serve ☕',
+                      ]} />
+                    </Box>
                   </TableCell></TableRow>
                 ) : filteredStores.length === 0 ? (
-                  <TableRow><TableCell colSpan={22} align="center" sx={{ py: 8, color: 'text.secondary', fontStyle: 'italic' }}>
-                    {searchQuery || statusFilter
-                      ? 'No stores match the current search / filter.'
-                      : 'No approved stores available.'}
+                  <TableRow><TableCell colSpan={22} align="center" sx={{ py: 8, color: 'text.secondary', fontStyle: 'italic', borderBottom: 'none' }}>
+                    <Box sx={{ position: 'sticky', left: '50%', transform: 'translateX(-50%)', display: 'inline-block' }}>
+                      {searchQuery || statusFilter
+                        ? 'No stores match the current search / filter.'
+                        : 'No approved stores available.'}
+                    </Box>
                   </TableCell></TableRow>
                 ) : filteredStores.map((store, index) => {
                   const brandType = getBrandType(store.brand);
