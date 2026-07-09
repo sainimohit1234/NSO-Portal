@@ -3,7 +3,7 @@ import {
   Box, Typography, Card, CardContent, TextField, Button, IconButton,
   Tooltip, Snackbar, Alert, CircularProgress, LinearProgress, Table, TableBody, TableCell,
   TableContainer, TableRow, TableHead, Paper, Dialog, DialogTitle,
-  DialogContent, DialogActions, InputAdornment, Stack, Chip
+  DialogContent, DialogActions, InputAdornment, Stack, Chip, Select, MenuItem
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SendIcon from '@mui/icons-material/Send';
@@ -205,6 +205,18 @@ export default function SwiggyZomatoIntegration() {
   useEffect(() => { loadData(); }, []);
 
   const handleSnackbarClose = () => setSnackbar(prev => ({ ...prev, open: false }));
+
+  const getDraftLabel = (brandKey) => {
+    switch (brandKey) {
+      case 'zomato_btc': return 'Draft a mail for BTC | Zomato';
+      case 'swiggy_btc': return 'Draft a mail for BTC | Swiggy';
+      case 'zomato_sab': return 'Draft a mail for SAB | Zomato';
+      case 'swiggy_sab': return 'Draft a mail for SAB | Swiggy';
+      case 'zomato_gottea': return 'Draft a mail for GT | Zomato';
+      case 'swiggy_gottea': return 'Draft a mail for GT | Swiggy';
+      default: return 'Draft a mail';
+    }
+  };
 
   // Count of stores in each status category (drives the filter chip badges).
   const statusCounts = useMemo(() => {
@@ -411,23 +423,129 @@ export default function SwiggyZomatoIntegration() {
 
                   const integStatus = computeIntegrationStatus(store);
 
+                  const replacePlaceholders = (text, storeData) => {
+                    if (!text || !storeData) return text;
+                    const completeAddress = [
+                      storeData.cafeAddress || storeData.address,
+                      storeData.city,
+                      storeData.state,
+                      storeData.pinCode
+                    ].filter(Boolean).join(', ');
+
+                    const placeholderMap = {
+                      '[Cafe Name]': storeData.cafeName || '',
+                      '[Cafe Code]': storeData.cafeCode || '',
+                      '[City]': storeData.city || '',
+                      '[State]': storeData.state || '',
+                      '[Pin Code]': storeData.pinCode || '',
+                      '[PinCode]': storeData.pinCode || '',
+                      '[Address]': completeAddress || '',
+                      '[Cafe Address]': completeAddress || '',
+                      '[Brand]': storeData.brand || '',
+                      '[GST Number]': storeData.gstNo || '',
+                      '[GST No]': storeData.gstNo || '',
+                      '[FSSAI Number]': storeData.fssaiNo || '',
+                      '[FSSAI No]': storeData.fssaiNo || '',
+                      '[Phone]': storeData.cafePhoneNumber || '',
+                      '[Cafe Phone]': storeData.cafePhoneNumber || '',
+                      '[Email]': storeData.cafeMailId || '',
+                      '[Cafe Email]': storeData.cafeMailId || '',
+                    };
+
+                    let result = text;
+                    for (const [token, value] of Object.entries(placeholderMap)) {
+                      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      result = result.replace(new RegExp(escaped, 'gi'), value);
+                    }
+                    return result;
+                  };
+
+                  const handleOpenDraftDialog = async (currentStore, brandKey) => {
+                    try {
+                      setLoading(true);
+                      const subCategoryKey = getDraftLabel(brandKey);
+                      const [templatesRes, mappingsRes] = await Promise.all([
+                        axios.get('/api/system/email-templates'),
+                        axios.get('/api/system/email-mappings'),
+                      ]);
+                      const templates = templatesRes.data || {};
+                      const mappings = Array.isArray(mappingsRes.data) ? mappingsRes.data : [];
+                      const mapping = mappings.find(
+                        m => m.subCategory?.toLowerCase() === subCategoryKey.toLowerCase()
+                      );
+
+                      const template = templates[subCategoryKey] || {};
+                      const rawSubject = template.subject || `${subCategoryKey} | New Store Onboarding`;
+                      const rawBody = template.body || '';
+
+                      const subject = replacePlaceholders(rawSubject, currentStore);
+                      const body = replacePlaceholders(rawBody, currentStore);
+
+                      const toList = (mapping?.to || []).join(', ');
+                      const ccList = (mapping?.cc || []).join(', ');
+
+                      let autoAttachments = [];
+                      try {
+                        const globalDocsRes = await axios.get('/api/global-docs');
+                        const allDocs = globalDocsRes.data || [];
+                        autoAttachments = allDocs.filter(
+                          d => d.category?.toLowerCase() === subCategoryKey.toLowerCase()
+                        );
+                      } catch (docsErr) {
+                        console.warn('Could not fetch auto-attachments:', docsErr);
+                      }
+
+                      setIsDraftEditing(false);
+                      setDraftDialog({
+                        open: true,
+                        store: currentStore,
+                        brandKey,
+                        brandLabel: getDraftLabel(brandKey).replace('Draft a mail for ', ''),
+                        to: toList,
+                        cc: ccList,
+                        subject,
+                        body,
+                        intro: '',
+                        outro: '',
+                        tableData: null,
+                        attachments: autoAttachments,
+                      });
+                    } catch (err) {
+                      console.error(err);
+                      setSnackbar({ open: true, message: 'Failed to load email template.', severity: 'error' });
+                    } finally {
+                      setLoading(false);
+                    }
+                  };
+
                   const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled) => {
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
                     const isSent = isMailSent(store, statusVal);
                     if (isSent) return <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />;
                     return (
-                      <Chip 
-                        label="Pending" 
-                        size="small" 
-                        sx={{ 
+                      <Select
+                        value="Pending"
+                        size="small"
+                        onChange={(e) => {
+                          if (e.target.value === 'draft') {
+                            handleOpenDraftDialog(store, brandKey);
+                          }
+                        }}
+                        sx={{
                           bgcolor: '#fef7e0', 
                           color: '#b06000', 
-                          border: '1px solid',
-                          borderColor: '#feebc8', 
                           fontWeight: 700, 
-                          borderRadius: '6px' 
-                        }} 
-                      />
+                          borderRadius: '6px',
+                          fontSize: '0.7rem',
+                          height: '24px',
+                          '& .MuiSelect-select': { py: 0.5, px: 1 },
+                          '& .MuiOutlinedInput-notchedOutline': { border: '1px solid #feebc8' },
+                          '& .MuiSvgIcon-root': { color: '#b06000' }
+                        }}
+                      >
+                        <MenuItem value="Pending" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>Pending</MenuItem>
+                        <MenuItem value="draft" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>{getDraftLabel(brandKey)}</MenuItem>
+                      </Select>
                     );
                   };
 

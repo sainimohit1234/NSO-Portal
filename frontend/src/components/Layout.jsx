@@ -223,10 +223,10 @@ export default function Layout() {
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', ...(themeMode === 'customize' ? { background: 'transparent' } : glassPanelSx) }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', px: 2, pt: 2.75, pb: 2, gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
-          <img src={suchaliLogo} alt="Suchali's" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
-          <img src={gotTeaLogo} alt="Got Tea" style={{ height: 64, width: 64, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 52, width: 52, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+          <img src={suchaliLogo} alt="Suchali's" style={{ height: 52, width: 52, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+          <img src={gotTeaLogo} alt="Got Tea" style={{ height: 52, width: 52, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
         </Box>
         <Typography variant="h5" noWrap component="div" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '1.5rem', letterSpacing: '0.06em' }}>
           NSO PORTAL
