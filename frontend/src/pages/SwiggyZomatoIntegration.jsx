@@ -488,7 +488,11 @@ export default function SwiggyZomatoIntegration() {
                       const toList = (mapping?.to || []).join(', ');
                       const ccList = (mapping?.cc || []).join(', ');
 
-                      // Fetch General category attachments + State GST
+                      // Fetch all three sources of auto-attachments and merge them:
+                      // 1. Status Category docs (original logic — category matches the draft label e.g. "Draft a mail for BTC | Swiggy")
+                      // 2. General category docs (always attached to all emails)
+                      // 3. State GST certificate matching the cafe's state
+                      let statusCategoryAttachments = [];
                       let generalAttachments = [];
                       let gstAttachment = null;
                       let gstMissing = false;
@@ -497,12 +501,17 @@ export default function SwiggyZomatoIntegration() {
                         const globalDocsRes = await axios.get('/api/global-docs');
                         const allDocs = globalDocsRes.data || [];
 
-                        // Attach all files from the General category
+                        // 1. Original: Status Category — docs whose category matches the draft label
+                        statusCategoryAttachments = allDocs.filter(
+                          d => d.category?.toLowerCase() === subCategoryKey.toLowerCase()
+                        );
+
+                        // 2. New: General category — always attach
                         generalAttachments = allDocs.filter(
                           d => d.category?.toLowerCase() === 'general'
                         );
 
-                        // Attach State GST based on cafe's state
+                        // 3. New: State GST based on cafe's state
                         if (currentStore.state) {
                           const stateGst = allDocs.find(
                             d => d.category === 'State GST' && d.fileName === currentStore.state
@@ -517,10 +526,18 @@ export default function SwiggyZomatoIntegration() {
                         console.warn('Could not fetch auto-attachments:', docsErr);
                       }
 
+                      // Merge all, deduplicate by doc id
+                      const seenIds = new Set();
                       const autoAttachments = [
+                        ...statusCategoryAttachments,
                         ...generalAttachments,
                         ...(gstAttachment ? [gstAttachment] : [])
-                      ];
+                      ].filter(doc => {
+                        if (seenIds.has(doc.id)) return false;
+                        seenIds.add(doc.id);
+                        return true;
+                      });
+
 
                       setIsDraftEditing(false);
                       setDraftDialog({
