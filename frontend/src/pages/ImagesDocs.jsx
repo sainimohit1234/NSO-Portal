@@ -15,7 +15,161 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import AddIcon from '@mui/icons-material/Add';
 import DescriptionIcon from '@mui/icons-material/Description';
+import EditIcon from '@mui/icons-material/Edit';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import axios from '../utils/api';
+
+const INDIAN_STATES = [
+  "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", 
+  "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", 
+  "Gujarat", "Haryana", "Himachal Pradesh", "Jammu and Kashmir", "Jharkhand", "Karnataka", 
+  "Kerala", "Ladakh", "Lakshadweep", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", 
+  "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", 
+  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal"
+];
+
+// Helper to determine file icon
+const getFileIcon = (url = '') => {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('.pdf')) return <PictureAsPdfIcon sx={{ color: '#ef4444' }} />;
+  if (lowerUrl.includes('.png') || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.gif') || lowerUrl.includes('.webp')) {
+    return <ImageIcon sx={{ color: '#3b82f6' }} />;
+  }
+  if (lowerUrl.includes('.csv') || lowerUrl.includes('.xls') || lowerUrl.includes('.xlsx')) {
+    return <GridOnIcon sx={{ color: '#10b981' }} />;
+  }
+  return <InsertDriveFileIcon sx={{ color: '#6b7280' }} />;
+};
+
+function StateGSTManager({ docs, selectedDoc, setSelectedDoc, fetchDocs, showNotification }) {
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [newRows, setNewRows] = useState([]);
+  const [uploading, setUploading] = useState(false);
+
+  const uploadedStates = docs.map(d => d.fileName);
+  const getAvailableStates = (currentRowId) => {
+    const selectedInOtherRows = newRows.filter(r => r.id !== currentRowId).map(r => r.stateName);
+    return INDIAN_STATES.filter(state => !uploadedStates.includes(state) && !selectedInOtherRows.includes(state));
+  };
+
+  const handleAddRow = () => setNewRows([...newRows, { id: Date.now().toString(), stateName: '', file: null }]);
+  const handleRemoveRow = (rowId) => setNewRows(newRows.filter(r => r.id !== rowId));
+  const handleStateChange = (rowId, stateName) => setNewRows(newRows.map(r => r.id === rowId ? { ...r, stateName } : r));
+  const handleFileSelect = (rowId, e) => {
+    if (e.target.files && e.target.files[0]) {
+      setNewRows(newRows.map(r => r.id === rowId ? { ...r, file: e.target.files[0] } : r));
+    }
+  };
+
+  const handleDeleteExisting = async (docId) => {
+    if (!window.confirm('Are you sure you want to delete this GST Certificate?')) return;
+    try {
+      await axios.delete(`/api/global-docs/${docId}`);
+      showNotification('GST Certificate deleted successfully.');
+      if (selectedDoc?.id === docId) setSelectedDoc(null);
+      fetchDocs();
+    } catch (err) {
+      console.error('Failed to delete document:', err);
+      showNotification('Failed to delete the document.', 'error');
+    }
+  };
+
+  const handleUploadRow = async (row) => {
+    if (!row.stateName) return showNotification('Please select a state.', 'warning');
+    if (!row.file) return showNotification('Please select a file to upload.', 'warning');
+
+    setUploading(true);
+    const formData = new FormData();
+    formData.append('file', row.file);
+    try {
+      const uploadRes = await axios.post('/api/stores/upload-file', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (!uploadRes.data?.url) throw new Error('No URL returned.');
+      
+      const newDocPayload = { category: 'State GST', linkName: row.stateName, linkUrl: uploadRes.data.url };
+      const docRes = await axios.post('/api/global-docs/add-link', newDocPayload);
+      showNotification(`${row.stateName} GST uploaded successfully!`);
+      setNewRows(newRows.filter(r => r.id !== row.id));
+      if (docRes.data) setSelectedDoc(docRes.data);
+      fetchDocs();
+    } catch (err) {
+      console.error('Failed to upload GST certificate:', err);
+      showNotification(err.response?.data?.error || 'Failed to upload document.', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+          GST Certificates
+        </Typography>
+        <Button variant={isEditMode ? "outlined" : "text"} size="small" startIcon={isEditMode ? null : <EditIcon />} onClick={() => setIsEditMode(!isEditMode)} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
+          {isEditMode ? 'Done' : 'Edit'}
+        </Button>
+      </Box>
+
+      {uploading && <FullScreenLoader messages={['Uploading GST certificate…']} blocking={true} />}
+
+      <List sx={{ width: '100%', py: 0 }}>
+        {docs.length === 0 && !isEditMode && newRows.length === 0 && (
+          <Box sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.01)' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              No GST certificates uploaded. Click Edit to add them.
+            </Typography>
+          </Box>
+        )}
+        {docs.map((doc, idx) => (
+          <React.Fragment key={doc.id}>
+            <ListItem disablePadding secondaryAction={isEditMode && (
+                <IconButton edge="end" onClick={() => handleDeleteExisting(doc.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                  <DeleteIcon />
+                </IconButton>
+              )}>
+              <ListItemButton selected={selectedDoc?.id === doc.id} onClick={() => setSelectedDoc(doc)} sx={{ py: 1.5, px: 1.5, borderRadius: '8px', mb: 0.5, '&.Mui-selected': { bgcolor: 'rgba(111, 205, 220, 0.1)' } }}>
+                <ListItemIcon sx={{ minWidth: 40 }}>{getFileIcon(doc.fileUrl)}</ListItemIcon>
+                <ListItemText primary={<Typography variant="body2" sx={{ fontWeight: 700 }}>{doc.fileName}</Typography>} secondary={<Typography variant="caption" color="text.secondary">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-IN') : 'Unknown Date'}</Typography>} />
+              </ListItemButton>
+            </ListItem>
+            {idx < docs.length - 1 && <Divider component="li" sx={{ opacity: 0.5 }} />}
+          </React.Fragment>
+        ))}
+      </List>
+
+      {isEditMode && (
+        <Box sx={{ mt: 3, pt: 2, borderTop: '1px dashed', borderColor: 'divider' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>Add GST Certificate (State-wise)</Typography>
+            <Button size="small" startIcon={<AddIcon />} onClick={handleAddRow} sx={{ textTransform: 'none', fontWeight: 600 }}>Add More</Button>
+          </Box>
+          {newRows.map((row) => (
+            <Box key={row.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, bgcolor: 'rgba(255,255,255,0.02)', p: 1.5, borderRadius: '8px' }}>
+              <FormControl size="small" sx={{ minWidth: 150, flexGrow: 1 }}>
+                <InputLabel>Select State / UT</InputLabel>
+                <Select value={row.stateName} label="Select State / UT" onChange={(e) => handleStateChange(row.id, e.target.value)}>
+                  {getAvailableStates(row.id).map(state => <MenuItem key={state} value={state}>{state}</MenuItem>)}
+                  {row.stateName && <MenuItem value={row.stateName} sx={{ display: 'none' }}>{row.stateName}</MenuItem>}
+                </Select>
+              </FormControl>
+              <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />} disabled={!row.stateName} sx={{ textTransform: 'none' }}>
+                {row.file ? 'Change File' : 'Select File'}
+                <input type="file" hidden onChange={(e) => handleFileSelect(row.id, e)} />
+              </Button>
+              <Button variant="contained" onClick={() => handleUploadRow(row)} disabled={!row.stateName || !row.file} sx={{ textTransform: 'none' }}>
+                Upload
+              </Button>
+              <IconButton onClick={() => handleRemoveRow(row.id)} color="error" size="small"><DeleteIcon fontSize="small" /></IconButton>
+            </Box>
+          ))}
+          {newRows.length === 0 && <Typography variant="caption" color="text.secondary">Click "Add More" to upload a new GST certificate.</Typography>}
+        </Box>
+      )}
+    </Box>
+  );
+}
 
 export default function ImagesDocs() {
   const [docs, setDocs] = useState([]);
@@ -185,20 +339,6 @@ export default function ImagesDocs() {
     }
   };
 
-  // Helper to determine file icon
-  const getFileIcon = (url = '') => {
-    const lowerUrl = url.toLowerCase();
-    if (lowerUrl.includes('.pdf')) return <PictureAsPdfIcon sx={{ color: '#ef4444' }} />;
-    if (lowerUrl.includes('.png') || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.gif') || lowerUrl.includes('.webp')) {
-      return <ImageIcon sx={{ color: '#3b82f6' }} />;
-    }
-    if (lowerUrl.includes('.csv') || lowerUrl.includes('.xls') || lowerUrl.includes('.xlsx')) {
-      return <GridOnIcon sx={{ color: '#10b981' }} />;
-    }
-    return <InsertDriveFileIcon sx={{ color: '#6b7280' }} />;
-  };
-
-  // Helper to check if file is previewable as an image
   const isImageFile = (url = '') => {
     const lowerUrl = url.toLowerCase();
     return lowerUrl.includes('.png') || lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('.gif') || lowerUrl.includes('.webp');
@@ -287,62 +427,74 @@ export default function ImagesDocs() {
 
                   {/* Uploaded Files Column */}
                   <Grid size={{ xs: 12, sm: 8 }} sx={{ pl: 3.5 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
-                      Uploaded Files
-                    </Typography>
-                    {filteredDocs.length === 0 ? (
-                      <Box sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.01)' }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                          No files in this category.
-                        </Typography>
-                      </Box>
+                    {activeCategory === 'State GST' ? (
+                      <StateGSTManager 
+                        docs={filteredDocs} 
+                        selectedDoc={selectedDoc} 
+                        setSelectedDoc={setSelectedDoc} 
+                        fetchDocs={fetchDocs} 
+                        showNotification={showNotification} 
+                      />
                     ) : (
-                      <List sx={{ width: '100%', py: 0 }}>
-                        {filteredDocs.map((doc, idx) => (
-                          <React.Fragment key={doc.id}>
-                            <ListItem 
-                              disablePadding
-                              secondaryAction={
-                                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(doc.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
-                                  <DeleteIcon />
-                                </IconButton>
-                              }
-                            >
-                              <ListItemButton 
-                                selected={selectedDoc?.id === doc.id}
-                                onClick={() => setSelectedDoc(doc)}
-                                sx={{
-                                  py: 1.5,
-                                  px: 1.5,
-                                  borderRadius: '8px',
-                                  mb: 0.5,
-                                  '&.Mui-selected': {
-                                    bgcolor: 'rgba(111, 205, 220, 0.1)',
-                                    '&:hover': { bgcolor: 'rgba(111, 205, 220, 0.15)' }
+                      <>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 2, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.75rem', letterSpacing: '0.05em' }}>
+                          Uploaded Files
+                        </Typography>
+                        {filteredDocs.length === 0 ? (
+                          <Box sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.01)' }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                              No files in this category.
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <List sx={{ width: '100%', py: 0 }}>
+                            {filteredDocs.map((doc, idx) => (
+                              <React.Fragment key={doc.id}>
+                                <ListItem 
+                                  disablePadding
+                                  secondaryAction={
+                                    <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(doc.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                                      <DeleteIcon />
+                                    </IconButton>
                                   }
-                                }}
-                              >
-                                <ListItemIcon sx={{ minWidth: 40 }}>
-                                  {getFileIcon(doc.fileUrl)}
-                                </ListItemIcon>
-                                <ListItemText 
-                                  primary={
-                                    <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', pr: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                      {doc.fileName}
-                                    </Typography>
-                                  }
-                                  secondary={
-                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                                      {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-IN') : 'Unknown Date'}
-                                    </Typography>
-                                  }
-                                />
-                              </ListItemButton>
-                            </ListItem>
-                            {idx < filteredDocs.length - 1 && <Divider component="li" sx={{ opacity: 0.5 }} />}
-                          </React.Fragment>
-                        ))}
-                      </List>
+                                >
+                                  <ListItemButton 
+                                    selected={selectedDoc?.id === doc.id}
+                                    onClick={() => setSelectedDoc(doc)}
+                                    sx={{
+                                      py: 1.5,
+                                      px: 1.5,
+                                      borderRadius: '8px',
+                                      mb: 0.5,
+                                      '&.Mui-selected': {
+                                        bgcolor: 'rgba(111, 205, 220, 0.1)',
+                                        '&:hover': { bgcolor: 'rgba(111, 205, 220, 0.15)' }
+                                      }
+                                    }}
+                                  >
+                                    <ListItemIcon sx={{ minWidth: 40 }}>
+                                      {getFileIcon(doc.fileUrl)}
+                                    </ListItemIcon>
+                                    <ListItemText 
+                                      primary={
+                                        <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', pr: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                          {doc.fileName}
+                                        </Typography>
+                                      }
+                                      secondary={
+                                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                                          {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-IN') : 'Unknown Date'}
+                                        </Typography>
+                                      }
+                                    />
+                                  </ListItemButton>
+                                </ListItem>
+                                {idx < filteredDocs.length - 1 && <Divider component="li" sx={{ opacity: 0.5 }} />}
+                              </React.Fragment>
+                            ))}
+                          </List>
+                        )}
+                      </>
                     )}
                   </Grid>
                 </Grid>
