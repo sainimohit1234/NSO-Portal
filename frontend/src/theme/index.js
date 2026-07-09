@@ -10,6 +10,9 @@ const defaultBg = '#141C2E'; // Lightened Deep Navy
 const hoverShadow = '0 12px 30px rgba(0, 0, 0, 0.25)';
 
 const baseTheme = createTheme({
+  zIndex: {
+    snackbar: 99999
+  },
   palette: {
     mode: 'dark',
     primary: {
@@ -377,9 +380,6 @@ const baseTheme = createTheme({
     },
     MuiSnackbar: {
       styleOverrides: {
-        root: {
-          zIndex: 13000
-        },
         anchorOriginTopRight: {
           marginTop: '68px'
         },

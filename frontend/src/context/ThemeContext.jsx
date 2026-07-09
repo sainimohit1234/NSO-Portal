@@ -200,6 +200,9 @@ export const CustomThemeProvider = ({ children }) => {
       shape: {
         borderRadius: 16
       },
+      zIndex: {
+        snackbar: 99999
+      },
       components: {
         MuiCssBaseline: {
           styleOverrides: {
@@ -559,15 +562,6 @@ export const CustomThemeProvider = ({ children }) => {
               border: `1px solid ${border}`,
               background: bgPaper,
               boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
-            }
-          }
-        },
-        // Toast notifications must always sit above dialogs, drawers and the
-        // full-screen loading backdrops (which use zIndex.modal + 9999).
-        MuiSnackbar: {
-          styleOverrides: {
-            root: {
-              zIndex: 13000
             }
           }
         }
