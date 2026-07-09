@@ -618,7 +618,7 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
 
   return (
     <>
-    <Dialog open={open} onClose={handleAttemptClose} maxWidth="xl" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: '16px', height: '95vh !important', minHeight: '95vh !important', maxHeight: '95vh !important', display: 'flex', flexDirection: 'column' } }}>
+    <Dialog open={open} onClose={handleAttemptClose} maxWidth="xl" fullWidth sx={{ '& .MuiDialog-paper': { borderRadius: '16px', height: '80vh !important', minHeight: '80vh !important', maxHeight: '80vh !important', display: 'flex', flexDirection: 'column' } }}>
       <DialogTitle sx={{ fontWeight: 800, borderBottom: '1px solid', borderColor: 'divider', pb: 1, pt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>{activeCategory || 'Document Management'} - {store?.cafeName || 'Untitled'}</Box>
         {canModify && !isEditMode && (
