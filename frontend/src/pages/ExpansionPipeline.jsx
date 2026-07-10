@@ -101,6 +101,14 @@ export default function ExpansionPipeline() {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState(null);
+  const [searchBrand, setSearchBrand] = useState('');
+  const [searchCafeName, setSearchCafeName] = useState('');
+  const [searchCafeCode, setSearchCafeCode] = useState('');
+  const [searchCity, setSearchCity] = useState('');
+  const [searchState, setSearchState] = useState('');
+  const [searchCafeModel, setSearchCafeModel] = useState('');
+  const [searchCreatedBy, setSearchCreatedBy] = useState('');
+  
   const [editingStoreIds, setEditingStoreIds] = useState(new Set());
 
   const toggleEditMode = (storeId) => {
@@ -718,9 +726,27 @@ export default function ExpansionPipeline() {
   const developmentCount = stores.filter(s => getStoreStatus(s) === 'Under Construction').length;
   const totalCount = stores.length;
 
-  const filteredStores = selectedStatusFilter
-    ? stores.filter(s => getStoreStatus(s) === selectedStatusFilter)
-    : stores;
+  const filteredStores = stores.filter(s => {
+    if (selectedStatusFilter && getStoreStatus(s) !== selectedStatusFilter) return false;
+    if (searchBrand && !s.brand?.toLowerCase().includes(searchBrand.toLowerCase())) return false;
+    if (searchCafeName && !s.cafeName?.toLowerCase().includes(searchCafeName.toLowerCase())) return false;
+    if (searchCafeCode && !s.cafeCode?.toLowerCase().includes(searchCafeCode.toLowerCase())) return false;
+    if (searchCity && !s.city?.toLowerCase().includes(searchCity.toLowerCase())) return false;
+    if (searchState && !s.state?.toLowerCase().includes(searchState.toLowerCase())) return false;
+    if (searchCafeModel && !s.cafeModel?.toLowerCase().includes(searchCafeModel.toLowerCase())) return false;
+    if (searchCreatedBy && !s.enteredByEmail?.toLowerCase().includes(searchCreatedBy.toLowerCase())) return false;
+    return true;
+  });
+
+  const clearFilters = () => {
+    setSearchBrand('');
+    setSearchCafeName('');
+    setSearchCafeCode('');
+    setSearchCity('');
+    setSearchState('');
+    setSearchCafeModel('');
+    setSearchCreatedBy('');
+  };
 
   return (
     <Box sx={{ py: 1 }}>
@@ -908,6 +934,20 @@ export default function ExpansionPipeline() {
       </Box>
 
 
+
+      {/* Filters */}
+      <Card sx={{ mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: '16px' }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField size="small" label="Brand" value={searchBrand} onChange={e => setSearchBrand(e.target.value)} sx={{ width: 150 }} />
+          <TextField size="small" label="Cafe Name" value={searchCafeName} onChange={e => setSearchCafeName(e.target.value)} sx={{ width: 150 }} />
+          <TextField size="small" label="Cafe Code" value={searchCafeCode} onChange={e => setSearchCafeCode(e.target.value)} sx={{ width: 150 }} />
+          <TextField size="small" label="City" value={searchCity} onChange={e => setSearchCity(e.target.value)} sx={{ width: 150 }} />
+          <TextField size="small" label="State" value={searchState} onChange={e => setSearchState(e.target.value)} sx={{ width: 150 }} />
+          <TextField size="small" label="Cafe Model" value={searchCafeModel} onChange={e => setSearchCafeModel(e.target.value)} sx={{ width: 150 }} />
+          <TextField size="small" label="Created By" value={searchCreatedBy} onChange={e => setSearchCreatedBy(e.target.value)} sx={{ width: 150 }} />
+          <Button variant="outlined" onClick={clearFilters} sx={{ height: 40, borderRadius: '8px' }}>Clear</Button>
+        </Box>
+      </Card>
 
       {/* Pipeline Table */}
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', overflow: 'hidden' }}>
