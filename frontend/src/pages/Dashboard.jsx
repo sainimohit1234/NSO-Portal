@@ -165,6 +165,9 @@ export default function Dashboard() {
       ? activeCafes
       : activeCafes.filter(s => s.city?.trim() === selectedCity);
 
+    const selectedStateUniqueCount = new Set(selectedStateStores.map(s => s.state?.trim()).filter(Boolean)).size;
+    const selectedCityUniqueCount = new Set(selectedCityStores.map(s => s.city?.trim()).filter(Boolean)).size;
+
     return {
       liveStoreCount: liveStores.length,
       liveStores,
@@ -193,9 +196,9 @@ export default function Dashboard() {
       incompleteInfoCount: 0,
       statesList,
       citiesList,
-      selectedStateCount: selectedStateStores.length,
+      selectedStateCount: selectedStateUniqueCount,
       selectedStateStores,
-      selectedCityCount: selectedCityStores.length,
+      selectedCityCount: selectedCityUniqueCount,
       selectedCityStores
     };
   }, [filteredStores, selectedCity, selectedState]);
@@ -272,7 +275,7 @@ export default function Dashboard() {
     { id: 'live', title: 'Live Store Count', value: stats.liveStoreCount, icon: <CheckCircle />, color: '#10b981', subtitle: 'Currently active', dataset: stats.liveStores },
     { 
       id: 'state',
-      title: 'State Wise Cafe Count', 
+      title: 'States Covered', 
       value: stats.selectedStateCount, 
       icon: <MapIcon />, 
       color: '#3b82f6', 
@@ -287,7 +290,7 @@ export default function Dashboard() {
     },
     { 
       id: 'city',
-      title: 'City Wise Cafe Count', 
+      title: 'Cities Covered', 
       value: stats.selectedCityCount, 
       icon: <LocationCity />, 
       color: '#0ea5e9', 
