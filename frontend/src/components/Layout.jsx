@@ -44,6 +44,10 @@ import ViewWeekIcon from '@mui/icons-material/ViewWeek';
 import SyncIcon from '@mui/icons-material/Sync';
 import Chip from '@mui/material/Chip';
 import PaletteIcon from '@mui/icons-material/Palette';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CircularProgress from '@mui/material/CircularProgress';
+import axios from 'axios';
 import { useThemeMode } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
@@ -75,6 +79,54 @@ export default function Layout() {
 
   const [themeAnchorEl, setThemeAnchorEl] = useState(null);
   const [themeBgDialogOpen, setThemeBgDialogOpen] = useState(false);
+
+  const [themes, setThemes] = useState([]);
+  const [uploadingTheme, setUploadingTheme] = useState(false);
+
+  useEffect(() => {
+    if (themeBgDialogOpen) {
+      axios.get('/api/system/themes').then(res => setThemes(res.data)).catch(console.error);
+    }
+  }, [themeBgDialogOpen]);
+
+  const handleUploadTheme = async (e) => {
+    if (!e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    setUploadingTheme(true);
+    try {
+      const uploadRes = await axios.post('/api/stores/upload-file', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (uploadRes.data?.url) {
+        const newThemes = [...themes, uploadRes.data.url];
+        await axios.put('/api/system/themes', { urls: newThemes });
+        setThemes(newThemes);
+      }
+    } catch (error) {
+      console.error('Theme upload failed', error);
+      alert('Failed to upload theme image');
+    } finally {
+      setUploadingTheme(false);
+    }
+  };
+
+  const handleDeleteTheme = async (urlToDelete) => {
+    try {
+      const newThemes = themes.filter(url => url !== urlToDelete);
+      await axios.put('/api/system/themes', { urls: newThemes });
+      setThemes(newThemes);
+      if (customBgUrl === urlToDelete) {
+        setThemeMode('dark');
+        setCustomBgUrl('');
+      }
+    } catch (error) {
+      console.error('Failed to delete theme', error);
+      alert('Failed to delete theme');
+    }
+  };
 
   // Custom theme color editor local state
   const [customBg, setCustomBg] = useState(customColors?.background || '#0B0F19');
@@ -596,13 +648,15 @@ export default function Layout() {
         >
           Light Theme
         </MenuItem>
-        <MenuItem 
-          onClick={() => { setThemeBgDialogOpen(true); handleThemeClose(); }} 
-          selected={themeMode === 'customize'} 
-          sx={{ fontWeight: 600 }}
-        >
-          Customize Theme
-        </MenuItem>
+        {user?.role === 'SUPER_ADMIN' && (
+          <MenuItem 
+            onClick={() => { setThemeBgDialogOpen(true); handleThemeClose(); }} 
+            selected={themeMode === 'customize'} 
+            sx={{ fontWeight: 600 }}
+          >
+            Customize Theme
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Theme Background Selection Dialog */}
@@ -622,8 +676,19 @@ export default function Layout() {
           Select a background image to personalize your dashboard.
         </Typography>
         <DialogContent sx={{ overflowY: 'visible', pb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <Button
+              component="label"
+              variant="contained"
+              startIcon={uploadingTheme ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
+              disabled={uploadingTheme || themes.length >= 10}
+            >
+              Add Image
+              <input type="file" hidden accept="image/*" onChange={handleUploadTheme} />
+            </Button>
+          </Box>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 3 }}>
-            {[].map((url, idx) => (
+            {themes.map((url, idx) => (
               <Box 
                 key={idx}
                 onClick={() => {
@@ -644,10 +709,33 @@ export default function Layout() {
                   '&:hover': {
                     transform: 'scale(1.02)',
                     boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
+                  },
+                  '&:hover .delete-btn': {
+                    opacity: 1
                   }
                 }}
               >
                 <img src={url} alt={`Theme ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <IconButton
+                  className="delete-btn"
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteTheme(url);
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    bgcolor: 'rgba(0,0,0,0.5)',
+                    color: 'white',
+                    opacity: 0,
+                    transition: 'opacity 0.2s',
+                    '&:hover': { bgcolor: 'rgba(255,0,0,0.7)' }
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
               </Box>
             ))}
           </Box>

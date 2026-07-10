@@ -4,6 +4,7 @@ import { authenticateToken, authorizeRoles } from './auth';
 import { getSMTPConfig, saveSMTPConfig, SMTPConfig } from '../utils/smtp';
 import { getEmailRecipients, saveEmailRecipients, EmailCategory, getEmailMappings, saveEmailMappings, EmailMapping } from '../utils/emailRecipients';
 import { getEmailTemplates, saveEmailTemplates } from '../utils/emailTemplates';
+import { getThemes, saveThemes } from '../utils/themes';
 
 const router = Router();
 
@@ -198,6 +199,32 @@ router.put('/email-templates', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER',
   } catch (error) {
     console.error('Error saving email templates:', error);
     res.status(500).json({ error: 'Failed to save email templates' });
+  }
+});
+
+// Get themes
+router.get('/themes', async (req, res) => {
+  try {
+    const config = await getThemes();
+    res.json(config);
+  } catch (error) {
+    console.error('Error fetching themes:', error);
+    res.status(500).json({ error: 'Failed to fetch themes' });
+  }
+});
+
+// Update themes
+router.put('/themes', authorizeRoles('SUPER_ADMIN'), async (req, res) => {
+  try {
+    const urls = req.body.urls;
+    if (!Array.isArray(urls)) {
+      return res.status(400).json({ error: 'Payload must contain a urls array' });
+    }
+    await saveThemes(urls);
+    res.json({ message: 'Themes saved successfully', urls });
+  } catch (error) {
+    console.error('Error saving themes:', error);
+    res.status(500).json({ error: 'Failed to save themes' });
   }
 });
 
