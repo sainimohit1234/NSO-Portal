@@ -14,6 +14,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import LayersIcon from '@mui/icons-material/Layers';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import DescriptionIcon from '@mui/icons-material/Description';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import axios from '../utils/api';
@@ -724,10 +725,23 @@ export default function ExpansionPipeline() {
   const agreementCount = stores.filter(s => getStoreStatus(s) === 'Agreement Signed').length;
   const constructionCount = stores.filter(s => getStoreStatus(s) === 'Ready for Construction').length;
   const developmentCount = stores.filter(s => getStoreStatus(s) === 'Under Construction').length;
+  const pendingLegalCount = stores.filter(s => getDocumentStatusInfo(s, 'Legal Documents').label !== 'Completed').length;
+  const pendingFinancialCount = stores.filter(s => getDocumentStatusInfo(s, 'Financial Documents').label !== 'Completed').length;
+  const pendingProjectCount = stores.filter(s => getDocumentStatusInfo(s, 'Project Documents').label !== 'Completed').length;
   const totalCount = stores.length;
 
   const filteredStores = stores.filter(s => {
-    if (selectedStatusFilter && getStoreStatus(s) !== selectedStatusFilter) return false;
+    if (selectedStatusFilter) {
+      if (selectedStatusFilter === 'Pending Legal') {
+        if (getDocumentStatusInfo(s, 'Legal Documents').label === 'Completed') return false;
+      } else if (selectedStatusFilter === 'Pending Financial') {
+        if (getDocumentStatusInfo(s, 'Financial Documents').label === 'Completed') return false;
+      } else if (selectedStatusFilter === 'Pending Project') {
+        if (getDocumentStatusInfo(s, 'Project Documents').label === 'Completed') return false;
+      } else if (getStoreStatus(s) !== selectedStatusFilter) {
+        return false;
+      }
+    }
     if (searchBrand && !s.brand?.toLowerCase().includes(searchBrand.toLowerCase())) return false;
     if (searchCafeName && !s.cafeName?.toLowerCase().includes(searchCafeName.toLowerCase())) return false;
     if (searchCafeCode && !s.cafeCode?.toLowerCase().includes(searchCafeCode.toLowerCase())) return false;
@@ -789,7 +803,7 @@ export default function ExpansionPipeline() {
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, minmax(0, 1fr))',
-            md: 'repeat(5, minmax(0, 1fr))'
+            md: 'repeat(4, minmax(0, 1fr))'
           },
           gap: 2,
           mb: 3.5
@@ -835,6 +849,30 @@ export default function ExpansionPipeline() {
             filterValue: 'Under Construction',
             icon: <EngineeringIcon />,
             color: '#8b5cf6'
+          },
+          {
+            key: 'legal',
+            label: 'Legal Documents',
+            count: pendingLegalCount,
+            filterValue: 'Pending Legal',
+            icon: <DescriptionIcon />,
+            color: '#e84118'
+          },
+          {
+            key: 'financial',
+            label: 'Financial Documents',
+            count: pendingFinancialCount,
+            filterValue: 'Pending Financial',
+            icon: <DescriptionIcon />,
+            color: '#273c75'
+          },
+          {
+            key: 'project',
+            label: 'Project Documents',
+            count: pendingProjectCount,
+            filterValue: 'Pending Project',
+            icon: <DescriptionIcon />,
+            color: '#44bd32'
           }
         ].map((tile) => {
           const isActive = selectedStatusFilter === tile.filterValue;
@@ -937,15 +975,15 @@ export default function ExpansionPipeline() {
 
       {/* Filters */}
       <Card sx={{ mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: '16px' }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <TextField size="small" label="Brand" value={searchBrand} onChange={e => setSearchBrand(e.target.value)} sx={{ width: 150 }} />
-          <TextField size="small" label="Cafe Name" value={searchCafeName} onChange={e => setSearchCafeName(e.target.value)} sx={{ width: 150 }} />
-          <TextField size="small" label="Cafe Code" value={searchCafeCode} onChange={e => setSearchCafeCode(e.target.value)} sx={{ width: 150 }} />
-          <TextField size="small" label="City" value={searchCity} onChange={e => setSearchCity(e.target.value)} sx={{ width: 150 }} />
-          <TextField size="small" label="State" value={searchState} onChange={e => setSearchState(e.target.value)} sx={{ width: 150 }} />
-          <TextField size="small" label="Cafe Model" value={searchCafeModel} onChange={e => setSearchCafeModel(e.target.value)} sx={{ width: 150 }} />
-          <TextField size="small" label="Created By" value={searchCreatedBy} onChange={e => setSearchCreatedBy(e.target.value)} sx={{ width: 150 }} />
-          <Button variant="outlined" onClick={clearFilters} sx={{ height: 40, borderRadius: '8px' }}>Clear</Button>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+          <TextField size="small" label="Brand" value={searchBrand} onChange={e => setSearchBrand(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
+          <TextField size="small" label="Cafe Name" value={searchCafeName} onChange={e => setSearchCafeName(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
+          <TextField size="small" label="Cafe Code" value={searchCafeCode} onChange={e => setSearchCafeCode(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
+          <TextField size="small" label="City" value={searchCity} onChange={e => setSearchCity(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
+          <TextField size="small" label="State" value={searchState} onChange={e => setSearchState(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
+          <TextField size="small" label="Cafe Model" value={searchCafeModel} onChange={e => setSearchCafeModel(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
+          <TextField size="small" label="Created By" value={searchCreatedBy} onChange={e => setSearchCreatedBy(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
+          <Button variant="outlined" onClick={clearFilters} sx={{ height: 40, borderRadius: '8px', minWidth: 80 }}>Clear</Button>
         </Box>
       </Card>
 
