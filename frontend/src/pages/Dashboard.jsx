@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Box, Grid, Card, CardContent, Typography, TextField,
-  Chip, useTheme, IconButton, InputAdornment
+  Chip, useTheme, IconButton, InputAdornment, Select, MenuItem
 } from '@mui/material';
 import FullScreenLoader from '../components/FullScreenLoader';
 import SearchIcon from '@mui/icons-material/Search';
@@ -15,6 +15,8 @@ import CalendarToday from '@mui/icons-material/CalendarToday';
 import Upcoming from '@mui/icons-material/Upcoming';
 import Cancel from '@mui/icons-material/Cancel';
 import TaskAlt from '@mui/icons-material/TaskAlt';
+import LocationCity from '@mui/icons-material/LocationCity';
+import MapIcon from '@mui/icons-material/Map';
 import axios from '../utils/api';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
@@ -31,7 +33,8 @@ export default function Dashboard() {
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [cityHeadSearch, setCityHeadSearch] = useState('');
-
+  const [selectedCity, setSelectedCity] = useState('All');
+  const [selectedState, setSelectedState] = useState('All');
 
   useEffect(() => {
     fetchStoresFromFirestore()
@@ -143,6 +146,19 @@ export default function Dashboard() {
     const cityHeadsData = aggregateManagers(filteredStores, 'cityHead');
     const cafeManagersData = aggregateManagers(filteredStores, 'cafeManager');
 
+    const activeCafes = targetStores.filter(s => !isInventoryStore(s) && getCurrentStatus(s) !== 'Closed');
+    
+    const statesList = [...new Set(activeCafes.map(s => s.state?.trim()).filter(Boolean))].sort();
+    const citiesList = [...new Set(activeCafes.map(s => s.city?.trim()).filter(Boolean))].sort();
+    
+    const selectedStateCount = selectedState === 'All' 
+      ? activeCafes.length 
+      : activeCafes.filter(s => s.state?.trim() === selectedState).length;
+      
+    const selectedCityCount = selectedCity === 'All' 
+      ? activeCafes.length 
+      : activeCafes.filter(s => s.city?.trim() === selectedCity).length;
+
     return {
       liveStoreCount,
       totalCafeCount,
@@ -157,9 +173,13 @@ export default function Dashboard() {
       areaManagersData,
       cityHeadsData,
       cafeManagersData,
-      incompleteInfoCount
+      incompleteInfoCount,
+      statesList,
+      citiesList,
+      selectedStateCount,
+      selectedCityCount
     };
-  }, [filteredStores]);
+  }, [filteredStores, selectedCity, selectedState]);
 
   // Compute Action Center counts
   const actionCenter = useMemo(() => {
@@ -231,6 +251,32 @@ export default function Dashboard() {
   const statCards = [
     { title: 'Total Cafe Count', value: stats.totalCafeCount, icon: <Storefront />, color: '#6366f1', subtitle: 'Portfolio size' },
     { title: 'Live Store Count', value: stats.liveStoreCount, icon: <CheckCircle />, color: '#10b981', subtitle: 'Currently active' },
+    { 
+      title: 'State Wise Cafe Count', 
+      value: stats.selectedStateCount, 
+      icon: <MapIcon />, 
+      color: '#3b82f6', 
+      subtitle: 'By state',
+      dropdown: {
+        value: selectedState,
+        onChange: setSelectedState,
+        options: stats.statesList,
+        label: 'States'
+      }
+    },
+    { 
+      title: 'City Wise Cafe Count', 
+      value: stats.selectedCityCount, 
+      icon: <LocationCity />, 
+      color: '#0ea5e9', 
+      subtitle: 'By city',
+      dropdown: {
+        value: selectedCity,
+        onChange: setSelectedCity,
+        options: stats.citiesList,
+        label: 'Cities'
+      }
+    },
     { title: 'Closed Store Count', value: stats.closedStoreCount, icon: <Cancel />, color: '#ef4444', subtitle: 'Inactive locations' },
     { title: 'Upcoming Store Count', value: stats.upcomingStoreCount, icon: <Upcoming />, color: '#06b6d4', subtitle: 'Future pipeline' },
     { title: 'Ready to Go Live Count', value: stats.readyToGoLiveCount, icon: <TaskAlt />, color: '#059669', subtitle: 'Awaiting launch' },
@@ -349,9 +395,31 @@ export default function Dashboard() {
                     <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', fontSize: { xs: '1.9rem', md: '2.15rem' }, lineHeight: 1.05, mb: 0.35 }}>
                       {stat.value}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      {stat.subtitle}
-                    </Typography>
+                    {stat.dropdown ? (
+                      <Select
+                        size="small"
+                        value={stat.dropdown.value}
+                        onChange={(e) => stat.dropdown.onChange(e.target.value)}
+                        variant="standard"
+                        disableUnderline
+                        sx={{ 
+                          fontSize: '0.75rem', 
+                          color: 'text.secondary', 
+                          mt: 0.25,
+                          '& .MuiSelect-select': { py: 0, px: 0 },
+                          '& .MuiSvgIcon-root': { fontSize: '1rem', right: -4 }
+                        }}
+                      >
+                        <MenuItem value="All" sx={{ fontSize: '0.75rem' }}>All {stat.dropdown.label}</MenuItem>
+                        {stat.dropdown.options.map(opt => (
+                          <MenuItem key={opt} value={opt} sx={{ fontSize: '0.75rem' }}>{opt}</MenuItem>
+                        ))}
+                      </Select>
+                    ) : (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {stat.subtitle}
+                      </Typography>
+                    )}
                   </Box>
                   <Box sx={{ 
                     bgcolor: `${stat.color}14`, 
