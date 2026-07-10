@@ -1537,7 +1537,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       }
     }
 
-    if (updateData.status === 'NSO_APPROVED') {
+    if (updateData.status === 'NSO_APPROVED' && user.role !== 'SUPER_ADMIN') {
       const missingFields: string[] = [];
       for (const field of MANDATORY_FIELDS) {
         const value = updateData[field] !== undefined ? updateData[field] : (currentStore as any)[field];

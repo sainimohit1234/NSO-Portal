@@ -672,30 +672,32 @@ export default function EditStore() {
     }
   }
 
-  // If the store is CLOSED or READY FOR CONSTRUCTION, restrict editing
-  if (currentStatusVal === 'CLOSED' && !isSuperAdmin) {
-    canEditBasicDetails = false;
-    canEditContacts = false;
-    canEditFinance = false;
-  }
+  // Override edit permissions for non-Super Admins based on store status
+  if (!isSuperAdmin) {
+    if (currentStatusVal === 'CLOSED') {
+      canEditBasicDetails = false;
+      canEditContacts = false;
+      canEditFinance = false;
+    }
 
-  if (currentStatusVal === 'Ready for Construction' || currentStatusVal === 'IN_PIPELINE' || currentStatusVal === 'In Pipeline') {
-    canEditBasicDetails = false;
-    canEditContacts = false;
-    canEditFinance = false;
-  }
+    if (currentStatusVal === 'Ready for Construction' || currentStatusVal === 'IN_PIPELINE' || currentStatusVal === 'In Pipeline') {
+      canEditBasicDetails = false;
+      canEditContacts = false;
+      canEditFinance = false;
+    }
 
-  if (currentStatusVal === 'PENDING_APPROVAL' && !canApprove) {
-    canEditBasicDetails = false;
-    canEditContacts = false;
-    canEditFinance = false;
-  }
+    if (currentStatusVal === 'PENDING_APPROVAL' && !canApprove) {
+      canEditBasicDetails = false;
+      canEditContacts = false;
+      canEditFinance = false;
+    }
 
-  // If the store has been approved, force all edit permissions to false (view-only for everyone)
-  if (isApprovedStatus) {
-    canEditBasicDetails = false;
-    canEditContacts = false;
-    canEditFinance = false;
+    // If the store has been approved, force all edit permissions to false (view-only for everyone)
+    if (isApprovedStatus) {
+      canEditBasicDetails = false;
+      canEditContacts = false;
+      canEditFinance = false;
+    }
   }
 
   const canEditGstFssai = isManager ? false : canEditBasicDetails;
@@ -1297,9 +1299,8 @@ export default function EditStore() {
 
   const baseOptions = isSuperAdmin 
     ? [
-
-        { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval', disabled: !isApprovedSelectable },
-        { value: 'APPROVED', label: 'Approved', disabled: !isApprovedSelectable || !isLaunchDateFilled },
+        { value: 'PENDING_APPROVAL', label: 'Sent to NSO Team for Approval' },
+        { value: 'APPROVED', label: 'Approved' },
         { value: 'ON_HOLD', label: 'On Hold' },
         ...((isReadyToGoLiveOrLive || store?.status === 'APPROVED' || store?.status === 'NSO_APPROVED') ? [{ value: 'READY_TO_GO_LIVE', label: 'Ready to Go Live' }] : []),
         ...(isReadyToGoLiveOrLive ? [{ value: 'LIVE', label: 'Live' }] : []),
@@ -1793,9 +1794,9 @@ export default function EditStore() {
                         label="City **" 
                         {...register('city')} 
                         value={watch('city') || ''}
-                        InputProps={{ readOnly: true }}
+                        InputProps={{ readOnly: !isSuperAdmin }}
                         InputLabelProps={{ shrink: !!watch('city') }}
-                        disabled={true} 
+                        disabled={!isSuperAdmin} 
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}>
@@ -1804,9 +1805,9 @@ export default function EditStore() {
                         label="State **" 
                         {...register('state')} 
                         value={watch('state') || ''}
-                        InputProps={{ readOnly: true }}
+                        InputProps={{ readOnly: !isSuperAdmin }}
                         InputLabelProps={{ shrink: !!watch('state') }}
-                        disabled={true} 
+                        disabled={!isSuperAdmin} 
                       />
                     </Grid>
                     
