@@ -802,8 +802,8 @@ export default function ExpansionPipeline() {
           display: 'grid',
           gridTemplateColumns: {
             xs: '1fr',
-            sm: 'repeat(2, minmax(0, 1fr))',
-            md: 'repeat(4, minmax(0, 1fr))'
+            sm: 'repeat(4, minmax(0, 1fr))',
+            md: 'repeat(8, minmax(0, 1fr))'
           },
           gap: 2,
           mb: 3.5
