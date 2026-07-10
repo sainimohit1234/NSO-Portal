@@ -2975,47 +2975,36 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       }
     }
 
-    if (!isZomato) {
-      // Swiggy Onboarding Flow (Attachment Generation)
-      const wsData = buildSwiggyTemplateData(store, brandParam || '');
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-      ws['!cols'] = [
-        { wch: 70 },
-        { wch: 50 }
-      ];
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Swiggy Template");
-      const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-
-      let restaurantName = "Blue_Tokai";
-      if (normalizedBrand.includes("suchali")) {
-        restaurantName = "Suchali_Artisan_Bakehouse";
-      } else if (normalizedBrand.includes("got_tea") || normalizedBrand.includes("gottea")) {
-        restaurantName = "Got_Tea";
-      }
-
-      attachments = [{
-        filename: `Swiggy_${restaurantName}_Onboarding_Template_${store.cafeCode}.xlsx`,
-        content: excelBuffer
-      }];
-    }
-
-    // Download and attach files passed from the frontend (General category + State GST)
+    // Download and attach files passed from the frontend (Status Category + General + State GST)
     if (Array.isArray(attachmentUrls) && attachmentUrls.length > 0) {
+      console.log(`[Email] Downloading ${attachmentUrls.length} attachment(s)...`);
       await Promise.all(attachmentUrls.map(async (attachment: { fileName: string; fileUrl: string; isGST?: boolean }) => {
         try {
+          console.log(`[Email] Fetching: ${attachment.fileName} from ${attachment.fileUrl.substring(0, 80)}...`);
           const fileRes = await fetch(attachment.fileUrl);
           if (fileRes.ok) {
             const arrayBuffer = await fileRes.arrayBuffer();
+            // Determine the file extension from the URL
+            const urlPath = new URL(attachment.fileUrl).pathname;
+            const urlExt = urlPath.includes('.') ? urlPath.substring(urlPath.lastIndexOf('.')) : '';
+            let filename = attachment.fileName || 'attachment';
+            // Add extension if not already present
+            if (urlExt && !filename.toLowerCase().endsWith(urlExt.toLowerCase())) {
+              filename = `${filename}${urlExt}`;
+            }
             attachments.push({
-              filename: attachment.fileName,
+              filename,
               content: Buffer.from(arrayBuffer)
             });
+            console.log(`[Email] Attached: ${filename} (${arrayBuffer.byteLength} bytes)`);
+          } else {
+            console.error(`[Email] Failed to fetch ${attachment.fileName}: HTTP ${fileRes.status} ${fileRes.statusText}`);
           }
         } catch (err) {
-          console.error(`Failed to download attachment ${attachment.fileName}:`, err);
+          console.error(`[Email] Failed to download attachment ${attachment.fileName}:`, err);
         }
       }));
+      console.log(`[Email] Total attachments ready: ${attachments.length}`);
     }
 
     const smtpConfig = await getSMTPConfig();
