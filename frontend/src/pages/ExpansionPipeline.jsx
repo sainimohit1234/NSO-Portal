@@ -17,7 +17,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment';
 import ConstructionIcon from '@mui/icons-material/Construction';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import axios from '../utils/api';
-import DocumentManagerModal from '../components/DocumentManagerModal';
+import DocumentManagerModal, { DOCUMENT_CONFIG } from '../components/DocumentManagerModal';
 import FullScreenLoader from '../components/FullScreenLoader';
 
 import { useAuth } from '../context/AuthContext';
@@ -42,6 +42,60 @@ export default function ExpansionPipeline() {
       return 'pdf';
     }
     return 'other';
+  };
+
+  const getDocumentStatusInfo = (store, categoryName) => {
+    const categoryConfig = DOCUMENT_CONFIG.find(c => c.name === categoryName);
+    if (!categoryConfig) return { bg: 'warning.light', color: 'warning.dark', hoverBg: 'warning.main', label: 'Awaiting Documents' };
+
+    let mandatoryDocs = [];
+    if (categoryConfig.subcategories) {
+      categoryConfig.subcategories.forEach(sub => {
+        mandatoryDocs = [...mandatoryDocs, ...sub.docs.filter(d => d.mandatory)];
+      });
+    } else if (categoryConfig.docs) {
+      mandatoryDocs = categoryConfig.docs.filter(d => d.mandatory);
+    }
+
+    const uploadedDocs = store.documents || [];
+    // Helper to check if a specific document type is uploaded
+    const isDocUploaded = (reqDoc) => {
+      // Legacy fallbacks for specific fields, just in case
+      if (categoryName === 'Legal Documents') {
+        if (reqDoc.type === 'Letter of Intent (LOI)' && store.loiUrl) return true;
+        if (reqDoc.type === 'Lease / Rental Agreement' && store.agreementUrl) return true;
+      }
+      if (categoryName === 'Financial Documents') {
+        if (reqDoc.type === 'Budget Approval' && store.budgetUrl) return true;
+      }
+      return uploadedDocs.some(d => d.type === reqDoc.type && d.url);
+    };
+
+    const isComplete = mandatoryDocs.length > 0 && mandatoryDocs.every(isDocUploaded);
+
+    if (isComplete) {
+      return { bg: 'success.light', color: 'success.dark', hoverBg: 'success.main', label: 'Completed' };
+    }
+
+    // Default 'Awaiting Documents' state, modified by creation date logic
+    const createdDate = store.createdAt ? new Date(store.createdAt) : null;
+    if (!createdDate) {
+      // Fallback if no creation date exists
+      return { bg: '#f1f5f9', color: '#64748b', hoverBg: '#e2e8f0', label: 'Awaiting Documents' };
+    }
+
+    const now = new Date();
+    // Calculate days diff (ignoring time of day by setting to midnight might be safer, but raw diff is fine)
+    const diffTime = now.getTime() - createdDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays >= 7) {
+      return { bg: '#fee2e2', color: '#b91c1c', hoverBg: '#f87171', label: 'Overdue (7+ Days)' };
+    } else if (diffDays >= 3) {
+      return { bg: 'warning.light', color: 'warning.dark', hoverBg: 'warning.main', label: 'Pending (3+ Days)' };
+    } else {
+      return { bg: '#f1f5f9', color: '#64748b', hoverBg: '#e2e8f0', label: 'Awaiting Documents' };
+    }
   };
 
   const [stores, setStores] = useState([]);
@@ -885,7 +939,7 @@ export default function ExpansionPipeline() {
                 <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>FINANCIAL DOCUMENTS</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>PROJECT DOCUMENTS</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 220, textAlign: 'center' }}>MISCELLANEOUS DOCUMENTS</TableCell>
-
+                <TableCell sx={{ fontWeight: 800, width: 180 }}>Created By</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 180 }}>Status</TableCell>
                 {canModify && <TableCell sx={{ fontWeight: 800, width: 80 }} align="center">Actions</TableCell>}
               </TableRow>
@@ -893,7 +947,7 @@ export default function ExpansionPipeline() {
             <TableBody>
               {loading && stores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={canModify ? 15 : 14} align="center" sx={{ py: 6 }}>
                     <Box sx={{ py: 8 }}>
                       <FullScreenLoader messages={[
                         'Warming up the espresso machine…',
@@ -907,13 +961,13 @@ export default function ExpansionPipeline() {
                 </TableRow>
               ) : stores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={canModify ? 15 : 14} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No expansion pipeline stores registered.
                   </TableCell>
                 </TableRow>
               ) : filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={canModify ? 15 : 14} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No stores match the selected status filter.
                   </TableCell>
                 </TableRow>
@@ -1048,47 +1102,62 @@ export default function ExpansionPipeline() {
                         </Select>
                       </TableCell>
 
-                                            {/* LEGAL DOCUMENTS */}
+                      {/* LEGAL DOCUMENTS */}
                       <TableCell align="center">
-                        <Chip 
-                          label={store.loiUrl && store.agreementUrl ? "Documents Uploaded" : "Awaiting Documents"} 
-                          onClick={() => setUploadModalConfig({ store, category: 'Legal Documents' })}
-                          sx={{ 
-                            bgcolor: store.loiUrl && store.agreementUrl ? 'success.light' : 'warning.light', 
-                            color: store.loiUrl && store.agreementUrl ? 'success.dark' : 'warning.dark', 
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            '&:hover': { bgcolor: store.loiUrl && store.agreementUrl ? 'success.main' : 'warning.main', color: 'primary.contrastText' }
-                          }} 
-                        />
+                        {(() => {
+                          const statusInfo = getDocumentStatusInfo(store, 'Legal Documents');
+                          return (
+                            <Chip 
+                              label={statusInfo.label} 
+                              onClick={() => setUploadModalConfig({ store, category: 'Legal Documents' })}
+                              sx={{ 
+                                bgcolor: statusInfo.bg, 
+                                color: statusInfo.color, 
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                '&:hover': { bgcolor: statusInfo.hoverBg, color: 'primary.contrastText' }
+                              }} 
+                            />
+                          );
+                        })()}
                       </TableCell>
                       {/* FINANCIAL DOCUMENTS */}
                       <TableCell align="center">
-                        <Chip 
-                          label={store.budgetUrl ? "Documents Uploaded" : "Awaiting Documents"} 
-                          onClick={() => setUploadModalConfig({ store, category: 'Financial Documents' })}
-                          sx={{ 
-                            bgcolor: store.budgetUrl ? 'success.light' : 'warning.light', 
-                            color: store.budgetUrl ? 'success.dark' : 'warning.dark', 
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            '&:hover': { bgcolor: store.budgetUrl ? 'success.main' : 'warning.main', color: 'primary.contrastText' }
-                          }} 
-                        />
+                        {(() => {
+                          const statusInfo = getDocumentStatusInfo(store, 'Financial Documents');
+                          return (
+                            <Chip 
+                              label={statusInfo.label} 
+                              onClick={() => setUploadModalConfig({ store, category: 'Financial Documents' })}
+                              sx={{ 
+                                bgcolor: statusInfo.bg, 
+                                color: statusInfo.color, 
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                '&:hover': { bgcolor: statusInfo.hoverBg, color: 'primary.contrastText' }
+                              }} 
+                            />
+                          );
+                        })()}
                       </TableCell>
                       {/* PROJECT DOCUMENTS */}
                       <TableCell align="center">
-                        <Chip 
-                          label="Awaiting Documents" 
-                          onClick={() => setUploadModalConfig({ store, category: 'Project Documents' })}
-                          sx={{ 
-                            bgcolor: 'warning.light', 
-                            color: 'warning.dark', 
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            '&:hover': { bgcolor: 'warning.main', color: 'primary.contrastText' }
-                          }} 
-                        />
+                        {(() => {
+                          const statusInfo = getDocumentStatusInfo(store, 'Project Documents');
+                          return (
+                            <Chip 
+                              label={statusInfo.label} 
+                              onClick={() => setUploadModalConfig({ store, category: 'Project Documents' })}
+                              sx={{ 
+                                bgcolor: statusInfo.bg, 
+                                color: statusInfo.color, 
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                '&:hover': { bgcolor: statusInfo.hoverBg, color: 'primary.contrastText' }
+                              }} 
+                            />
+                          );
+                        })()}
                       </TableCell>
                       {/* MISCELLANEOUS DOCUMENTS */}
                       <TableCell align="center">
@@ -1104,7 +1173,28 @@ export default function ExpansionPipeline() {
                           }} 
                         />
                       </TableCell>
-                                 {/* Status */}
+
+                      {/* Created By */}
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.85rem' }}>
+                            {store.enteredByEmail || '—'}
+                          </Typography>
+                          {store.createdAt && (
+                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                              {new Date(store.createdAt).toLocaleString('en-IN', { 
+                                day: '2-digit', 
+                                month: 'short', 
+                                year: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </Typography>
+                          )}
+                        </Box>
+                      </TableCell>
+
+                      {/* Status */}
                       <TableCell>
                         {(() => {
                           const isLocked = store.isLocked === true || store.isLocked === 'true';
