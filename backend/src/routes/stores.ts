@@ -1163,7 +1163,9 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req: 
       }
     }
 
-    validateStoreEmailsAndMonth(req.body);
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      validateStoreEmailsAndMonth(req.body);
+    }
 
     const status = req.body.status || 'INCOMPLETE_INFORMATION';
 
@@ -1359,7 +1361,9 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
   const { id } = req.params;
   const user = req.user;
   try {
-    validateStoreEmailsAndMonth(req.body);
+    if (req.user?.role !== 'SUPER_ADMIN') {
+      validateStoreEmailsAndMonth(req.body);
+    }
 
     const currentStore = await prisma.store.findUnique({
       where: { id: id as string }
@@ -1369,7 +1373,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     }
 
     const approvalStatuses = ['NSO_APPROVED', 'APPROVED', 'LIVE'];
-    if (approvalStatuses.includes(currentStore.status)) {
+    if (approvalStatuses.includes(currentStore.status) && user.role !== 'SUPER_ADMIN') {
       const allowedKeys = ['status', 'isLocked', 'mailStatus', 'uploadedDocuments', 'blueTokaiSwiggyRID', 'blueTokaiZomatoRID', 'suchaliSwiggyRID', 'suchaliZomatoRID', 'gotTeaSwiggyRID', 'gotTeaZomatoRID', 'inStoreLive', 'inStoreLiveDate', 'deliveryLive', 'deliveryLiveDate', 'blueTokaiSwiggyLive', 'blueTokaiSwiggyLiveDate', 'blueTokaiZomatoLive', 'blueTokaiZomatoLiveDate', 'suchaliSwiggyLive', 'suchaliSwiggyLiveDate', 'suchaliZomatoLive', 'suchaliZomatoLiveDate', 'gotTeaSwiggyLive', 'gotTeaSwiggyLiveDate', 'gotTeaZomatoLive', 'gotTeaZomatoLiveDate', 'inStoreClosureDate', 'deliveryClosureDate', 'inStoreClosed', 'inStoreClosedDate', 'deliveryClosed', 'deliveryClosedDate'];
       const attemptedChanges = Object.keys(req.body).filter(key => {
         if (allowedKeys.includes(key)) return false;
@@ -1407,7 +1411,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
         if (!isSuperAdmin && !hasGoLivePermission) {
           return res.status(403).json({ error: 'Access denied: You do not have Go-Live Access permission.' });
         }
-        if (!['APPROVED', 'NSO_APPROVED', 'READY_TO_GO_LIVE'].includes(currentStore.status)) {
+        if (!['APPROVED', 'NSO_APPROVED', 'READY_TO_GO_LIVE'].includes(currentStore.status) && !isSuperAdmin) {
           return res.status(400).json({ error: 'Store must be Approved before going Live.' });
         }
       } else {
@@ -1527,7 +1531,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       }
     }
 
-    if (updateData.status === 'ON_HOLD') {
+    if (updateData.status === 'ON_HOLD' && user.role !== 'SUPER_ADMIN') {
       const remarks = updateData.remarks !== undefined ? updateData.remarks : currentStore.remarks;
       if (!remarks || String(remarks).trim() === '') {
         return res.status(400).json({
@@ -1593,7 +1597,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
 
     // Validate go-live toggles and dates
     const targetStatus = updateData.status !== undefined ? updateData.status : currentStore.status;
-    if (targetStatus === 'LIVE') {
+    if (targetStatus === 'LIVE' && user.role !== 'SUPER_ADMIN') {
       const inStoreLive = updateData.inStoreLive !== undefined ? updateData.inStoreLive : currentStore.inStoreLive;
       const deliveryLive = updateData.deliveryLive !== undefined ? updateData.deliveryLive : currentStore.deliveryLive;
 
@@ -1625,7 +1629,7 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     }
 
     // Validate closure toggles and dates
-    if (targetStatus === 'CLOSED') {
+    if (targetStatus === 'CLOSED' && user.role !== 'SUPER_ADMIN') {
       const inStoreClosed = updateData.inStoreClosed !== undefined ? updateData.inStoreClosed : currentStore.inStoreClosed;
       const deliveryClosed = updateData.deliveryClosed !== undefined ? updateData.deliveryClosed : currentStore.deliveryClosed;
 
