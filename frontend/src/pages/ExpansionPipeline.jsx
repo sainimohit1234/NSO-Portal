@@ -852,7 +852,7 @@ export default function ExpansionPipeline() {
           },
           {
             key: 'legal',
-            label: 'Legal Documents',
+            label: 'Legal Documents Pending',
             count: pendingLegalCount,
             filterValue: 'Pending Legal',
             icon: <DescriptionIcon />,
@@ -860,7 +860,7 @@ export default function ExpansionPipeline() {
           },
           {
             key: 'financial',
-            label: 'Financial Documents',
+            label: 'Financial Documents Pending',
             count: pendingFinancialCount,
             filterValue: 'Pending Financial',
             icon: <DescriptionIcon />,
@@ -868,7 +868,7 @@ export default function ExpansionPipeline() {
           },
           {
             key: 'project',
-            label: 'Project Documents',
+            label: 'Project Documents Pending',
             count: pendingProjectCount,
             filterValue: 'Pending Project',
             icon: <DescriptionIcon />,
