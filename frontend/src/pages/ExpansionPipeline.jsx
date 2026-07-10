@@ -939,8 +939,8 @@ export default function ExpansionPipeline() {
                 <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>FINANCIAL DOCUMENTS</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>PROJECT DOCUMENTS</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 220, textAlign: 'center' }}>MISCELLANEOUS DOCUMENTS</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 180 }}>Created By</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 180 }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 180 }}>Created By</TableCell>
                 {canModify && <TableCell sx={{ fontWeight: 800, width: 80 }} align="center">Actions</TableCell>}
               </TableRow>
             </TableHead>
@@ -1174,26 +1174,6 @@ export default function ExpansionPipeline() {
                         />
                       </TableCell>
 
-                      {/* Created By */}
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.85rem' }}>
-                            {store.enteredByEmail || '—'}
-                          </Typography>
-                          {store.createdAt && (
-                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                              {new Date(store.createdAt).toLocaleString('en-IN', { 
-                                day: '2-digit', 
-                                month: 'short', 
-                                year: 'numeric', 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-
                       {/* Status */}
                       <TableCell>
                         {(() => {
@@ -1235,6 +1215,26 @@ export default function ExpansionPipeline() {
                              </Select>
                            );
                         })()}
+                      </TableCell>
+
+                      {/* Created By */}
+                      <TableCell>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.85rem' }}>
+                            {store.enteredByEmail || '—'}
+                          </Typography>
+                          {store.createdAt && (
+                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                              {new Date(store.createdAt).toLocaleString('en-IN', { 
+                                day: '2-digit', 
+                                month: 'short', 
+                                year: 'numeric', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </Typography>
+                          )}
+                        </Box>
                       </TableCell>
 
                       {/* Actions */}
