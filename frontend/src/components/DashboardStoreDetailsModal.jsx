@@ -3,17 +3,104 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, 
   Button, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Typography, Box, Select, MenuItem, TextField,
-  IconButton, Paper, Chip, Checkbox, ListItemText, Menu, FormGroup, FormControlLabel
+  IconButton, Paper, Chip, Checkbox, ListItemText, Menu, FormGroup, FormControlLabel,
+  Collapse
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import Papa from 'papaparse';
 import { getCurrentStatus } from '../utils/status';
+
+function CollapsibleGroupRow({ group, title }) {
+  const [open, setOpen] = useState(false);
+  
+  const modulesStr = Object.keys(group.moduleCounts).join(', ');
+  const countsStr = Object.values(group.moduleCounts).join(', ');
+
+  return (
+    <>
+      <TableRow hover sx={{ '& > *': { borderBottom: 'unset' } }}>
+        <TableCell>
+          <IconButton
+            aria-label="expand row"
+            size="small"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <KeyboardArrowDownIcon /> : <KeyboardArrowRightIcon />}
+          </IconButton>
+        </TableCell>
+        <TableCell component="th" scope="row" sx={{ fontWeight: 700 }}>
+          {group.name}
+        </TableCell>
+        <TableCell>{group.cafes.length}</TableCell>
+        <TableCell>{modulesStr}</TableCell>
+        <TableCell>{countsStr}</TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={5}>
+          <Collapse in={open} timeout="auto" unmountOnExit>
+            <Box sx={{ margin: 1, my: 2, border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
+              <Table size="small" aria-label="cafes">
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'action.hover' }}>
+                    <TableCell sx={{ fontWeight: 700 }}>Brand</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Cafe Name</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Cafe Code</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Address</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Module</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Swiggy RID</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Zomato RID</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {group.cafes.map((store) => {
+                    const statusStr = getCurrentStatus(store) || store.status || 'Unknown';
+                    const isLive = ['active', 'live'].includes(statusStr.toLowerCase());
+                    return (
+                      <TableRow key={store.id}>
+                        <TableCell>{store.brand || '—'}</TableCell>
+                        <TableCell>{store.cafeName || '—'}</TableCell>
+                        <TableCell>{store.cafeCode || '—'}</TableCell>
+                        <TableCell>{store.address || '—'}</TableCell>
+                        <TableCell>{store.cafeModule || store.cafeModel || '—'}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={statusStr} 
+                            size="small" 
+                            sx={{ 
+                              fontWeight: 700, 
+                              bgcolor: isLive ? '#dcfce7' : 'primary.light', 
+                              color: isLive ? '#166534' : 'primary.dark' 
+                            }} 
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {store.blueTokaiSwiggyRID || store.suchaliSwiggyRID || store.gotTeaSwiggyRID || '—'}
+                        </TableCell>
+                        <TableCell>
+                          {store.blueTokaiZomatoRID || store.suchaliZomatoRID || store.gotTeaZomatoRID || '—'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
+  );
+}
 
 export default function DashboardStoreDetailsModal({ open, onClose, title, dataset }) {
   // Filters state
   const [filterBrand, setFilterBrand] = useState('All');
   const [filterStates, setFilterStates] = useState([]);
+  const [filterCities, setFilterCities] = useState([]);
   const [filterModule, setFilterModule] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchName, setSearchName] = useState('');
@@ -23,7 +110,7 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
   const [customExportOpen, setCustomExportOpen] = useState(false);
   
   const ALL_COLUMNS = useMemo(() => [
-    'Brand', 'Cafe Name', 'Cafe Code', 'Cafe Module', 'City', 'State', 
+    'Brand', 'Cafe Name', 'Cafe Code', 'Cafe Module', 'Address', 'City', 'State', 
     'Store Status', 'Swiggy BTC RID', 'Swiggy SAB RID', 'GT Swiggy RID', 
     'Zomato BTC RID', 'Zomato SAB RID', 'GT Zomato RID'
   ], []);
@@ -46,6 +133,13 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
         }
       }
 
+      // Cities multi-select filter
+      if (filterCities.length > 0) {
+        if (!store.city || !filterCities.includes(store.city.trim())) {
+          return false;
+        }
+      }
+
       // Module filter
       if (filterModule !== 'All') {
         const mod = store.cafeModule || store.cafeModel;
@@ -62,16 +156,19 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
         }
       }
 
-      // Search Name
-      if (searchName && store.cafeName) {
-        if (!store.cafeName.toLowerCase().includes(searchName.toLowerCase())) {
+      // Search Name or Code
+      if (searchName) {
+        const query = searchName.toLowerCase();
+        const matchName = store.cafeName?.toLowerCase().includes(query);
+        const matchCode = store.cafeCode?.toLowerCase().includes(query);
+        if (!matchName && !matchCode) {
           return false;
         }
       }
 
       return true;
     });
-  }, [dataset, filterBrand, filterStates, filterModule, filterStatus, searchName]);
+  }, [dataset, filterBrand, filterStates, filterCities, filterModule, filterStatus, searchName]);
 
   // Derived filter options based on the specific dataset
   const uniqueBrands = useMemo(() => {
@@ -84,6 +181,12 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
     if (!dataset) return [];
     const states = new Set(dataset.map(s => s.state?.trim()).filter(Boolean));
     return Array.from(states).sort();
+  }, [dataset]);
+
+  const uniqueCities = useMemo(() => {
+    if (!dataset) return [];
+    const cities = new Set(dataset.map(s => s.city?.trim()).filter(Boolean));
+    return Array.from(cities).sort();
   }, [dataset]);
 
   const uniqueModules = useMemo(() => {
@@ -105,6 +208,7 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
         'Cafe Name': store.cafeName || '',
         'Cafe Code': store.cafeCode || '',
         'Cafe Module': store.cafeModule || store.cafeModel || '',
+        'Address': store.address || '',
         'City': store.city || '',
         'State': store.state || '',
         'Store Status': getCurrentStatus(store) || store.status || '',
@@ -141,10 +245,35 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
   const clearFilters = () => {
     setFilterBrand('All');
     setFilterStates([]);
+    setFilterCities([]);
     setFilterModule('All');
     setFilterStatus('All');
     setSearchName('');
   };
+
+  const isSummaryView = title === 'Cities Covered' || title === 'States Covered';
+
+  const groupedData = useMemo(() => {
+    if (!isSummaryView) return [];
+    
+    const groups = {};
+    filteredData.forEach(store => {
+      const key = title === 'Cities Covered' ? (store.city || 'Unknown') : (store.state || 'Unknown');
+      if (!groups[key]) {
+        groups[key] = {
+          name: key,
+          cafes: [],
+          moduleCounts: {}
+        };
+      }
+      groups[key].cafes.push(store);
+      
+      const mod = store.cafeModule || store.cafeModel || 'Unknown';
+      groups[key].moduleCounts[mod] = (groups[key].moduleCounts[mod] || 0) + 1;
+    });
+
+    return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredData, isSummaryView, title]);
 
   return (
     <Dialog 
@@ -227,31 +356,61 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
             </Select>
           </Box>
 
-          <Box sx={{ minWidth: 150, maxWidth: 250 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>State</Typography>
-            <Select
-              size="small"
-              multiple
-              displayEmpty
-              value={filterStates}
-              onChange={(e) => setFilterStates(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
-              fullWidth
-              renderValue={(selected) => {
-                if (selected.length === 0) {
-                  return 'All States';
-                }
-                return selected.join(', ');
-              }}
-              sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
-            >
-              {uniqueStates.map(st => (
-                <MenuItem key={st} value={st}>
-                  <Checkbox checked={filterStates.indexOf(st) > -1} />
-                  <ListItemText primary={st} />
-                </MenuItem>
-              ))}
-            </Select>
-          </Box>
+          {title !== 'Cities Covered' && (
+            <Box sx={{ minWidth: 150, maxWidth: 250 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>State</Typography>
+              <Select
+                size="small"
+                multiple
+                displayEmpty
+                value={filterStates}
+                onChange={(e) => setFilterStates(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                fullWidth
+                renderValue={(selected) => {
+                  if (selected.length === 0) {
+                    return 'All States';
+                  }
+                  return selected.join(', ');
+                }}
+                sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
+              >
+                {uniqueStates.map(st => (
+                  <MenuItem key={st} value={st}>
+                    <Checkbox checked={filterStates.indexOf(st) > -1} />
+                    <ListItemText primary={st} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+          )}
+
+          {title !== 'States Covered' && (
+            <Box sx={{ minWidth: 150, maxWidth: 250 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>City</Typography>
+              <Select
+                size="small"
+                multiple
+                displayEmpty
+                value={filterCities}
+                onChange={(e) => setFilterCities(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+                fullWidth
+                renderValue={(selected) => {
+                  if (selected.length === 0) {
+                    return 'All Cities';
+                  }
+                  return selected.join(', ');
+                }}
+                sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
+              >
+                {uniqueCities.map(ct => (
+                  <MenuItem key={ct} value={ct}>
+                    <Checkbox checked={filterCities.indexOf(ct) > -1} />
+                    <ListItemText primary={ct} />
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+          )}
 
           <Box sx={{ minWidth: 150 }}>
             <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>Module</Typography>
@@ -308,29 +467,44 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
         <TableContainer component={Paper} elevation={0} sx={{ flexGrow: 1, borderRadius: 0 }}>
           <Table stickyHeader size="small">
             <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Brand</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Cafe Name</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>City</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>State</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Module</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Swiggy BTC RID</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Swiggy SAB RID</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>GT Swiggy RID</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Zomato BTC RID</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Zomato SAB RID</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>GT Zomato RID</TableCell>
-              </TableRow>
+              {isSummaryView ? (
+                <TableRow>
+                  <TableCell />
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>{title === 'Cities Covered' ? 'City Name' : 'State Name'}</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Total Cafe Count</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Module</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Module Count</TableCell>
+                </TableRow>
+              ) : (
+                <TableRow>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Brand</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Cafe Name</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Address</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>City</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>State</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Module</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Swiggy BTC RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Swiggy SAB RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>GT Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Zomato BTC RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Zomato SAB RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>GT Zomato RID</TableCell>
+                </TableRow>
+              )}
             </TableHead>
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={13} align="center" sx={{ py: 8 }}>
+                  <TableCell colSpan={isSummaryView ? 5 : 14} align="center" sx={{ py: 8 }}>
                     <Typography color="text.secondary">No stores match the selected filters.</Typography>
                   </TableCell>
                 </TableRow>
+              ) : isSummaryView ? (
+                groupedData.map(group => (
+                  <CollapsibleGroupRow key={group.name} group={group} title={title} />
+                ))
               ) : (
                 filteredData.map((store) => {
                   const statusStr = getCurrentStatus(store) || store.status || 'Unknown';
@@ -341,6 +515,7 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
                       <TableCell>{store.brand || '—'}</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>{store.cafeName || '—'}</TableCell>
                       <TableCell>{store.cafeCode || '—'}</TableCell>
+                      <TableCell>{store.address || '—'}</TableCell>
                       <TableCell>{store.city || '—'}</TableCell>
                       <TableCell>{store.state || '—'}</TableCell>
                       <TableCell>{store.cafeModule || store.cafeModel || '—'}</TableCell>
