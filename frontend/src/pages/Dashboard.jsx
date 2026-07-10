@@ -9,7 +9,6 @@ import ClearIcon from '@mui/icons-material/Clear';
 import Storefront from '@mui/icons-material/Storefront';
 import CheckCircle from '@mui/icons-material/CheckCircle';
 import Warning from '@mui/icons-material/Warning';
-import Description from '@mui/icons-material/Description';
 import People from '@mui/icons-material/People';
 import CalendarToday from '@mui/icons-material/CalendarToday';
 import Upcoming from '@mui/icons-material/Upcoming';
@@ -17,6 +16,8 @@ import Cancel from '@mui/icons-material/Cancel';
 import TaskAlt from '@mui/icons-material/TaskAlt';
 import LocationCity from '@mui/icons-material/LocationCity';
 import MapIcon from '@mui/icons-material/Map';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import DashboardStoreDetailsModal from '../components/DashboardStoreDetailsModal';
 import axios from '../utils/api';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
@@ -35,6 +36,7 @@ export default function Dashboard() {
   const [cityHeadSearch, setCityHeadSearch] = useState('');
   const [selectedCity, setSelectedCity] = useState('All');
   const [selectedState, setSelectedState] = useState('All');
+  const [activeModalTile, setActiveModalTile] = useState(null);
 
   useEffect(() => {
     fetchStoresFromFirestore()
@@ -121,10 +123,11 @@ export default function Dashboard() {
     };
     const targetStores = filteredStores.filter(isTargetStore);
 
-    const liveStoreCount = targetStores.filter(s => s.status === 'LIVE' && s.isActive !== false && s.isActive !== 'false').length;
-    const closedStoreCount = filteredStores.filter(s => getCurrentStatus(s) === 'Closed').length;
-    const totalCafeCount = targetStores.filter(s => !isInventoryStore(s) && getCurrentStatus(s) !== 'Closed').length + closedStoreCount;
-    const pipelineCount = filteredStores.filter(s => {
+    const liveStores = targetStores.filter(s => s.status === 'LIVE' && s.isActive !== false && s.isActive !== 'false');
+    const closedStores = filteredStores.filter(s => getCurrentStatus(s) === 'Closed');
+    const totalStores = targetStores.filter(s => !isInventoryStore(s) && getCurrentStatus(s) !== 'Closed').concat(closedStores);
+    
+    const pipelineStores = filteredStores.filter(s => {
       const isLocked = s.isLocked === true || s.isLocked === 'true';
       if (isLocked || s.status === 'LIVE' || s.status === 'Live' || getCurrentStatus(s) === 'Closed') {
         return false;
@@ -133,51 +136,67 @@ export default function Dashboard() {
         return false;
       }
       return true;
-    }).length;
-    const upcomingStoreCount = targetStores.filter(s => getCurrentStatus(s) === 'Upcoming Store').length;
-    const pendingApprovalCount = targetStores.filter(s => s.status === 'PENDING_APPROVAL').length;
-    const readyToGoLiveCount = targetStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live').length;
+    });
+
+    const upcomingStores = targetStores.filter(s => getCurrentStatus(s) === 'Upcoming Store');
+    const pendingApprovalStores = targetStores.filter(s => s.status === 'PENDING_APPROVAL');
     const readyToGoLiveStores = targetStores.filter(s => getCurrentStatus(s) === 'Ready to Go Live');
-    const fssaiThisMonthCount = targetStores.filter(isFssaiExpiringThisMonth).length;
-    const rentThisMonthCount = targetStores.filter(isRentExpiringThisMonth).length;
-    const incompleteInfoCount = 0;
+    const fssaiThisMonthStores = targetStores.filter(isFssaiExpiringThisMonth);
+    const rentThisMonthStores = targetStores.filter(isRentExpiringThisMonth);
 
     const areaManagersData = aggregateManagers(filteredStores, 'areaManager');
     const cityHeadsData = aggregateManagers(filteredStores, 'cityHead');
     const cafeManagersData = aggregateManagers(filteredStores, 'cafeManager');
+    
+    const areaManagerStores = filteredStores.filter(s => s.areaManagerName?.trim());
+    const cityHeadStores = filteredStores.filter(s => s.cityHeadName?.trim());
+    const cafeManagerStores = filteredStores.filter(s => s.cafeManagerName?.trim());
 
     const activeCafes = targetStores.filter(s => !isInventoryStore(s) && getCurrentStatus(s) !== 'Closed');
     
     const statesList = [...new Set(activeCafes.map(s => s.state?.trim()).filter(Boolean))].sort();
     const citiesList = [...new Set(activeCafes.map(s => s.city?.trim()).filter(Boolean))].sort();
     
-    const selectedStateCount = selectedState === 'All' 
-      ? activeCafes.length 
-      : activeCafes.filter(s => s.state?.trim() === selectedState).length;
+    const selectedStateStores = selectedState === 'All' 
+      ? activeCafes
+      : activeCafes.filter(s => s.state?.trim() === selectedState);
       
-    const selectedCityCount = selectedCity === 'All' 
-      ? activeCafes.length 
-      : activeCafes.filter(s => s.city?.trim() === selectedCity).length;
+    const selectedCityStores = selectedCity === 'All' 
+      ? activeCafes
+      : activeCafes.filter(s => s.city?.trim() === selectedCity);
 
     return {
-      liveStoreCount,
-      totalCafeCount,
-      pipelineCount,
-      upcomingStoreCount,
-      closedStoreCount,
-      pendingApprovalCount,
-      readyToGoLiveCount,
+      liveStoreCount: liveStores.length,
+      liveStores,
+      totalCafeCount: totalStores.length,
+      totalStores,
+      pipelineCount: pipelineStores.length,
+      pipelineStores,
+      upcomingStoreCount: upcomingStores.length,
+      upcomingStores,
+      closedStoreCount: closedStores.length,
+      closedStores,
+      pendingApprovalCount: pendingApprovalStores.length,
+      pendingApprovalStores,
+      readyToGoLiveCount: readyToGoLiveStores.length,
       readyToGoLiveStores,
-      fssaiThisMonthCount,
-      rentThisMonthCount,
+      fssaiThisMonthCount: fssaiThisMonthStores.length,
+      fssaiThisMonthStores,
+      rentThisMonthCount: rentThisMonthStores.length,
+      rentThisMonthStores,
       areaManagersData,
+      areaManagerStores,
       cityHeadsData,
+      cityHeadStores,
       cafeManagersData,
-      incompleteInfoCount,
+      cafeManagerStores,
+      incompleteInfoCount: 0,
       statesList,
       citiesList,
-      selectedStateCount,
-      selectedCityCount
+      selectedStateCount: selectedStateStores.length,
+      selectedStateStores,
+      selectedCityCount: selectedCityStores.length,
+      selectedCityStores
     };
   }, [filteredStores, selectedCity, selectedState]);
 
@@ -249,14 +268,16 @@ export default function Dashboard() {
   }, [filteredStores]);
 
   const statCards = [
-    { title: 'Total Cafe Count', value: stats.totalCafeCount, icon: <Storefront />, color: '#6366f1', subtitle: 'Portfolio size' },
-    { title: 'Live Store Count', value: stats.liveStoreCount, icon: <CheckCircle />, color: '#10b981', subtitle: 'Currently active' },
+    { id: 'total', title: 'Total Cafe Count', value: stats.totalCafeCount, icon: <Storefront />, color: '#6366f1', subtitle: 'Portfolio size', dataset: stats.totalStores },
+    { id: 'live', title: 'Live Store Count', value: stats.liveStoreCount, icon: <CheckCircle />, color: '#10b981', subtitle: 'Currently active', dataset: stats.liveStores },
     { 
+      id: 'state',
       title: 'State Wise Cafe Count', 
       value: stats.selectedStateCount, 
       icon: <MapIcon />, 
       color: '#3b82f6', 
       subtitle: 'By state',
+      dataset: stats.selectedStateStores,
       dropdown: {
         value: selectedState,
         onChange: setSelectedState,
@@ -265,11 +286,13 @@ export default function Dashboard() {
       }
     },
     { 
+      id: 'city',
       title: 'City Wise Cafe Count', 
       value: stats.selectedCityCount, 
       icon: <LocationCity />, 
       color: '#0ea5e9', 
       subtitle: 'By city',
+      dataset: stats.selectedCityStores,
       dropdown: {
         value: selectedCity,
         onChange: setSelectedCity,
@@ -277,17 +300,17 @@ export default function Dashboard() {
         label: 'Cities'
       }
     },
-    { title: 'Closed Store Count', value: stats.closedStoreCount, icon: <Cancel />, color: '#ef4444', subtitle: 'Inactive locations' },
-    { title: 'Upcoming Store Count', value: stats.upcomingStoreCount, icon: <Upcoming />, color: '#06b6d4', subtitle: 'Future pipeline' },
-    { title: 'Ready to Go Live Count', value: stats.readyToGoLiveCount, icon: <TaskAlt />, color: '#059669', subtitle: 'Awaiting launch' },
-    { title: 'Pipeline Count', value: stats.pipelineCount, icon: <Upcoming />, color: '#0ea5e9', subtitle: 'Pipeline phase' },
-    { title: 'Approval Pending', value: stats.pendingApprovalCount, icon: <Warning />, color: '#f59e0b', subtitle: 'Needs review' },
+    { id: 'closed', title: 'Closed Store Count', value: stats.closedStoreCount, icon: <Cancel />, color: '#ef4444', subtitle: 'Inactive locations', dataset: stats.closedStores },
+    { id: 'upcoming', title: 'Upcoming Store Count', value: stats.upcomingStoreCount, icon: <Upcoming />, color: '#06b6d4', subtitle: 'Future pipeline', dataset: stats.upcomingStores },
+    { id: 'ready', title: 'Ready to Go Live Count', value: stats.readyToGoLiveCount, icon: <TaskAlt />, color: '#059669', subtitle: 'Awaiting launch', dataset: stats.readyToGoLiveStores },
+    { id: 'pipeline', title: 'Pipeline Count', value: stats.pipelineCount, icon: <Upcoming />, color: '#0ea5e9', subtitle: 'Pipeline phase', dataset: stats.pipelineStores },
+    { id: 'pending', title: 'Approval Pending', value: stats.pendingApprovalCount, icon: <Warning />, color: '#f59e0b', subtitle: 'Needs review', dataset: stats.pendingApprovalStores },
 
-    { title: 'Current Month Expiry FSSAI Licence Count', value: stats.fssaiThisMonthCount, icon: <CalendarToday />, color: '#ec4899', subtitle: 'Compliance attention' },
-    { title: 'Current Month Expiry Rent Count', value: stats.rentThisMonthCount, icon: <CalendarToday />, color: '#8b5cf6', subtitle: 'Lease attention' },
-    { title: 'Area Managers Count', value: stats.areaManagersData.length, icon: <People />, color: '#f97316', subtitle: 'Regional owners' },
-    { title: 'City Heads Count', value: stats.cityHeadsData.length, icon: <People />, color: '#a855f7', subtitle: 'City supervisors' },
-    { title: 'Cafe Managers Count', value: stats.cafeManagersData.length, icon: <People />, color: '#14b8a6', subtitle: 'On-ground managers' },
+    { id: 'fssai', title: 'Current Month Expiry FSSAI Licence Count', value: stats.fssaiThisMonthCount, icon: <CalendarToday />, color: '#ec4899', subtitle: 'Compliance attention', dataset: stats.fssaiThisMonthStores },
+    { id: 'rent', title: 'Current Month Expiry Rent Count', value: stats.rentThisMonthCount, icon: <CalendarToday />, color: '#8b5cf6', subtitle: 'Lease attention', dataset: stats.rentThisMonthStores },
+    { id: 'area_managers', title: 'Area Managers Count', value: stats.areaManagersData.length, icon: <People />, color: '#f97316', subtitle: 'Regional owners', dataset: stats.areaManagerStores },
+    { id: 'city_heads', title: 'City Heads Count', value: stats.cityHeadsData.length, icon: <People />, color: '#a855f7', subtitle: 'City supervisors', dataset: stats.cityHeadStores },
+    { id: 'cafe_managers', title: 'Cafe Managers Count', value: stats.cafeManagersData.length, icon: <People />, color: '#14b8a6', subtitle: 'On-ground managers', dataset: stats.cafeManagerStores },
   ];
 
   if (loading) {
@@ -366,32 +389,54 @@ export default function Dashboard() {
       >
         {statCards.map((stat, idx) => (
           <Box key={idx}>
-            <Card sx={{ 
-              bgcolor: 'background.paper',
-              height: '100%',
-              position: 'relative',
-              overflow: 'hidden',
-              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: '0 16px 36px rgba(10, 49, 77, 0.08)'
-              },
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 4,
-                bgcolor: stat.color
-              }
-            }}>
+            <Card 
+              onClick={() => setActiveModalTile(stat)}
+              sx={{ 
+                bgcolor: 'background.paper',
+                height: '100%',
+                position: 'relative',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                border: activeModalTile?.id === stat.id ? `2px solid ${stat.color}` : '2px solid transparent',
+                boxShadow: activeModalTile?.id === stat.id 
+                  ? `0 8px 24px ${stat.color}40` 
+                  : '0 4px 12px rgba(10, 49, 77, 0.04)',
+                transform: activeModalTile?.id === stat.id ? 'translateY(-4px)' : 'none',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: activeModalTile?.id === stat.id 
+                    ? `0 12px 32px ${stat.color}50`
+                    : '0 16px 36px rgba(10, 49, 77, 0.08)'
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 4,
+                  bgcolor: stat.color
+                }
+              }}>
               <CardContent sx={{ p: 2, pt: 2.5 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700, mb: 0.65, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.66rem' }}>
-                      {stat.title}
-                    </Typography>
+                  <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.65 }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '0.66rem' }}>
+                        {stat.title}
+                      </Typography>
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveModalTile(stat);
+                        }}
+                        sx={{ p: 0.5, color: 'text.secondary', '&:hover': { color: stat.color, bgcolor: `${stat.color}14` } }}
+                      >
+                        <VisibilityIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Box>
                     <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', fontSize: { xs: '1.9rem', md: '2.15rem' }, lineHeight: 1.05, mb: 0.35 }}>
                       {stat.value}
                     </Typography>
@@ -430,7 +475,8 @@ export default function Dashboard() {
                     justifyContent: 'center',
                     color: stat.color,
                     border: `1px solid ${stat.color}20`,
-                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.45)`
+                    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.45)`,
+                    flexShrink: 0
                   }}>
                     {React.cloneElement(stat.icon, { sx: { fontSize: 20 } })}
                   </Box>
@@ -871,6 +917,15 @@ export default function Dashboard() {
           </Card>
         </Grid>
       </Grid>
+      
+      {activeModalTile && (
+        <DashboardStoreDetailsModal
+          open={!!activeModalTile}
+          onClose={() => setActiveModalTile(null)}
+          title={activeModalTile.title}
+          dataset={activeModalTile.dataset}
+        />
+      )}
     </Box>
   );
 }
