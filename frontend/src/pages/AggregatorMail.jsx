@@ -12,6 +12,15 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import PaletteIcon from '@mui/icons-material/Palette';
+import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
+import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
+import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
+import VerticalAlignTopIcon from '@mui/icons-material/VerticalAlignTop';
+import VerticalAlignCenterIcon from '@mui/icons-material/VerticalAlignCenter';
+import FormatBoldIcon from '@mui/icons-material/FormatBold';
+import FormatItalicIcon from '@mui/icons-material/FormatItalic';
+import FormatColorTextIcon from '@mui/icons-material/FormatColorText';
+import FormatColorFillIcon from '@mui/icons-material/FormatColorFill';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -78,7 +87,11 @@ const parseTemplateBody = (bodyHtml) => {
         headers.push({
           text: cell.textContent?.trim() || '',
           bgColor: cell.style.backgroundColor || '',
-          textColor: cell.style.color || ''
+          textColor: cell.style.color || '',
+          align: cell.style.textAlign || '',
+          vAlign: cell.style.verticalAlign || '',
+          fontWeight: cell.style.fontWeight || '',
+          fontStyle: cell.style.fontStyle || ''
         });
       });
     }
@@ -94,7 +107,11 @@ const parseTemplateBody = (bodyHtml) => {
         rowCells.push({
           text: td.textContent?.trim() || '',
           bgColor: td.style.backgroundColor || '',
-          textColor: td.style.color || ''
+          textColor: td.style.color || '',
+          align: td.style.textAlign || '',
+          vAlign: td.style.verticalAlign || '',
+          fontWeight: td.style.fontWeight || '',
+          fontStyle: td.style.fontStyle || ''
         });
       });
       rows.push(rowCells);
@@ -114,12 +131,16 @@ const compileVisualToHtml = (intro, outro, table) => {
   
   let html = formattedIntro;
   if (table) {
-    html += '<table style="width: 50%; border-collapse: collapse; margin: 15px 0; text-align: left;">';
+    html += '<table style="width: 100%; max-width: 900px; border-collapse: collapse; margin: 15px 0; text-align: left;">';
     html += '<thead><tr style="background-color: #f8fafc;">';
     table.headers.forEach(h => {
       const bgStyle = h.bgColor ? ` background-color: ${h.bgColor};` : '';
       const colorStyle = h.textColor ? ` color: ${h.textColor};` : '';
-      html += `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-weight: bold;${bgStyle}${colorStyle}">${h.text}</th>`;
+      const alignStyle = h.align ? ` text-align: ${h.align};` : '';
+      const vAlignStyle = h.vAlign ? ` vertical-align: ${h.vAlign};` : '';
+      const fwStyle = h.fontWeight ? ` font-weight: ${h.fontWeight};` : ' font-weight: bold;';
+      const fsStyle = h.fontStyle ? ` font-style: ${h.fontStyle};` : '';
+      html += `<th style="border: 2px solid #000; padding: 8px;${alignStyle}${vAlignStyle}${fwStyle}${fsStyle}${bgStyle}${colorStyle}">${h.text}</th>`;
     });
     html += '</tr></thead>';
     html += '<tbody>';
@@ -128,7 +149,11 @@ const compileVisualToHtml = (intro, outro, table) => {
       row.forEach(cell => {
         const bgStyle = cell.bgColor ? ` background-color: ${cell.bgColor};` : '';
         const colorStyle = cell.textColor ? ` color: ${cell.textColor};` : '';
-        html += `<td style="border: 1px solid #cbd5e1; padding: 8px;${bgStyle}${colorStyle}">${cell.text}</td>`;
+        const alignStyle = cell.align ? ` text-align: ${cell.align};` : '';
+        const vAlignStyle = cell.vAlign ? ` vertical-align: ${cell.vAlign};` : '';
+        const fwStyle = cell.fontWeight ? ` font-weight: ${cell.fontWeight};` : '';
+        const fsStyle = cell.fontStyle ? ` font-style: ${cell.fontStyle};` : '';
+        html += `<td style="border: 2px solid #000; padding: 8px;${alignStyle}${vAlignStyle}${fwStyle}${fsStyle}${bgStyle}${colorStyle}">${cell.text}</td>`;
       });
       html += '</tr>';
     });
@@ -165,11 +190,13 @@ export default function AggregatorMail() {
   const [introText, setIntroText] = useState('');
   const [outroText, setOutroText] = useState('');
   const [tableData, setTableData] = useState(null);
-  const [selectedCell, setSelectedCell] = useState(null);
+  const [selectedCells, setSelectedCells] = useState([]);
+  const [formatDialogType, setFormatDialogType] = useState(null); // 'text' | 'bg'
+  const [selectionDragState, setSelectionDragState] = useState(null);
 
   const addRow = () => {
     if (!tableData) return;
-    const newRow = Array(tableData.headers.length).fill(null).map(() => ({ text: '', bgColor: '', textColor: '' }));
+    const newRow = Array(tableData.headers.length).fill(null).map(() => ({ text: '', bgColor: '', textColor: '', align: '', vAlign: '', fontWeight: '', fontStyle: '' }));
     const updated = {
       ...tableData,
       rows: [...tableData.rows, newRow]
@@ -188,8 +215,8 @@ export default function AggregatorMail() {
 
   const addColumn = () => {
     if (!tableData) return;
-    const updatedHeaders = [...tableData.headers, { text: `Header ${tableData.headers.length + 1}`, bgColor: '', textColor: '' }];
-    const updatedRows = tableData.rows.map(row => [...row, { text: '', bgColor: '', textColor: '' }]);
+    const updatedHeaders = [...tableData.headers, { text: `Header ${tableData.headers.length + 1}`, bgColor: '', textColor: '', align: '', vAlign: '', fontWeight: '', fontStyle: '' }];
+    const updatedRows = tableData.rows.map(row => [...row, { text: '', bgColor: '', textColor: '', align: '', vAlign: '', fontWeight: '', fontStyle: '' }]);
     const updated = { headers: updatedHeaders, rows: updatedRows };
     setTableData(updated);
     setTemplateBody(compileVisualToHtml(introText, outroText, updated));
@@ -221,21 +248,42 @@ export default function AggregatorMail() {
     setTemplateBody(compileVisualToHtml(introText, outroText, updated));
   };
 
-  const updateCellColor = (type, rIdx, cIdx, colorType, colorVal) => {
-    if (!tableData) return;
-    let updated;
-    if (type === 'header') {
-      const headers = [...tableData.headers];
-      headers[cIdx] = { ...headers[cIdx], [colorType]: colorVal };
-      updated = { ...tableData, headers };
-    } else {
-      const rows = [...tableData.rows];
-      rows[rIdx] = [...rows[rIdx]];
-      rows[rIdx][cIdx] = { ...rows[rIdx][cIdx], [colorType]: colorVal };
-      updated = { ...tableData, rows };
-    }
+  const applyFormattingToSelection = (property, value) => {
+    if (!tableData || selectedCells.length === 0) return;
+    let updatedHeaders = [...tableData.headers];
+    let updatedRows = tableData.rows.map(r => [...r]);
+
+    selectedCells.forEach(sel => {
+      if (sel.type === 'header') {
+        updatedHeaders[sel.colIndex] = { ...updatedHeaders[sel.colIndex], [property]: value };
+      } else {
+        updatedRows[sel.rowIndex][sel.colIndex] = { ...updatedRows[sel.rowIndex][sel.colIndex], [property]: value };
+      }
+    });
+
+    const updated = { headers: updatedHeaders, rows: updatedRows };
     setTableData(updated);
     setTemplateBody(compileVisualToHtml(introText, outroText, updated));
+  };
+
+  const handleCellClick = (type, rowIndex, colIndex, event) => {
+    const isShiftOrCtrl = event.shiftKey || event.ctrlKey || event.metaKey;
+    const cellId = `${type}-${rowIndex}-${colIndex}`;
+    const exists = selectedCells.find(c => c.type === type && c.rowIndex === rowIndex && c.colIndex === colIndex);
+
+    if (isShiftOrCtrl) {
+      if (exists) {
+        setSelectedCells(selectedCells.filter(c => !(c.type === type && c.rowIndex === rowIndex && c.colIndex === colIndex)));
+      } else {
+        setSelectedCells([...selectedCells, { type, rowIndex, colIndex }]);
+      }
+    } else {
+      setSelectedCells([{ type, rowIndex, colIndex }]);
+    }
+  };
+
+  const isCellSelected = (type, rowIndex, colIndex) => {
+    return selectedCells.some(c => c.type === type && c.rowIndex === rowIndex && c.colIndex === colIndex);
   };
 
   const updateIntroText = (val) => {
@@ -1099,87 +1147,102 @@ export default function AggregatorMail() {
                                   <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e2e8f0' }}>
                                     <thead>
                                       <tr>
-                                        {tableData.headers.map((h, cIdx) => (
-                                          <th
-                                            key={cIdx}
-                                            style={{
-                                              border: '1px solid #cbd5e1',
-                                              padding: '6px',
-                                              backgroundColor: h.bgColor || '#f8fafc',
-                                              color: h.textColor || '#334155',
-                                              minWidth: '120px'
-                                            }}
-                                          >
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                              <input
-                                                value={h.text}
-                                                onChange={(e) => updateCellText('header', 0, cIdx, e.target.value)}
-                                                style={{
-                                                  border: 'none',
-                                                  background: 'transparent',
-                                                  width: '100%',
-                                                  fontWeight: 'bold',
-                                                  fontSize: '0.825rem',
-                                                  color: h.textColor || '#334155',
-                                                  outline: 'none'
-                                                }}
-                                              />
-                                              <IconButton
-                                                size="small"
-                                                onClick={() => setSelectedCell({ type: 'header', rowIndex: 0, colIndex: cIdx })}
-                                                sx={{ p: 0.25 }}
-                                              >
-                                                <PaletteIcon sx={{ fontSize: 14 }} />
-                                              </IconButton>
-                                              <IconButton
-                                                size="small"
-                                                color="error"
-                                                onClick={() => deleteColumn(cIdx)}
-                                                sx={{ p: 0.25 }}
-                                              >
-                                                <CloseIcon sx={{ fontSize: 14 }} />
-                                              </IconButton>
-                                            </Box>
-                                          </th>
-                                        ))}
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {tableData.rows.map((row, rIdx) => (
-                                        <tr key={rIdx}>
-                                          {row.map((cell, cIdx) => (
-                                            <td
+                                        {tableData.headers.map((h, cIdx) => {
+                                          const isSel = isCellSelected('header', 0, cIdx);
+                                          return (
+                                            <th
                                               key={cIdx}
+                                              onClick={(e) => handleCellClick('header', 0, cIdx, e)}
                                               style={{
-                                                border: '1px solid #cbd5e1',
+                                                border: '2px solid #000',
                                                 padding: '6px',
-                                                backgroundColor: cell.bgColor || '#ffffff',
-                                                color: cell.textColor || '#333333'
+                                                backgroundColor: h.bgColor || '#f8fafc',
+                                                color: h.textColor || '#334155',
+                                                minWidth: '120px',
+                                                textAlign: h.align || 'left',
+                                                verticalAlign: h.vAlign || 'middle',
+                                                fontWeight: h.fontWeight || 'bold',
+                                                fontStyle: h.fontStyle || 'normal',
+                                                boxShadow: isSel ? 'inset 0 0 0 2px #3b82f6' : 'none',
+                                                outline: 'none',
+                                                cursor: 'pointer'
                                               }}
                                             >
-                                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                <input
-                                                  value={cell.text}
-                                                  onChange={(e) => updateCellText('body', rIdx, cIdx, e.target.value)}
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                  <input
+                                                    value={h.text}
+                                                    onChange={(e) => updateCellText('header', 0, cIdx, e.target.value)}
+                                                    style={{
+                                                      border: 'none',
+                                                      background: 'transparent',
+                                                      width: '100%',
+                                                      fontWeight: 'inherit',
+                                                      fontStyle: 'inherit',
+                                                      textAlign: 'inherit',
+                                                      fontSize: '0.825rem',
+                                                      color: 'inherit',
+                                                      outline: 'none',
+                                                      cursor: 'text'
+                                                    }}
+                                                  />
+                                                  <IconButton
+                                                    size="small"
+                                                    color="error"
+                                                    onClick={(e) => { e.stopPropagation(); deleteColumn(cIdx); }}
+                                                    sx={{ p: 0.25 }}
+                                                  >
+                                                    <CloseIcon sx={{ fontSize: 14 }} />
+                                                  </IconButton>
+                                                </Box>
+                                              </th>
+                                            );
+                                          })}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {tableData.rows.map((row, rIdx) => (
+                                          <tr key={rIdx}>
+                                            {row.map((cell, cIdx) => {
+                                              const isSel = isCellSelected('body', rIdx, cIdx);
+                                              return (
+                                                <td
+                                                  key={cIdx}
+                                                  onClick={(e) => handleCellClick('body', rIdx, cIdx, e)}
                                                   style={{
-                                                    border: 'none',
-                                                    background: 'transparent',
-                                                    width: '100%',
-                                                    fontSize: '0.825rem',
+                                                    border: '2px solid #000',
+                                                    padding: '6px',
+                                                    backgroundColor: cell.bgColor || '#ffffff',
                                                     color: cell.textColor || '#333333',
-                                                    outline: 'none'
+                                                    textAlign: cell.align || 'left',
+                                                    verticalAlign: cell.vAlign || 'middle',
+                                                    fontWeight: cell.fontWeight || 'normal',
+                                                    fontStyle: cell.fontStyle || 'normal',
+                                                    boxShadow: isSel ? 'inset 0 0 0 2px #3b82f6' : 'none',
+                                                    outline: 'none',
+                                                    cursor: 'pointer'
                                                   }}
-                                                />
-                                                <IconButton
-                                                  size="small"
-                                                  onClick={() => setSelectedCell({ type: 'body', rowIndex: rIdx, colIndex: cIdx })}
-                                                  sx={{ p: 0.25 }}
                                                 >
-                                                  <PaletteIcon sx={{ fontSize: 14 }} />
-                                                </IconButton>
-                                              </Box>
-                                            </td>
-                                          ))}
+                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <input
+                                                      value={cell.text}
+                                                      onChange={(e) => updateCellText('body', rIdx, cIdx, e.target.value)}
+                                                      style={{
+                                                        border: 'none',
+                                                        background: 'transparent',
+                                                        width: '100%',
+                                                        fontSize: '0.825rem',
+                                                        fontWeight: 'inherit',
+                                                        fontStyle: 'inherit',
+                                                        textAlign: 'inherit',
+                                                        color: 'inherit',
+                                                        outline: 'none',
+                                                        cursor: 'text'
+                                                      }}
+                                                    />
+                                                  </Box>
+                                                </td>
+                                              );
+                                            })}
                                           <td style={{ border: 'none', width: '30px', padding: '2px' }}>
                                             <IconButton
                                               size="small"
@@ -1253,13 +1316,12 @@ export default function AggregatorMail() {
                     </Box>
 
                     {/* Cell Styling Dialog */}
-                    <Dialog open={selectedCell !== null} onClose={() => setSelectedCell(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}>
-                      <DialogTitle sx={{ fontWeight: 800 }}>Cell Color & Styling</DialogTitle>
+                    <Dialog open={formatDialogType !== null} onClose={() => setFormatDialogType(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}>
+                      <DialogTitle sx={{ fontWeight: 800 }}>{formatDialogType === 'bg' ? 'Cell Background Color' : 'Text Color'}</DialogTitle>
                       <DialogContent dividers>
-                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Cell Background Color</Typography>
                         <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap', gap: 0.75 }}>
                           {[
-                            { name: 'Default (White)', value: '' },
+                            { name: 'Default', value: '' },
                             // Reds
                             { name: 'Light Pink', value: '#fce7f3' },
                             { name: 'Light Red', value: '#fee2e2' },
@@ -1294,36 +1356,26 @@ export default function AggregatorMail() {
                             { name: 'Dark Blue', value: '#1e3a5f' },
                             { name: 'Dark Green', value: '#14532d' },
                             { name: 'Black', value: '#0f172a' },
-                          ].map(color => {
-                            const isSelected = selectedCell && (selectedCell.type === 'header'
-                              ? tableData.headers[selectedCell.colIndex]?.bgColor === color.value
-                              : tableData.rows[selectedCell.rowIndex]?.[selectedCell.colIndex]?.bgColor === color.value);
-                            return (
-                              <Box
-                                key={color.name}
-                                onClick={() => {
-                                  if (selectedCell) {
-                                    updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'bgColor', color.value);
-                                  }
-                                }}
-                                sx={{
-                                  width: 28,
-                                  height: 28,
-                                  borderRadius: '50%',
-                                  bgcolor: color.value || '#ffffff',
-                                  // White inner border makes dark swatches pop on the white dialog background
-                                  border: '2px solid white',
-                                  // Outer ring: blue if selected, gray otherwise
-                                  boxShadow: isSelected
-                                    ? '0 0 0 2px #2563eb'
-                                    : '0 0 0 1.5px #94a3b8',
-                                  cursor: 'pointer',
-                                  '&:hover': { transform: 'scale(1.2)', transition: 'transform 0.15s', boxShadow: '0 0 0 2px #2563eb' }
-                                }}
-                                title={color.name}
-                              />
-                            );
-                          })}
+                            { name: 'White', value: '#ffffff' },
+                          ].map(color => (
+                            <Box
+                              key={color.name}
+                              onClick={() => {
+                                applyFormattingToSelection(formatDialogType === 'bg' ? 'bgColor' : 'textColor', color.value);
+                              }}
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                borderRadius: '50%',
+                                bgcolor: color.value || (formatDialogType === 'bg' ? '#ffffff' : '#334155'),
+                                border: '2px solid white',
+                                boxShadow: '0 0 0 1.5px #94a3b8',
+                                cursor: 'pointer',
+                                '&:hover': { transform: 'scale(1.2)', transition: 'transform 0.15s', boxShadow: '0 0 0 2px #2563eb' }
+                              }}
+                              title={color.name}
+                            />
+                          ))}
                         </Stack>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                           <Typography variant="caption" color="text.secondary">Custom:</Typography>
@@ -1331,83 +1383,15 @@ export default function AggregatorMail() {
                             type="color"
                             style={{ width: 32, height: 32, border: 'none', borderRadius: '4px', cursor: 'pointer', padding: 0 }}
                             onChange={(e) => {
-                              if (selectedCell) {
-                                updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'bgColor', e.target.value);
-                              }
-                            }}
-                          />
-                          <Typography variant="caption" color="text.secondary">Pick any colour</Typography>
-                        </Box>
-
-                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Text Color</Typography>
-                        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap', gap: 0.75 }}>
-                          {[
-                            { name: 'Default (Dark)', value: '' },
-                            { name: 'Black', value: '#0f172a' },
-                            { name: 'Slate', value: '#475569' },
-                            { name: 'Gray', value: '#6b7280' },
-                            { name: 'Dark Red', value: '#991b1b' },
-                            { name: 'Red', value: '#dc2626' },
-                            { name: 'Rose', value: '#e11d48' },
-                            { name: 'Pink', value: '#db2777' },
-                            { name: 'Dark Orange', value: '#c2410c' },
-                            { name: 'Orange', value: '#d97706' },
-                            { name: 'Amber', value: '#d97706' },
-                            { name: 'Yellow', value: '#ca8a04' },
-                            { name: 'Dark Green', value: '#15803d' },
-                            { name: 'Green', value: '#16a34a' },
-                            { name: 'Emerald', value: '#059669' },
-                            { name: 'Teal', value: '#0d9488' },
-                            { name: 'Cyan', value: '#0891b2' },
-                            { name: 'Sky', value: '#0284c7' },
-                            { name: 'Blue', value: '#2563eb' },
-                            { name: 'Indigo', value: '#4338ca' },
-                            { name: 'Violet', value: '#7c3aed' },
-                            { name: 'Purple', value: '#9333ea' },
-                            { name: 'White', value: '#ffffff' },
-                          ].map(color => (
-                            <Box
-                              key={color.name}
-                              onClick={() => {
-                                if (selectedCell) {
-                                  updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'textColor', color.value);
-                                }
-                              }}
-                              sx={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: '50%',
-                                bgcolor: color.value || '#334155',
-                                border: '2px solid',
-                                borderColor: selectedCell && (selectedCell.type === 'header'
-                                  ? tableData.headers[selectedCell.colIndex]?.textColor === color.value
-                                  : tableData.rows[selectedCell.rowIndex]?.[selectedCell.colIndex]?.textColor === color.value)
-                                    ? 'primary.main'
-                                    : '#cbd5e1',
-                                cursor: 'pointer',
-                                '&:hover': { transform: 'scale(1.2)', transition: 'transform 0.15s' }
-                              }}
-                              title={color.name}
-                            />
-                          ))}
-                        </Stack>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <Typography variant="caption" color="text.secondary">Custom:</Typography>
-                          <input
-                            type="color"
-                            style={{ width: 32, height: 32, border: 'none', borderRadius: '4px', cursor: 'pointer', padding: 0 }}
-                            onChange={(e) => {
-                              if (selectedCell) {
-                                updateCellColor(selectedCell.type, selectedCell.rowIndex, selectedCell.colIndex, 'textColor', e.target.value);
-                              }
+                              applyFormattingToSelection(formatDialogType === 'bg' ? 'bgColor' : 'textColor', e.target.value);
                             }}
                           />
                           <Typography variant="caption" color="text.secondary">Pick any colour</Typography>
                         </Box>
                       </DialogContent>
                       <DialogActions sx={{ p: 1.5 }}>
-                        <Button variant="contained" onClick={() => setSelectedCell(null)} sx={{ borderRadius: '8px', textTransform: 'none' }}>
-                          Apply Styles
+                        <Button variant="contained" onClick={() => setFormatDialogType(null)} sx={{ borderRadius: '8px', textTransform: 'none' }}>
+                          Done
                         </Button>
                       </DialogActions>
                     </Dialog>
