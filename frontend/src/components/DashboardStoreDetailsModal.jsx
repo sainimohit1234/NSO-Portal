@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, 
   Button, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Typography, Box, Select, MenuItem, TextField,
-  IconButton, Paper, Chip, Checkbox, ListItemText
+  IconButton, Paper, Chip, Checkbox, ListItemText, Menu, FormGroup, FormControlLabel
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -17,6 +17,17 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
   const [filterModule, setFilterModule] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchName, setSearchName] = useState('');
+
+  // Export states
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [customExportOpen, setCustomExportOpen] = useState(false);
+  
+  const ALL_COLUMNS = useMemo(() => [
+    'Brand', 'Cafe Name', 'Cafe Code', 'Cafe Module', 'City', 'State', 
+    'Store Status', 'Swiggy BTC RID', 'Swiggy SAB RID', 'GT Swiggy RID', 
+    'Zomato BTC RID', 'Zomato SAB RID', 'GT Zomato RID'
+  ], []);
+  const [selectedColumns, setSelectedColumns] = useState(ALL_COLUMNS);
 
   // Apply filters
   const filteredData = useMemo(() => {
@@ -87,32 +98,44 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
     return Array.from(statuses).sort();
   }, [dataset]);
 
-  const handleDownloadExcel = () => {
-    const csvData = filteredData.map(store => ({
-      'Brand': store.brand || '',
-      'Cafe Name': store.cafeName || '',
-      'Cafe Code': store.cafeCode || '',
-      'Cafe Module': store.cafeModule || store.cafeModel || '',
-      'City': store.city || '',
-      'State': store.state || '',
-      'Store Status': getCurrentStatus(store) || store.status || '',
-      'Swiggy BTC RID': store.blueTokaiSwiggyRID || '',
-      'Swiggy SAB RID': store.suchaliSwiggyRID || '',
-      'GT Swiggy RID': store.gotTeaSwiggyRID || '',
-      'Zomato BTC RID': store.blueTokaiZomatoRID || '',
-      'Zomato SAB RID': store.suchaliZomatoRID || '',
-      'GT Zomato RID': store.gotTeaZomatoRID || ''
-    }));
+  const handleDownloadExcel = (columnsToExport = ALL_COLUMNS) => {
+    const csvData = filteredData.map(store => {
+      const fullData = {
+        'Brand': store.brand || '',
+        'Cafe Name': store.cafeName || '',
+        'Cafe Code': store.cafeCode || '',
+        'Cafe Module': store.cafeModule || store.cafeModel || '',
+        'City': store.city || '',
+        'State': store.state || '',
+        'Store Status': getCurrentStatus(store) || store.status || '',
+        'Swiggy BTC RID': store.blueTokaiSwiggyRID || '',
+        'Swiggy SAB RID': store.suchaliSwiggyRID || '',
+        'GT Swiggy RID': store.gotTeaSwiggyRID || '',
+        'Zomato BTC RID': store.blueTokaiZomatoRID || '',
+        'Zomato SAB RID': store.suchaliZomatoRID || '',
+        'GT Zomato RID': store.gotTeaZomatoRID || ''
+      };
+
+      const filteredRow = {};
+      columnsToExport.forEach(col => {
+        filteredRow[col] = fullData[col];
+      });
+      return filteredRow;
+    });
 
     const csvString = Papa.unparse(csvData);
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${title.replace(/\s+/g, '_')}_Export.csv`);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${title.replace(/\s+/g, '_')}_Export.csv`);
+    link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+
+    setAnchorEl(null);
+    setCustomExportOpen(false);
   };
 
   const clearFilters = () => {
@@ -154,15 +177,30 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
             Showing {filteredData.length} {filteredData.length === 1 ? 'store' : 'stores'} out of {dataset?.length || 0} total in this category.
           </Typography>
         </Box>
-        <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Button 
             variant="outlined" 
             startIcon={<DownloadIcon />} 
-            onClick={handleDownloadExcel}
+            onClick={(e) => setAnchorEl(e.currentTarget)}
             sx={{ mr: 2, borderRadius: 2, fontWeight: 700 }}
           >
             Download Excel
           </Button>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={() => setAnchorEl(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem onClick={() => handleDownloadExcel(ALL_COLUMNS)}>Entire Data</MenuItem>
+            <MenuItem onClick={() => {
+              setAnchorEl(null);
+              setCustomExportOpen(true);
+            }}>
+              Custom Export
+            </MenuItem>
+          </Menu>
           <IconButton onClick={onClose} size="small" sx={{ bgcolor: 'action.hover' }}>
             <CloseIcon />
           </IconButton>
@@ -336,6 +374,54 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
           Close
         </Button>
       </DialogActions>
+
+      {/* Custom Export Modal */}
+      <Dialog 
+        open={customExportOpen} 
+        onClose={() => setCustomExportOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        sx={{ '& .MuiDialog-paper': { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, borderBottom: '1px solid', borderColor: 'divider', pb: 2 }}>
+          Select Columns to Export
+        </DialogTitle>
+        <DialogContent sx={{ py: 2 }}>
+          <FormGroup>
+            {ALL_COLUMNS.map(col => (
+              <FormControlLabel 
+                key={col} 
+                control={
+                  <Checkbox 
+                    checked={selectedColumns.includes(col)} 
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedColumns(prev => [...prev, col]);
+                      } else {
+                        setSelectedColumns(prev => prev.filter(c => c !== col));
+                      }
+                    }} 
+                  />
+                } 
+                label={col} 
+              />
+            ))}
+          </FormGroup>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid', borderColor: 'divider', p: 2 }}>
+          <Button onClick={() => setCustomExportOpen(false)} sx={{ fontWeight: 700 }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={() => handleDownloadExcel(selectedColumns)} 
+            variant="contained" 
+            disabled={selectedColumns.length === 0}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            Done
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }
