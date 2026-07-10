@@ -275,6 +275,15 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredData, isSummaryView, title]);
 
+  const totalUniqueGroups = useMemo(() => {
+    if (!dataset || !isSummaryView) return 0;
+    const keys = new Set(dataset.map(s => {
+      const val = title === 'Cities Covered' ? s.city : s.state;
+      return val ? val.trim() : 'Unknown';
+    }));
+    return keys.size;
+  }, [dataset, isSummaryView, title]);
+
   return (
     <Dialog 
       open={open} 
@@ -302,9 +311,15 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
           >
             {title}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Showing {filteredData.length} {filteredData.length === 1 ? 'store' : 'stores'} out of {dataset?.length || 0} total in this category.
-          </Typography>
+          {isSummaryView ? (
+            <Typography variant="body2" color="text.secondary">
+              Showing {groupedData.length} {title === 'Cities Covered' ? (groupedData.length === 1 ? 'city' : 'cities') : (groupedData.length === 1 ? 'state' : 'states')} out of {totalUniqueGroups} total in this category.
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Showing {filteredData.length} {filteredData.length === 1 ? 'store' : 'stores'} out of {dataset?.length || 0} total in this category.
+            </Typography>
+          )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Button 
