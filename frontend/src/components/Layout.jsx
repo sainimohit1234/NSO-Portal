@@ -623,7 +623,7 @@ export default function Layout() {
         </Typography>
         <DialogContent sx={{ overflowY: 'visible', pb: 2 }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 3 }}>
-            {['/assets/themes/theme1.jpg', '/assets/themes/theme2.jpg', '/assets/themes/theme3.jpg', '/assets/themes/theme4.jpg', '/assets/themes/theme5.jpg', '/assets/themes/theme6.jpg'].map((url, idx) => (
+            {[].map((url, idx) => (
               <Box 
                 key={idx}
                 onClick={() => {
