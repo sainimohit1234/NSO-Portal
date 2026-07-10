@@ -3,7 +3,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, 
   Button, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Typography, Box, Select, MenuItem, TextField,
-  IconButton, Paper, Chip
+  IconButton, Paper, Chip, Checkbox, ListItemText
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
@@ -13,10 +13,10 @@ import { getCurrentStatus } from '../utils/status';
 export default function DashboardStoreDetailsModal({ open, onClose, title, dataset }) {
   // Filters state
   const [filterBrand, setFilterBrand] = useState('All');
-  const [filterPlatform, setFilterPlatform] = useState('All');
+  const [filterStates, setFilterStates] = useState([]);
+  const [filterModule, setFilterModule] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchName, setSearchName] = useState('');
-  const [searchCode, setSearchCode] = useState('');
 
   // Apply filters
   const filteredData = useMemo(() => {
@@ -27,14 +27,20 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
       if (filterBrand !== 'All' && store.brand !== filterBrand) {
         return false;
       }
-      
-      // Platform filter
-      if (filterPlatform === 'Swiggy') {
-        const hasSwiggy = store.blueTokaiSwiggyRID || store.suchaliSwiggyRID || store.gotTeaSwiggyRID;
-        if (!hasSwiggy) return false;
-      } else if (filterPlatform === 'Zomato') {
-        const hasZomato = store.blueTokaiZomatoRID || store.suchaliZomatoRID || store.gotTeaZomatoRID;
-        if (!hasZomato) return false;
+
+      // States multi-select filter
+      if (filterStates.length > 0) {
+        if (!store.state || !filterStates.includes(store.state.trim())) {
+          return false;
+        }
+      }
+
+      // Module filter
+      if (filterModule !== 'All') {
+        const mod = store.cafeModule || store.cafeModel;
+        if (mod !== filterModule) {
+          return false;
+        }
       }
 
       // Status filter
@@ -52,22 +58,27 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
         }
       }
 
-      // Search Code
-      if (searchCode && store.cafeCode) {
-        if (!store.cafeCode.toLowerCase().includes(searchCode.toLowerCase())) {
-          return false;
-        }
-      }
-
       return true;
     });
-  }, [dataset, filterBrand, filterPlatform, filterStatus, searchName, searchCode]);
+  }, [dataset, filterBrand, filterStates, filterModule, filterStatus, searchName]);
 
   // Derived filter options based on the specific dataset
   const uniqueBrands = useMemo(() => {
     if (!dataset) return [];
     const brands = new Set(dataset.map(s => s.brand).filter(Boolean));
     return Array.from(brands).sort();
+  }, [dataset]);
+
+  const uniqueStates = useMemo(() => {
+    if (!dataset) return [];
+    const states = new Set(dataset.map(s => s.state?.trim()).filter(Boolean));
+    return Array.from(states).sort();
+  }, [dataset]);
+
+  const uniqueModules = useMemo(() => {
+    if (!dataset) return [];
+    const modules = new Set(dataset.map(s => s.cafeModule || s.cafeModel).filter(Boolean));
+    return Array.from(modules).sort();
   }, [dataset]);
 
   const uniqueStatuses = useMemo(() => {
@@ -85,12 +96,12 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
       'City': store.city || '',
       'State': store.state || '',
       'Store Status': getCurrentStatus(store) || store.status || '',
-      'Swiggy RID (Blue Tokai)': store.blueTokaiSwiggyRID || '',
-      'Swiggy RID (Suchali)': store.suchaliSwiggyRID || '',
-      'Swiggy RID (Got Tea)': store.gotTeaSwiggyRID || '',
-      'Zomato RID (Blue Tokai)': store.blueTokaiZomatoRID || '',
-      'Zomato RID (Suchali)': store.suchaliZomatoRID || '',
-      'Zomato RID (Got Tea)': store.gotTeaZomatoRID || ''
+      'Swiggy BTC RID': store.blueTokaiSwiggyRID || '',
+      'Swiggy SAB RID': store.suchaliSwiggyRID || '',
+      'GT Swiggy RID': store.gotTeaSwiggyRID || '',
+      'Zomato BTC RID': store.blueTokaiZomatoRID || '',
+      'Zomato SAB RID': store.suchaliZomatoRID || '',
+      'GT Zomato RID': store.gotTeaZomatoRID || ''
     }));
 
     const csvString = Papa.unparse(csvData);
@@ -106,10 +117,10 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
 
   const clearFilters = () => {
     setFilterBrand('All');
-    setFilterPlatform('All');
+    setFilterStates([]);
+    setFilterModule('All');
     setFilterStatus('All');
     setSearchName('');
-    setSearchCode('');
   };
 
   return (
@@ -128,7 +139,17 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box>
-          <Typography variant="h5" sx={{ fontWeight: 800 }}>{title}</Typography>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 800,
+              background: title.toLowerCase().includes('state') ? 'linear-gradient(45deg, #0ea5e9 30%, #a855f7 90%)' : 'inherit',
+              WebkitBackgroundClip: title.toLowerCase().includes('state') ? 'text' : 'border-box',
+              WebkitTextFillColor: title.toLowerCase().includes('state') ? 'transparent' : 'inherit',
+            }}
+          >
+            {title}
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             Showing {filteredData.length} {filteredData.length === 1 ? 'store' : 'stores'} out of {dataset?.length || 0} total in this category.
           </Typography>
@@ -168,18 +189,45 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
             </Select>
           </Box>
 
-          <Box sx={{ minWidth: 150 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>Platform</Typography>
+          <Box sx={{ minWidth: 150, maxWidth: 250 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>State</Typography>
             <Select
               size="small"
-              value={filterPlatform}
-              onChange={(e) => setFilterPlatform(e.target.value)}
+              multiple
+              displayEmpty
+              value={filterStates}
+              onChange={(e) => setFilterStates(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+              fullWidth
+              renderValue={(selected) => {
+                if (selected.length === 0) {
+                  return 'All States';
+                }
+                return selected.join(', ');
+              }}
+              sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
+            >
+              {uniqueStates.map(st => (
+                <MenuItem key={st} value={st}>
+                  <Checkbox checked={filterStates.indexOf(st) > -1} />
+                  <ListItemText primary={st} />
+                </MenuItem>
+              ))}
+            </Select>
+          </Box>
+
+          <Box sx={{ minWidth: 150 }}>
+            <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>Module</Typography>
+            <Select
+              size="small"
+              value={filterModule}
+              onChange={(e) => setFilterModule(e.target.value)}
               fullWidth
               sx={{ bgcolor: 'background.paper', borderRadius: 2 }}
             >
-              <MenuItem value="All">All Platforms</MenuItem>
-              <MenuItem value="Swiggy">Swiggy (Any)</MenuItem>
-              <MenuItem value="Zomato">Zomato (Any)</MenuItem>
+              <MenuItem value="All">All Modules</MenuItem>
+              {uniqueModules.map(m => (
+                <MenuItem key={m} value={m}>{m}</MenuItem>
+              ))}
             </Select>
           </Box>
 
@@ -211,18 +259,6 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
             />
           </Box>
 
-          <Box sx={{ minWidth: 150 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, mb: 0.5, display: 'block' }}>Search Code</Typography>
-            <TextField
-              size="small"
-              placeholder="Search by code..."
-              value={searchCode}
-              onChange={(e) => setSearchCode(e.target.value)}
-              fullWidth
-              sx={{ bgcolor: 'background.paper', borderRadius: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-            />
-          </Box>
-          
           <Box sx={{ display: 'flex', alignItems: 'flex-end', pb: 0.5 }}>
             <Button size="small" onClick={clearFilters} sx={{ fontWeight: 700, minWidth: 100 }}>
               Clear Filters
@@ -242,21 +278,25 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
                 <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>State</TableCell>
                 <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Module</TableCell>
                 <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Swiggy RIDs</TableCell>
-                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Zomato RIDs</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Swiggy BTC RID</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Swiggy SAB RID</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>GT Swiggy RID</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Zomato BTC RID</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>Zomato SAB RID</TableCell>
+                <TableCell sx={{ fontWeight: 800, bgcolor: 'background.paper' }}>GT Zomato RID</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredData.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 8 }}>
+                  <TableCell colSpan={13} align="center" sx={{ py: 8 }}>
                     <Typography color="text.secondary">No stores match the selected filters.</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredData.map((store) => {
-                  const swiggyRids = [store.blueTokaiSwiggyRID, store.suchaliSwiggyRID, store.gotTeaSwiggyRID].filter(Boolean);
-                  const zomatoRids = [store.blueTokaiZomatoRID, store.suchaliZomatoRID, store.gotTeaZomatoRID].filter(Boolean);
+                  const statusStr = getCurrentStatus(store) || store.status || 'Unknown';
+                  const isLive = ['active', 'live'].includes(statusStr.toLowerCase());
                   
                   return (
                     <TableRow key={store.id} hover>
@@ -268,17 +308,21 @@ export default function DashboardStoreDetailsModal({ open, onClose, title, datas
                       <TableCell>{store.cafeModule || store.cafeModel || '—'}</TableCell>
                       <TableCell>
                         <Chip 
-                          label={getCurrentStatus(store) || store.status || 'Unknown'} 
+                          label={statusStr} 
                           size="small" 
-                          sx={{ fontWeight: 700, bgcolor: 'primary.light', color: 'primary.dark' }} 
+                          sx={{ 
+                            fontWeight: 700, 
+                            bgcolor: isLive ? '#dcfce7' : 'primary.light', 
+                            color: isLive ? '#166534' : 'primary.dark' 
+                          }} 
                         />
                       </TableCell>
-                      <TableCell>
-                        {swiggyRids.length > 0 ? swiggyRids.join(', ') : <Typography variant="caption" color="text.disabled">—</Typography>}
-                      </TableCell>
-                      <TableCell>
-                        {zomatoRids.length > 0 ? zomatoRids.join(', ') : <Typography variant="caption" color="text.disabled">—</Typography>}
-                      </TableCell>
+                      <TableCell>{store.blueTokaiSwiggyRID || <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
+                      <TableCell>{store.suchaliSwiggyRID || <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
+                      <TableCell>{store.gotTeaSwiggyRID || <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
+                      <TableCell>{store.blueTokaiZomatoRID || <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
+                      <TableCell>{store.suchaliZomatoRID || <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
+                      <TableCell>{store.gotTeaZomatoRID || <Typography variant="caption" color="text.disabled">—</Typography>}</TableCell>
                     </TableRow>
                   );
                 })
