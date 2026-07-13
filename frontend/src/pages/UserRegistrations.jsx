@@ -13,8 +13,8 @@ import {
   Typography
 } from '@mui/material';
 import FullScreenLoader from '../components/FullScreenLoader';
-import { collection, getDocs, query, updateDoc, where, doc } from 'firebase/firestore';
-import { firestore } from '../lib/firebase';
+import axios from '../utils/api';
+import { normalizeListResponse } from '../utils/api';
 
 export default function UserRegistrations() {
   const [pendingUsers, setPendingUsers] = useState([]);
@@ -27,13 +27,10 @@ export default function UserRegistrations() {
     setError('');
 
     try {
-      const requestQuery = query(collection(firestore, 'users'), where('approved', '==', false));
-      const snapshot = await getDocs(requestQuery);
-      const users = snapshot.docs.map(item => ({
-        id: item.id,
-        ...item.data()
-      }));
-      setPendingUsers(users);
+      const res = await axios.get('/api/users');
+      const usersList = normalizeListResponse(res.data, ['users', 'data', 'items']) || [];
+      const pending = usersList.filter(user => user.approved === false);
+      setPendingUsers(pending);
     } catch (loadError) {
       console.error('Failed to load registration requests:', loadError);
       setError('Failed to load pending user registration requests.');
@@ -49,14 +46,14 @@ export default function UserRegistrations() {
   const handleStatusUpdate = async (userId, registrationStatus) => {
     setActionLoadingId(userId);
     try {
-      await updateDoc(doc(firestore, 'users', userId), {
+      await axios.put(`/api/users/${userId}`, {
         approved: registrationStatus === 'APPROVED',
         registrationStatus
       });
       await loadPendingUsers();
     } catch (updateError) {
       console.error('Failed to update registration request:', updateError);
-      setError('Failed to update the registration request.');
+      setError(updateError.response?.data?.error || 'Failed to update the registration request.');
     } finally {
       setActionLoadingId('');
     }
@@ -107,8 +104,8 @@ export default function UserRegistrations() {
                   <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>{user.email}</Typography>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>Phone: {user.phone || '—'}</Typography>
                   <Box sx={{ mt: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Chip size="small" label={user.registrationStatus || 'PENDING'} color="warning" sx={{ fontWeight: 700 }} />
-                    <Chip size="small" label="Awaiting review" sx={{ bgcolor: 'rgba(111,205,220,0.14)', color: 'text.primary' }} />
+                    <Chip size="small" label={user.registrationStatus || 'PENDING'} color={user.registrationStatus === 'REJECTED' ? 'error' : 'warning'} sx={{ fontWeight: 700 }} />
+                    <Chip size="small" label={user.registrationStatus === 'REJECTED' ? 'Rejected' : 'Awaiting review'} sx={{ bgcolor: user.registrationStatus === 'REJECTED' ? 'rgba(239, 68, 68, 0.14)' : 'rgba(111,205,220,0.14)', color: 'text.primary' }} />
                   </Box>
                 </Box>
 
@@ -116,7 +113,7 @@ export default function UserRegistrations() {
                   <Button
                     variant="outlined"
                     color="error"
-                    disabled={actionLoadingId === user.id}
+                    disabled={actionLoadingId === user.id || user.registrationStatus === 'REJECTED'}
                     onClick={() => handleStatusUpdate(user.id, 'REJECTED')}
                     sx={{ fontWeight: 700, borderRadius: '10px' }}
                   >
@@ -124,7 +121,7 @@ export default function UserRegistrations() {
                   </Button>
                   <Button
                     variant="contained"
-                    disabled={actionLoadingId === user.id}
+                    disabled={actionLoadingId === user.id || user.registrationStatus === 'REJECTED'}
                     onClick={() => handleStatusUpdate(user.id, 'APPROVED')}
                     sx={{ fontWeight: 700, borderRadius: '10px' }}
                   >

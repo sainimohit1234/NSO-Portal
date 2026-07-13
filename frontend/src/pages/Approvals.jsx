@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { 
-  Box, Typography, Card, Table, TableBody, TableCell, TableContainer, 
+  Box, Typography, Card, CardContent, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Paper, Chip, Button, Stack, Dialog, DialogTitle, 
   DialogContent, DialogActions, List, ListItem, ListItemText, ListItemIcon,
   TextField, InputAdornment, MenuItem, Alert, CircularProgress
@@ -351,55 +351,61 @@ export default function Approvals() {
 
   return (
     <Box sx={{ py: 1 }}>
-      <Box sx={{
-        display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        justifyContent: 'space-between',
-        alignItems: { xs: 'stretch', md: 'flex-start' },
-        gap: 2,
-        mb: 4,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        pb: 3
-      }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-            NSO Approvals
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Review and approve new store setups before they go live on external delivery partner engines.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <TextField
-            select
-            size="small"
-            label="Status"
-            value={approvalFilter}
-            onChange={(e) => setApprovalFilter(e.target.value)}
-            sx={{ width: 160, bgcolor: 'background.paper' }}
-          >
-            <MenuItem value="ALL">All Statuses</MenuItem>
-            <MenuItem value="PENDING_APPROVAL">Sent to NSO Team for Approval</MenuItem>
-            <MenuItem value="NSO_APPROVED">Approved</MenuItem>
-            <MenuItem value="ON_HOLD">On Hold</MenuItem>
-          </TextField>
-          <TextField
-            size="small"
-            placeholder="Search Cafe Name or Code..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: 300, bgcolor: 'background.paper', borderRadius: 1 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon color="action" />
-                </InputAdornment>
-              ),
+      <Card sx={{ mb: 3, overflow: 'hidden', bgcolor: '#0f2942' }}>
+        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -72,
+              right: -24,
+              width: { xs: 180, md: 240 },
+              height: { xs: 180, md: 240 },
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(111,205,220,0.15) 0%, rgba(111,205,220,0) 70%)'
             }}
           />
-      </Box>
-    </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, position: 'relative' }}>
+            <Box sx={{ maxWidth: 760 }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase' }}>
+                APPROVALS DIRECTORY
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
+                <Typography variant="h4" sx={{ fontWeight: 800, color: '#ffffff', fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
+                  NSO Approvals
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' }, color: 'rgba(255,255,255,0.8)' }}>
+                Review and approve new store setups before they go live on external delivery partner engines.
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <TextField
+                size="small"
+                placeholder="Search Cafe Name or Code..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ 
+                  width: 300, 
+                  '& .MuiOutlinedInput-root': { 
+                    color: '#fff',
+                    bgcolor: 'rgba(255,255,255,0.06)',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
+                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
+                    '&.Mui-focused fieldset': { borderColor: '#6fccdc' },
+                  }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: 'rgba(255,255,255,0.7)' }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Status Filter Cards */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' }, gap: 2, mb: 4 }}>
