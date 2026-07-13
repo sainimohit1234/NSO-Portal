@@ -128,7 +128,7 @@ export const sortStoresByCurrentStatus = (stores) => {
 
 export const getBrandType = (brand) => {
   const b = (brand || '').toLowerCase();
-  if (b.includes('got tea') || b.includes('gottea')) return 'gotTea';
+  if (b.includes('got tea') || b.includes('gottea') || b.includes('got_tea')) return 'gotTea';
   if (b.includes('suchali')) return 'suchali';
   return 'blueTokkai';
 };
@@ -143,7 +143,7 @@ export const isLegacyStore = (store) => {
   else parsedDate = new Date(store.createdAt).getTime();
 
   const storeDate = new Date(parsedDate || 0);
-  return isNaN(storeDate.getTime()) || storeDate < new Date('2026-07-07T00:00:00Z');
+  return isNaN(storeDate.getTime()) || storeDate < new Date('2026-07-08T00:00:00+05:30');
 };
 
 export const checkMailStatus = (statusValue, store) => {
@@ -152,9 +152,21 @@ export const checkMailStatus = (statusValue, store) => {
   return false;
 };
 
+export const isMandatoryInfoMissing = (store) => {
+  const gst = store?.gstNo || '';
+  const fssai = store?.fssaiNo || '';
+  const phone = store?.cafePhoneNumber || store?.phone || '';
+  const email = store?.cafeMailId || store?.email || '';
+  return !gst.trim() || !fssai.trim() || phone.trim() === '' || email.trim() === '';
+};
+
 export const computeIntegrationStatus = (store) => {
   if (isLegacyStore(store)) {
     return { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7', border: '#86efac' };
+  }
+
+  if (isMandatoryInfoMissing(store)) {
+    return { label: 'Docs Pending', color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5' };
   }
 
   const brandType = getBrandType(store.brand);
@@ -200,9 +212,9 @@ export const computeIntegrationStatus = (store) => {
   const daysSinceSent = (Date.now() - mailSentAt.getTime()) / (1000 * 60 * 60 * 24);
 
   if (daysSinceSent >= 4) {
-    return { label: 'Needs Follow-up with S/Z', color: '#7f1d1d', bg: '#fee2e2', border: '#fca5a5' };
+    return { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#7f1d1d', bg: '#fee2e2', border: '#fca5a5' };
   }
 
   const daysRemaining = Math.ceil(4 - daysSinceSent);
-  return { label: `Follow-up in ${daysRemaining} day(s)`, color: '#1e3a8a', bg: '#dbeafe', border: '#93c5fd' };
+  return { label: `Mail Sent · ${daysRemaining}d left`, color: '#1e3a8a', bg: '#dbeafe', border: '#93c5fd' };
 };

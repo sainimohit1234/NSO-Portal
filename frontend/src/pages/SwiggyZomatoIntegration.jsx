@@ -95,11 +95,23 @@ const isMailSent = (store, statusValue) => {
   return isExistingLegacyStore(store);
 };
 
+const isMandatoryInfoMissing = (store) => {
+  const gst = store?.gstNo || '';
+  const fssai = store?.fssaiNo || '';
+  const phone = store?.cafePhoneNumber || store?.phone || '';
+  const email = store?.cafeMailId || store?.email || '';
+  return !gst.trim() || !fssai.trim() || !phone.trim() || !email.trim();
+};
+
 // ─── Integration status computation ──────────────────────────────────────────
 const computeIntegrationStatus = (store) => {
   // Legacy stores (created before the flow start date) are already integrated.
   if (isExistingLegacyStore(store)) {
     return { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7', border: '#86efac' };
+  }
+
+  if (isMandatoryInfoMissing(store)) {
+    return { label: 'Docs Pending', color: '#b91c1c', bg: '#fee2e2', border: '#fca5a5' };
   }
 
   const brandType = getBrandType(store.brand);
@@ -145,7 +157,7 @@ const computeIntegrationStatus = (store) => {
   const daysSinceSent = (Date.now() - mailSentAt.getTime()) / (1000 * 60 * 60 * 24);
 
   if (daysSinceSent >= 4) {
-    return { label: 'Needs Follow-up with S/Z', color: '#7f1d1d', bg: '#fee2e2', border: '#fca5a5' };
+    return { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#7f1d1d', bg: '#fee2e2', border: '#fca5a5' };
   }
 
   const daysRemaining = Math.ceil(4 - daysSinceSent);
@@ -155,7 +167,8 @@ const computeIntegrationStatus = (store) => {
 // Collapse the granular status label into one of the four filter categories.
 const getStatusCategory = (store) => {
   const label = computeIntegrationStatus(store).label;
-  if (label.startsWith('Needs Follow-up')) return 'Needs Follow-up with S/Z';
+  if (label === 'Docs Pending') return 'Docs Pending';
+  if (label.startsWith('Needs to Follow-up') || label.startsWith('Needs Follow-up')) return 'Needs to Follow-up with Swiggy / Zomato';
   if (label.startsWith('Mail Sent')) return 'Mail Sent';
   if (label.startsWith('Integration Completed')) return 'Integration Completed';
   return 'Pending';
@@ -191,7 +204,8 @@ export default function SwiggyZomatoIntegration() {
       .then(([fetchedStores, mappingsRes]) => {
         const filtered = fetchedStores.filter(s =>
           s.isActive !== false &&
-          s.isActive !== 'false'
+          s.isActive !== 'false' &&
+          ['APPROVED', 'NSO_APPROVED', 'COMPLIANCE_APPROVED', 'COMPLIANCE APPROVED', 'READY_TO_GO_LIVE', 'LIVE', 'CLOSED'].includes(s.status)
         );
         filtered.sort((a, b) => (a.cafeName || '').localeCompare(b.cafeName || ''));
         setStores(filtered);
@@ -222,7 +236,7 @@ export default function SwiggyZomatoIntegration() {
 
   // Count of stores in each status category (drives the filter chip badges).
   const statusCounts = useMemo(() => {
-    const counts = { 'Pending': 0, 'Mail Sent': 0, 'Needs Follow-up with S/Z': 0, 'Integration Completed': 0 };
+    const counts = { 'Docs Pending': 0, 'Pending': 0, 'Mail Sent': 0, 'Needs to Follow-up with Swiggy / Zomato': 0, 'Integration Completed': 0 };
     stores.forEach(s => { counts[getStatusCategory(s)] = (counts[getStatusCategory(s)] || 0) + 1; });
     return counts;
   }, [stores]);
@@ -324,9 +338,10 @@ export default function SwiggyZomatoIntegration() {
       {/* Status Filters — click a chip to filter the table by that status */}
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }} alignItems="center">
         {[
+          { label: 'Docs Pending', color: '#b91c1c', bg: '#fee2e2' },
           { label: 'Pending', color: '#92400e', bg: '#fef3c7' },
           { label: 'Mail Sent', color: '#1e3a8a', bg: '#dbeafe' },
-          { label: 'Needs Follow-up with S/Z', color: '#7f1d1d', bg: '#fee2e2' },
+          { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#7f1d1d', bg: '#fee2e2' },
           { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7' },
         ].map(s => {
           const active = statusFilter === s.label;
@@ -664,6 +679,24 @@ export default function SwiggyZomatoIntegration() {
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
                     const isSent = isMailSent(store, statusVal);
                     if (isSent) return <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />;
+                    
+                    if (isMandatoryInfoMissing(store)) {
+                      return (
+                        <Chip 
+                          label="Docs Pending" 
+                          size="small" 
+                          sx={{ 
+                            bgcolor: '#f3f4f6', 
+                            color: '#6b7280', 
+                            border: '1px solid',
+                            borderColor: '#e5e7eb', 
+                            fontWeight: 700, 
+                            borderRadius: '6px' 
+                          }} 
+                        />
+                      );
+                    }
+
                     return (
                       <Select
                         value="Pending"
