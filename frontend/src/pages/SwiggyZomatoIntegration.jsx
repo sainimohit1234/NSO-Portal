@@ -56,12 +56,14 @@ const compileVisualToHtml = (intro, outro, table) => {
 // ─── Brand detection helper ───────────────────────────────────────────────────
 const getBrandType = (brand) => {
   const b = (brand || '').toLowerCase();
-  if (b.includes('got tea') || b.includes('gottea')) return 'gotTea';
+  if (b.includes('got tea') || b.includes('gottea') || b.includes('got_tea')) return 'gotTea';
   if (b.includes('suchali')) return 'suchali';
   return 'blueTokkai';
 };
 
 const getBrandLabel = (brand) => {
+  if (brand === 'BLUE_TOKAI_SUCHALI') return "Blue Tokai / Suchali's";
+  if (brand === 'GOT_TEA') return 'Got Tea';
   const t = getBrandType(brand);
   if (t === 'gotTea') return 'Got Tea';
   if (t === 'suchali') return "Suchali's Artisan Bakehouse";
