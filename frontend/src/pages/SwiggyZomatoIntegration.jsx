@@ -286,7 +286,7 @@ export default function SwiggyZomatoIntegration() {
     const currentBody = bodyRef.current ? bodyRef.current.innerHTML : body;
     const draftLabel = draftDialog.brandLabel;
     // Pass attachment URLs so backend can fetch and embed them
-    const attachmentUrls = (attachments || []).map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl, isGST: !!a._isGST }));
+    const attachmentUrls = (attachments || []).map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl || a.url, isGST: !!a._isGST, isFSSAI: !!a._isFSSAI }));
     try {
       setLoading(true);
       await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { brand: brandKey, to, cc, subject, body: currentBody, draftLabel, attachmentUrls });
@@ -577,6 +577,21 @@ export default function SwiggyZomatoIntegration() {
                   };
 
                   const handleOpenDraftDialog = async (currentStore, brandKey) => {
+                    const fssaiDoc = Array.isArray(currentStore.documents)
+                      ? [...currentStore.documents]
+                          .filter(d => d.type === 'FSSAI License' && d.url)
+                          .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0))[0]
+                      : null;
+
+                    if (!fssaiDoc) {
+                      setSnackbar({
+                        open: true,
+                        message: 'FSSAI License is not available for this cafe. Please upload the FSSAI License in the Legal Documents section before drafting or sending the email.',
+                        severity: 'error'
+                      });
+                      return;
+                    }
+
                     try {
                       setLoading(true);
                       const subCategoryKey = getDraftLabel(brandKey);
@@ -643,7 +658,14 @@ export default function SwiggyZomatoIntegration() {
                       const autoAttachments = [
                         ...statusCategoryAttachments,
                         ...generalAttachments,
-                        ...(gstAttachment ? [gstAttachment] : [])
+                        ...(gstAttachment ? [gstAttachment] : []),
+                        {
+                          id: fssaiDoc.id || 'fssai-license-attachment',
+                          fileName: fssaiDoc.fileName || 'FSSAI License',
+                          fileUrl: fssaiDoc.url || fssaiDoc.fileUrl,
+                          url: fssaiDoc.url || fssaiDoc.fileUrl,
+                          _isFSSAI: true
+                        }
                       ].filter(doc => {
                         if (seenIds.has(doc.id)) return false;
                         seenIds.add(doc.id);
@@ -878,20 +900,39 @@ export default function SwiggyZomatoIntegration() {
                   <DescriptionIcon sx={{ fontSize: 16 }} /> Auto-Attachments ({draftDialog.attachments.length} file{draftDialog.attachments.length > 1 ? 's' : ''})
                 </Typography>
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                  {draftDialog.attachments.map((doc, idx) => (
-                    <Chip 
-                      key={idx}
-                      icon={<DescriptionIcon sx={{ fontSize: 14 }} />}
-                      label={doc._isGST ? `GST: ${doc.fileName}` : (doc.fileName || 'Attachment')}
-                      size="small"
-                      component="a"
-                      href={doc.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      clickable
-                      sx={{ bgcolor: doc._isGST ? '#dcfce7' : '#e0f2fe', color: doc._isGST ? '#166534' : '#0369a1', fontWeight: 600, fontSize: '0.7rem', borderRadius: '6px', maxWidth: 220, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
-                    />
-                  ))}
+                  {draftDialog.attachments.map((doc, idx) => {
+                    const isGst = !!doc._isGST;
+                    const isFssai = !!doc._isFSSAI;
+                    const label = isGst 
+                      ? `GST: ${doc.fileName}` 
+                      : isFssai 
+                        ? `FSSAI: ${doc.fileName}` 
+                        : (doc.fileName || 'Attachment');
+                    const bgcolor = isGst 
+                      ? '#dcfce7' 
+                      : isFssai 
+                        ? '#fef3c7' 
+                        : '#e0f2fe';
+                    const color = isGst 
+                      ? '#166534' 
+                      : isFssai 
+                        ? '#92400e' 
+                        : '#0369a1';
+                    return (
+                      <Chip 
+                        key={idx}
+                        icon={<DescriptionIcon sx={{ fontSize: 14, color: `${color} !important` }} />}
+                        label={label}
+                        size="small"
+                        component="a"
+                        href={doc.fileUrl || doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        clickable
+                        sx={{ bgcolor, color, fontWeight: 600, fontSize: '0.7rem', borderRadius: '6px', maxWidth: 220, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                      />
+                    );
+                  })}
                 </Stack>
               </>
             )}
