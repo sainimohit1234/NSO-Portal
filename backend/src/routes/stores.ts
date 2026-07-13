@@ -1169,6 +1169,27 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), async (req: 
 
     const status = req.body.status || 'INCOMPLETE_INFORMATION';
 
+    // Auto-generate IT emails if cafeName and brand are provided
+    if (req.body.cafeName && req.body.brand) {
+      const strippedName = req.body.cafeName.replace(/\\s+/g, '').toLowerCase();
+      let domain = '';
+      const brandStr = String(req.body.brand).toLowerCase();
+      
+      if (brandStr.includes('blue tokai') || brandStr.includes('suchali')) {
+        domain = '@bluetokaicoffee.com';
+      } else if (brandStr.includes('got tea')) {
+        domain = '@gottea.com';
+      }
+      
+      if (domain) {
+        req.body.itCafeMailId = `${strippedName}${domain}`;
+        req.body.itCmMailId = `cm.${strippedName}${domain}`;
+      }
+    }
+    
+    // Always default the status to Pending on creation
+    req.body.itEmailStatus = 'Pending';
+
     const newStore = await prisma.store.create({
       data: {
         ...req.body,
@@ -2622,6 +2643,41 @@ function buildSwiggyTemplateData(store: any, brandParam: string) {
   ];
 }
 
+// GET /:id (Get single store)
+router.get('/:id', authenticateToken, async (req: any, res) => {
+  const storeId = req.params.id;
+  try {
+    // 1. Look up by Firestore ID first
+    let store = await prisma.store.findUnique({
+      where: { id: storeId },
+      include: {
+        areaManager: true,
+        cityHead: true,
+      }
+    });
+
+    // 2. If not found, look up by cafeCode (e.g. CA-204)
+    if (!store) {
+      store = await prisma.store.findFirst({
+        where: { cafeCode: storeId },
+        include: {
+          areaManager: true,
+          cityHead: true,
+        }
+      });
+    }
+
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found' });
+    }
+
+    res.json(store);
+  } catch (error) {
+    console.error('[Store GET Single] Error fetching store:', error);
+    res.status(500).json({ error: 'Failed to fetch store details', details: error instanceof Error ? error.message : String(error) });
+  }
+});
+
 // GET /:id/swiggy-template
 router.get('/:id/swiggy-template', authenticateToken, async (req: any, res) => {
   const storeId = req.params.id;
@@ -3127,6 +3183,90 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       }
     });
     res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// POST /:id/send-pending-docs-email (Send email for pending documents)
+router.post('/:id/send-pending-docs-email', authenticateToken, async (req: any, res) => {
+  const storeId = req.params.id;
+  const { to, cc, subject, body, category } = req.body;
+  if (!storeId) {
+    return res.status(400).json({ error: 'Store ID is required.' });
+  }
+
+  try {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found.' });
+    }
+
+    const smtpConfig = await getSMTPConfig();
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.smtpHost,
+      port: smtpConfig.smtpPort,
+      secure: smtpConfig.smtpSecure,
+      auth: {
+        user: smtpConfig.smtpUser,
+        pass: smtpConfig.smtpPass
+      }
+    });
+
+    const parsedTo = typeof to === 'string' ? to.split(',').map((e: string) => e.trim()).filter(Boolean) : to;
+    const parsedCc = typeof cc === 'string' ? cc.split(',').map((e: string) => e.trim()).filter(Boolean) : cc;
+
+    const formatted = formatMailBody(body);
+    const mailOptions: any = {
+      from: smtpConfig.smtpUser,
+      to: parsedTo,
+      cc: parsedCc && parsedCc.length > 0 ? parsedCc : undefined,
+      subject: subject,
+      text: formatted.text,
+      html: formatted.html
+    };
+
+    let info;
+    if (!smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email') {
+      const testAccount = await nodemailer.createTestAccount();
+      const testTransporter = nodemailer.createTransport({
+        host: 'smtp.ethereal.email',
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+      info = await testTransporter.sendMail(mailOptions);
+      console.log('Pending Docs Email sent to Ethereal: %s', nodemailer.getTestMessageUrl(info));
+    } else {
+      info = await transporter.sendMail(mailOptions);
+    }
+
+    await prisma.storeHistory.create({
+      data: {
+        storeId: store.id,
+        action: `Sent pending documents email with subject: ${subject}`,
+        newValue: 'Email Sent'
+      }
+    });
+
+    const updateData: any = {};
+    if (category === 'Legal Documents') updateData.legalMailSentAt = new Date().toISOString();
+    if (category === 'Financial Documents') updateData.financialMailSentAt = new Date().toISOString();
+    if (category === 'Project Documents') updateData.projectMailSentAt = new Date().toISOString();
+
+    let updatedStore = store;
+    if (Object.keys(updateData).length > 0) {
+      updatedStore = await prisma.store.update({
+        where: { id: store.id },
+        data: updateData
+      });
+    }
+
+    res.json({ message: 'Email sent successfully.', store: updatedStore });
+  } catch (error: any) {
+    console.error('Error sending pending docs email:', error);
+    res.status(500).json({ error: error.message || 'Failed to send email.' });
   }
 });
 

@@ -360,22 +360,19 @@ export default function EditStore() {
   }, [register]);
 
   useEffect(() => {
-    // User Access Profile: only fetch stores (contacts are not needed and the endpoint blocks USER role)
+    // User Access Profile: only fetch store (contacts are not needed and the endpoint blocks USER role)
     const fetchPromises = isViewOnly
-      ? [axios.get(`/api/stores`), Promise.resolve({ data: [] })]
-      : [axios.get(`/api/stores`), axios.get('/api/contacts')];
+      ? [axios.get(`/api/stores/${id}`), Promise.resolve({ data: [] })]
+      : [axios.get(`/api/stores/${id}`), axios.get('/api/contacts')];
 
     Promise.all([
       ...fetchPromises,
       axios.get('/api/system/email-mappings').catch(() => ({ data: [] })),
       axios.get('/api/system/email-templates').catch(() => ({ data: {} }))
-    ]).then(([storesRes, contactsRes, mappingsRes, templatesRes]) => {
+    ]).then(([storeRes, contactsRes, mappingsRes, templatesRes]) => {
       setEmailMappings(mappingsRes.data || []);
       setEmailTemplates(templatesRes.data || {});
-      const stores = normalizeListResponse(storesRes.data, ['stores', 'data', 'items']);
-      setAllStoresList(stores);
-      const contacts = normalizeListResponse(contactsRes.data, ['contacts', 'data', 'items']);
-      const currentStore = stores.find(s => compareStoreIds(s.id, id));
+      const currentStore = storeRes.data;
       if (!currentStore) {
         setErrorMsg('Store not found.');
         return;
@@ -386,7 +383,18 @@ export default function EditStore() {
       }
       setStore(currentStore);
       setPrevStatus(currentStore.status);
+      const contacts = normalizeListResponse(contactsRes.data, ['contacts', 'data', 'items']);
       setContacts(contacts);
+
+      // Fetch all stores in the background for "Copy Menu From" autocomplete
+      axios.get('/api/stores')
+        .then(res => {
+          const stores = normalizeListResponse(res.data, ['stores', 'data', 'items']);
+          setAllStoresList(stores);
+        })
+        .catch(err => {
+          console.error('Failed to load all stores in background', err);
+        });
 
       // Parse expectedSales
       let expectedSalesVal = '';
