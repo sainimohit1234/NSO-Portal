@@ -2905,6 +2905,71 @@ end tell
   });
 }
 
+// Helper to get file buffer from URL (either local disk, GCS bucket, or external HTTP fetch)
+async function getAttachmentBuffer(fileUrl: string): Promise<{ content: Buffer; filename: string }> {
+  const normalizedUrl = String(fileUrl || '').trim();
+  
+  // 1. Extract filename if it is an uploads path (relative or absolute on our domain)
+  let filename = '';
+  if (normalizedUrl.startsWith('/uploads/')) {
+    filename = normalizedUrl.replace(/^\/uploads\//, '');
+  } else if (normalizedUrl.includes('/uploads/')) {
+    const parts = normalizedUrl.split('/uploads/');
+    filename = parts[parts.length - 1];
+  }
+
+  if (filename) {
+    // Decoded filename (in case it is URL encoded)
+    filename = decodeURIComponent(filename);
+    
+    // Check local disk first
+    const localPath = path.resolve(process.cwd(), 'uploads', filename);
+    if (fs.existsSync(localPath)) {
+      console.log(`[Email] Found attachment on local disk: ${filename}`);
+      const content = fs.readFileSync(localPath);
+      return { content, filename };
+    }
+    
+    // If not local, try Google Cloud Storage
+    try {
+      const bucket = await getActiveBucket();
+      const storageFile = bucket.file(`NSO DATA/${filename}`);
+      const [exists] = await storageFile.exists();
+      if (exists) {
+        console.log(`[Email] Found attachment in GCS: NSO DATA/${filename}`);
+        const [buffer] = await storageFile.download();
+        return { content: buffer, filename };
+      }
+    } catch (storageErr) {
+      console.error(`[Email] GCS download failed for ${filename}:`, storageErr);
+    }
+  }
+
+  // 2. Fallback to HTTP/HTTPS fetch for external URLs
+  console.log(`[Email] Fetching external attachment URL: ${normalizedUrl.substring(0, 80)}`);
+  const fileRes = await fetch(normalizedUrl);
+  if (!fileRes.ok) {
+    throw new Error(`HTTP ${fileRes.status} ${fileRes.statusText}`);
+  }
+  const arrayBuffer = await fileRes.arrayBuffer();
+  
+  let finalFilename = filename;
+  if (!finalFilename) {
+    try {
+      const urlObj = new URL(normalizedUrl);
+      const urlPath = urlObj.pathname;
+      finalFilename = path.basename(urlPath) || 'attachment';
+    } catch (e) {
+      finalFilename = 'attachment';
+    }
+  }
+
+  return {
+    content: Buffer.from(arrayBuffer),
+    filename: finalFilename
+  };
+}
+
 // POST /:id/send-swiggy-onboarding-email
 router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: any, res) => {
   const storeId = req.params.id;
@@ -3040,26 +3105,21 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       console.log(`[Email] Downloading ${attachmentUrls.length} attachment(s)...`);
       await Promise.all(attachmentUrls.map(async (attachment: { fileName: string; fileUrl: string; isGST?: boolean }) => {
         try {
-          console.log(`[Email] Fetching: ${attachment.fileName} from ${attachment.fileUrl.substring(0, 80)}...`);
-          const fileRes = await fetch(attachment.fileUrl);
-          if (fileRes.ok) {
-            const arrayBuffer = await fileRes.arrayBuffer();
-            // Determine the file extension from the URL
-            const urlPath = new URL(attachment.fileUrl).pathname;
-            const urlExt = urlPath.includes('.') ? urlPath.substring(urlPath.lastIndexOf('.')) : '';
-            let filename = attachment.fileName || 'attachment';
-            // Add extension if not already present
-            if (urlExt && !filename.toLowerCase().endsWith(urlExt.toLowerCase())) {
-              filename = `${filename}${urlExt}`;
-            }
-            attachments.push({
-              filename,
-              content: Buffer.from(arrayBuffer)
-            });
-            console.log(`[Email] Attached: ${filename} (${arrayBuffer.byteLength} bytes)`);
-          } else {
-            console.error(`[Email] Failed to fetch ${attachment.fileName}: HTTP ${fileRes.status} ${fileRes.statusText}`);
+          const { content, filename } = await getAttachmentBuffer(attachment.fileUrl);
+          let finalName = attachment.fileName || filename;
+          
+          const fileSource = attachment.fileUrl || filename;
+          const urlExt = fileSource.includes('.') ? fileSource.substring(fileSource.lastIndexOf('.')) : '';
+          
+          if (urlExt && !finalName.toLowerCase().endsWith(urlExt.toLowerCase())) {
+            finalName = `${finalName}${urlExt}`;
           }
+
+          attachments.push({
+            filename: finalName,
+            content
+          });
+          console.log(`[Email] Attached: ${finalName} (${content.byteLength} bytes)`);
         } catch (err) {
           console.error(`[Email] Failed to download attachment ${attachment.fileName}:`, err);
         }
