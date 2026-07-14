@@ -2970,6 +2970,112 @@ async function getAttachmentBuffer(fileUrl: string): Promise<{ content: Buffer; 
   };
 }
 
+// A PDF always starts with the %PDF- signature. Checked against bytes rather than the file
+// name because global-doc labels are typed by hand and routinely lack (or misstate) an extension.
+function isPdfBuffer(buffer: Buffer): boolean {
+  return buffer.length > 5 && buffer.subarray(0, 5).toString('latin1') === '%PDF-';
+}
+
+// Every store field an onboarding form may reference, keyed by the placeholder text used in the
+// PDFs. Mirrors the email-body token map in SwiggyZomatoIntegration.jsx so a form and the mail it
+// travels with resolve the same variables. Matching is case-insensitive.
+function buildOnboardingReplacements(store: any, brandName: string): Record<string, string> {
+  const val = (v: any) => (v === null || v === undefined ? '' : String(v));
+
+  const today = new Date();
+  const todayStr = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+
+  const address = val(store.cafeAddress);
+  const city = val(store.city);
+  const state = val(store.state);
+  const pinCode = val(store.pinCode);
+  const fullAddress = [address, city, state, pinCode].filter(Boolean).join(', ');
+  const phone = val(store.cafePhoneNumber || store.phone);
+  const email = val(store.cafeMailId || store.email);
+  const managerPhone = val(store.cafeManagerContactNo || store.cafePhoneNumber || store.phone);
+  const googleLink = val(store.cafeLocationGoogleLink);
+  const storeType = val(store.storeType);
+  const swiggyId = val(store.swiggyId || store.blueTokaiSwiggyRID);
+  const zomatoId = val(store.zomatoId || store.blueTokaiZomatoRID);
+
+  return {
+    '[Today Date]': todayStr,
+    '[Date]': todayStr,
+
+    '[Brand Name]': brandName,
+    '[Brand]': val(store.brand) || brandName,
+    '[Café Name]': val(store.cafeName),
+    '[Cafe Name]': val(store.cafeName),
+    '[Restaurant Name]': val(store.cafeName),
+    '[Outlet Name]': val(store.cafeName),
+    '[Cafe Code]': val(store.cafeCode),
+    '[Café Code]': val(store.cafeCode),
+
+    '[Address]': address,
+    '[Café Address]': address,
+    '[Cafe Address]': address,
+    '[Full Address]': fullAddress,
+    '[Complete Address]': fullAddress,
+    '[City]': city,
+    '[State]': state,
+    '[Pin Code]': pinCode,
+    '[Pincode]': pinCode,
+    '[PIN]': pinCode,
+
+    '[Phone]': phone,
+    '[Cafe Phone Number]': phone,
+    '[Café Phone Number]': phone,
+    '[Owner Phone Number]': phone,
+    '[Order Manager Number]': managerPhone,
+    '[Email]': email,
+    '[Cafe Email]': email,
+    '[Café Email]': email,
+    '[Cafe Mail ID]': email,
+    '[Café Mail ID]': email,
+    '[Order Notification Email ID]': email,
+
+    '[Cafe Manager]': val(store.cafeManagerName),
+    '[Café Manager]': val(store.cafeManagerName),
+    '[Cafe Manager Name]': val(store.cafeManagerName),
+    '[Café Manager Name]': val(store.cafeManagerName),
+    '[Cafe Manager Email]': val(store.cafeManagerMailId),
+    '[Café Manager Email]': val(store.cafeManagerMailId),
+    '[Cafe Manager Phone]': val(store.cafeManagerContactNo),
+    '[Café Manager Phone]': val(store.cafeManagerContactNo),
+
+    '[GST Number]': val(store.gstNo),
+    '[GST No]': val(store.gstNo),
+    '[GST No.]': val(store.gstNo),
+    '[FSSAI Number]': val(store.fssaiNo),
+    '[FSSAI No]': val(store.fssaiNo),
+    '[FSSAI No.]': val(store.fssaiNo),
+    '[FSSAI License]': val(store.fssaiLicense || store.fssaiNo),
+
+    '[Café Location Google Link]': googleLink,
+    '[Cafe Location Google Link]': googleLink,
+    '[Google Link]': googleLink,
+    '[Map Link]': googleLink,
+    '[Location Link]': googleLink,
+
+    '[Store Type]': storeType,
+    '[Cafe Type]': storeType,
+    '[Café Type]': storeType,
+    '[City Type]': storeType || val(store.platformType || store.tradingArea),
+    '[Cafe Model]': val(store.cafeModel),
+    '[Café Model]': val(store.cafeModel),
+
+    '[Swiggy ID]': swiggyId,
+    '[Zomato ID]': zomatoId,
+    '[RID]': swiggyId,
+
+    '[Zone]': val(store.zone),
+    '[Cluster]': val(store.cluster),
+    '[Location]': val(store.location) || fullAddress,
+    '[Launch Date]': store.launchDate ? new Date(store.launchDate).toLocaleDateString('en-IN') : '',
+    '[Launch Month]': val(store.cafeLaunchMonth),
+  };
+}
+
 async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand: string = ''): Promise<Buffer> {
   const startTime = Date.now();
   try {
@@ -2988,19 +3094,26 @@ async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand:
     }
 
     // Build replacement map
-    const today = new Date();
-    const todayStr = `${String(today.getDate()).padStart(2,'0')}-${String(today.getMonth()+1).padStart(2,'0')}-${today.getFullYear()}`;
-    const replacements: Record<string, string> = {
-      '[Today Date]': todayStr,
-      '[Address]': store.cafeAddress || '',
-      '[City]': store.city || '',
-      '[State]': store.state || '',
-      '[Pin Code]': store.pinCode || '',
-      '[Café Name]': store.cafeName || '',
-      '[Cafe Name]': store.cafeName || '',
-      '[Brand Name]': brandName
-    };
+    const replacements = buildOnboardingReplacements(store, brandName);
     console.log('[PDF Process] Replacements map:', JSON.stringify(replacements));
+
+    // Pre-compile case-insensitive matchers, longest token first so that e.g. "[GST No.]" is
+    // consumed before the "[GST No]" prefix can partially match it.
+    const matchers = Object.entries(replacements)
+      .sort(([a], [b]) => b.length - a.length)
+      .map(([token, value]) => ({
+        re: new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+        value,
+      }));
+
+    const applyReplacements = (input: string): string => {
+      let out = input;
+      for (const { re, value } of matchers) {
+        re.lastIndex = 0;
+        out = out.replace(re, value);
+      }
+      return out;
+    };
 
     // Step 1 — pdfjs-dist: extract text item positions
     const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -3013,15 +3126,9 @@ async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand:
       const page = await parsedPdf.getPage(i);
       const textContent = await page.getTextContent();
       for (const item of textContent.items as any[]) {
-        let text: string = item.str || '';
-        let changed = false;
-        for (const [placeholder, value] of Object.entries(replacements)) {
-          if (text.includes(placeholder)) {
-            text = text.split(placeholder).join(value);
-            changed = true;
-          }
-        }
-        if (changed) {
+        const origText: string = item.str || '';
+        const text = applyReplacements(origText);
+        if (text !== origText) {
           items.push({
             pageIdx: i - 1,
             x: item.transform[4],
@@ -3124,10 +3231,14 @@ router.get('/:id/preview-onboarding-pdf', async (req: any, res) => {
     const response = await require('axios').get(absoluteUrl, { responseType: 'arraybuffer' });
     let buffer = Buffer.from(response.data);
 
-    // Apply PDF replacements
-    buffer = await processOnboardingPdf(buffer, store, fileName);
-
-    res.setHeader('Content-Type', 'application/pdf');
+    // Only PDFs can have their placeholders replaced. Anything else (scans, images) is streamed
+    // back as-is, so the preview link works for every attachment rather than 404-ing.
+    if (isPdfBuffer(buffer)) {
+      buffer = await processOnboardingPdf(buffer, store, fileName);
+      res.setHeader('Content-Type', 'application/pdf');
+    } else {
+      res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+    }
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.send(buffer);
   } catch (err: any) {
@@ -3267,6 +3378,7 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
     }
 
     // Download and attach files passed from the frontend (Status Category + General + State GST)
+    const failedAttachments: string[] = [];
     if (Array.isArray(attachmentUrls) && attachmentUrls.length > 0) {
       console.log(`[Email] Downloading ${attachmentUrls.length} attachment(s)...`);
       await Promise.all(attachmentUrls.map(async (attachment: { fileName: string; fileUrl: string; isGST?: boolean }) => {
@@ -3282,26 +3394,13 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
           }
 
           let finalContent = content;
-          const targetNames = [
-            'SAB Onb Zomato',
-            'SAB Onb Swiggy',
-            'BTC Onb Zomato',
-            'BTC Onb Swiggy',
-            'GT Onb Zomato',
-            'GT Onb Swiggy',
-            'Zomato OB',
-            'Swiggy OB',
-            'Zomato Onboarding',
-            'Swiggy Onboarding'
-          ];
-          
-          const isTargetOnboardingPdf = targetNames.some(target => 
-            finalName.toLowerCase().includes(target.toLowerCase())
-          ) && finalName.toLowerCase().endsWith('.pdf');
-          
-          if (isTargetOnboardingPdf) {
-            console.log(`[Email] Running placeholder replacement on onboarding PDF: ${finalName}`);
-            finalContent = await processOnboardingPdf(content, store, brandParam);
+          // Attachment labels are free text typed by whoever uploaded the global doc, so they
+          // cannot be used to decide what is an onboarding form. Detect a real PDF by its magic
+          // bytes instead and let processOnboardingPdf decide: it returns the buffer untouched
+          // when the document contains no placeholders.
+          if (isPdfBuffer(content)) {
+            console.log(`[Email] Running placeholder replacement on PDF: ${finalName}`);
+            finalContent = await processOnboardingPdf(content, store, `${finalName} ${brandParam || ''}`);
           }
 
           attachments.push({
@@ -3310,10 +3409,11 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
           });
           console.log(`[Email] Attached: ${finalName} (${finalContent.byteLength} bytes)`);
         } catch (err) {
+          failedAttachments.push(attachment.fileName || attachment.fileUrl);
           console.error(`[Email] Failed to download attachment ${attachment.fileName}:`, err);
         }
       }));
-      console.log(`[Email] Total attachments ready: ${attachments.length}`);
+      console.log(`[Email] Total attachments ready: ${attachments.length}/${attachmentUrls.length}`);
     }
 
     const smtpConfig = await getSMTPConfig();
@@ -3418,7 +3518,10 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
     }
 
 
-    res.json({ message: 'Onboarding email sent successfully.', info });
+    const message = failedAttachments.length > 0
+      ? `Email sent, but ${failedAttachments.length} attachment(s) could not be included: ${failedAttachments.join(', ')}.`
+      : 'Onboarding email sent successfully.';
+    res.json({ message, attachedCount: attachments.length, failedAttachments, info });
   } catch (error: any) {
     console.error('Error sending onboarding email:', error);
     // Clean up temp files in case of error as well

@@ -289,8 +289,13 @@ export default function SwiggyZomatoIntegration() {
     const attachmentUrls = (attachments || []).map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl || a.url, isGST: !!a._isGST, isFSSAI: !!a._isFSSAI }));
     try {
       setLoading(true);
-      await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { brand: brandKey, to, cc, subject, body: currentBody, draftLabel, attachmentUrls });
-      setSnackbar({ open: true, message: 'Onboarding email sent successfully.', severity: 'success' });
+      const resp = await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { brand: brandKey, to, cc, subject, body: currentBody, draftLabel, attachmentUrls });
+      const failed = resp.data?.failedAttachments || [];
+      if (failed.length > 0) {
+        setSnackbar({ open: true, message: resp.data?.message || `Email sent, but ${failed.length} attachment(s) failed.`, severity: 'warning' });
+      } else {
+        setSnackbar({ open: true, message: 'Onboarding email sent successfully.', severity: 'success' });
+      }
       setDraftDialog(prev => ({ ...prev, open: false, store: null }));
       loadData();
     } catch (err) {
@@ -927,12 +932,10 @@ export default function SwiggyZomatoIntegration() {
                         component="a"
                         href={(() => {
                           const origUrl = doc.fileUrl || doc.url;
-                          const nameLower = (doc.fileName || '').toLowerCase();
-                          const isTargetOnboardingPdf = ["SAB Onb Zomato", "SAB Onb Swiggy", "BTC Onb Zomato", "BTC Onb Swiggy", "GT Onb Zomato", "GT Onb Swiggy"].some(target => 
-                            nameLower.includes(target.toLowerCase())
-                          ) && nameLower.endsWith('.pdf');
-                          
-                          if (isTargetOnboardingPdf && draftDialog.store?.id) {
+                          // Preview through the filler for every attachment; the backend detects
+                          // whether the file is really a PDF and passes anything else through
+                          // untouched. Matching on the label is unreliable — it is typed by hand.
+                          if (draftDialog.store?.id && origUrl) {
                             return `/api/stores/${draftDialog.store.id}/preview-onboarding-pdf?fileUrl=${encodeURIComponent(origUrl)}&fileName=${encodeURIComponent(doc.fileName || 'Document.pdf')}`;
                           }
                           return origUrl;
