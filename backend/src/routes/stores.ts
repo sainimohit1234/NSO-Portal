@@ -118,7 +118,7 @@ import { Readable } from 'stream';
 import fs from 'fs';
 import path from 'path';
 import nodemailer from 'nodemailer';
-import { getSMTPConfig } from '../utils/smtp';
+import { getSMTPConfig, shouldUseEtherealFallback, ETHEREAL_HOST } from '../utils/smtp';
 import { getEmailRecipients, getEmailMappings } from '../utils/emailRecipients';
 import { getEmailTemplates } from '../utils/emailTemplates';
 import { getThreadMessageId, saveThreadMessageId } from '../utils/emailThreads';
@@ -877,10 +877,10 @@ Best Regards,`;
       };
     }
 
-    if (!smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email') {
+    if (shouldUseEtherealFallback(smtpConfig)) {
       const testAccount = await nodemailer.createTestAccount();
       const testTransporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
+        host: ETHEREAL_HOST,
         port: 587,
         secure: false,
         auth: {
@@ -984,10 +984,10 @@ The countdown has begun, and we can't wait to celebrate another amazing café op
       };
     }
 
-    if (!smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email') {
+    if (shouldUseEtherealFallback(smtpConfig)) {
       const testAccount = await nodemailer.createTestAccount();
       const testTransporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
+        host: ETHEREAL_HOST,
         port: 587,
         secure: false,
         auth: {
@@ -1123,10 +1123,10 @@ async function checkAndSendStatusEmail(store: any, newStatus: string) {
 
     console.log(`[Status Email] Triggering status email for "${store.cafeName}" status update to "${newStatus}"`);
     
-    if (!smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email') {
+    if (shouldUseEtherealFallback(smtpConfig)) {
       const testAccount = await nodemailer.createTestAccount();
       const testTransporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
+        host: ETHEREAL_HOST,
         port: 587,
         secure: false,
         auth: {
@@ -3438,10 +3438,10 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
     };
 
     let info;
-    if (smtpConfig.smtpHost === 'smtp.ethereal.email') {
+    if (shouldUseEtherealFallback(smtpConfig)) {
       const testAccount = await nodemailer.createTestAccount();
       const testTransporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
+        host: ETHEREAL_HOST,
         port: 587,
         secure: false,
         auth: {
@@ -3577,10 +3577,10 @@ router.post('/:id/send-pending-docs-email', authenticateToken, async (req: any, 
     };
 
     let info;
-    if (!smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email') {
+    if (shouldUseEtherealFallback(smtpConfig)) {
       const testAccount = await nodemailer.createTestAccount();
       const testTransporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
+        host: ETHEREAL_HOST,
         port: 587,
         secure: false,
         auth: {
@@ -3661,10 +3661,10 @@ router.post('/:id/send-status-email', authenticateToken, async (req: any, res) =
     };
 
     let info;
-    if (!smtpConfig.smtpHost || !smtpConfig.smtpUser || smtpConfig.smtpHost === 'smtp.ethereal.email') {
+    if (shouldUseEtherealFallback(smtpConfig)) {
       const testAccount = await nodemailer.createTestAccount();
       const testTransporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
+        host: ETHEREAL_HOST,
         port: 587,
         secure: false,
         auth: {
@@ -3735,10 +3735,10 @@ router.post('/:id/send-store-code-email', authenticateToken, async (req: any, re
     };
 
     let info;
-    if (smtpConfig.smtpHost === 'smtp.ethereal.email') {
+    if (shouldUseEtherealFallback(smtpConfig)) {
       const testAccount = await nodemailer.createTestAccount();
       const testTransporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
+        host: ETHEREAL_HOST,
         port: 587,
         secure: false,
         auth: {
