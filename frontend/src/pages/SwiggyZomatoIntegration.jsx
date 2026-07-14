@@ -15,6 +15,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import DescriptionIcon from '@mui/icons-material/Description';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import EditIcon from '@mui/icons-material/Edit';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { fetchStoresFromFirestore } from '../services/storeService';
@@ -180,6 +181,9 @@ export default function SwiggyZomatoIntegration() {
   const isUser = user?.role === 'USER';
   const isFinance = user?.role === 'FINANCE';
   const canModify = !isUser && !isFinance;
+  // Re-sending an onboarding mail that already went out is admin-only — a duplicate
+  // mail is confusing for Swiggy/Zomato to receive. The API enforces this too.
+  const canResendMail = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
 
   const [stores, setStores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -194,6 +198,38 @@ export default function SwiggyZomatoIntegration() {
   });
   const [isDraftEditing, setIsDraftEditing] = useState(false);
   const bodyRef = useRef(null);
+  const [attachmentPreview, setAttachmentPreview] = useState({ open: false, blobUrl: '', fileName: '', loading: false, error: '', isImage: false });
+
+  // The preview endpoint sits behind authenticateToken and the API answers every
+  // request with X-Frame-Options: DENY, so a plain <iframe src> (which carries no
+  // Authorization header) can never render it. Fetch it through the authenticated
+  // axios client instead and hand the viewer a local blob URL.
+  const openAttachmentPreview = async (previewUrl, fileName) => {
+    setAttachmentPreview(prev => {
+      if (prev.blobUrl) URL.revokeObjectURL(prev.blobUrl);
+      return { open: true, blobUrl: '', fileName, loading: true, error: '', isImage: false };
+    });
+    try {
+      const resp = await axios.get(previewUrl, { responseType: 'blob' });
+      const contentType = resp.headers['content-type'] || resp.data.type || '';
+      const blobUrl = URL.createObjectURL(resp.data);
+      setAttachmentPreview(prev => (prev.open && prev.fileName === fileName)
+        ? { ...prev, blobUrl, loading: false, isImage: contentType.startsWith('image/') }
+        : (URL.revokeObjectURL(blobUrl), prev));
+    } catch (err) {
+      console.error('Attachment preview failed:', err);
+      setAttachmentPreview(prev => (prev.open && prev.fileName === fileName)
+        ? { ...prev, loading: false, error: 'Could not load this attachment. Please try again.' }
+        : prev);
+    }
+  };
+
+  const closeAttachmentPreview = () => {
+    setAttachmentPreview(prev => {
+      if (prev.blobUrl) URL.revokeObjectURL(prev.blobUrl);
+      return { ...prev, open: false, blobUrl: '' };
+    });
+  };
 
   const loadData = () => {
     setLoading(true);
@@ -294,7 +330,7 @@ export default function SwiggyZomatoIntegration() {
       if (failed.length > 0) {
         setSnackbar({ open: true, message: resp.data?.message || `Email sent, but ${failed.length} attachment(s) failed.`, severity: 'warning' });
       } else {
-        setSnackbar({ open: true, message: 'Onboarding email sent successfully.', severity: 'success' });
+        setSnackbar({ open: true, message: draftDialog.isResend ? 'Onboarding email resent successfully.' : 'Onboarding email sent successfully.', severity: 'success' });
       }
       setDraftDialog(prev => ({ ...prev, open: false, store: null }));
       loadData();
@@ -581,7 +617,7 @@ export default function SwiggyZomatoIntegration() {
                     return result;
                   };
 
-                  const handleOpenDraftDialog = async (currentStore, brandKey) => {
+                  const handleOpenDraftDialog = async (currentStore, brandKey, { isResend = false } = {}) => {
                     const fssaiDoc = Array.isArray(currentStore.documents)
                       ? [...currentStore.documents]
                           .filter(d => d.type === 'FSSAI License' && d.url)
@@ -693,6 +729,7 @@ export default function SwiggyZomatoIntegration() {
                         tableData: null,
                         attachments: autoAttachments,
                         gstMissing,
+                        isResend,
                       });
                     } catch (err) {
                       console.error(err);
@@ -705,7 +742,27 @@ export default function SwiggyZomatoIntegration() {
                   const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled) => {
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
                     const isSent = isMailSent(store, statusVal);
-                    if (isSent) return <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />;
+                    if (isSent) {
+                      const sentChip = (
+                        <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />
+                      );
+                      // Non-admins see the status only; admins get a resend action beside it.
+                      if (!canResendMail) return sentChip;
+                      return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          {sentChip}
+                          <Tooltip title={`Resend — ${getDraftLabel(brandKey).replace('Draft a mail for ', '')}`}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenDraftDialog(store, brandKey, { isResend: true })}
+                              sx={{ color: '#16a34a', p: 0.25, '&:hover': { bgcolor: '#dcfce7' } }}
+                            >
+                              <SendIcon sx={{ fontSize: 14 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      );
+                    }
                     
                     if (isMandatoryInfoMissing(store)) {
                       return (
@@ -835,10 +892,15 @@ export default function SwiggyZomatoIntegration() {
       </Card>
 
       {/* Email Draft Dialog */}
-      <Dialog open={draftDialog.open} onClose={() => setDraftDialog(prev => ({ ...prev, open: false }))} fullWidth maxWidth="md" PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}>
+      <Dialog open={draftDialog.open} onClose={() => setDraftDialog(prev => ({ ...prev, open: false }))} fullWidth maxWidth="md" slotProps={{ paper: { sx: { borderRadius: '16px', p: 1 } } }}>
         <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>Draft Email Preview</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>{draftDialog.isResend ? 'Resend Email' : 'Draft Email Preview'}</Typography>
+              {draftDialog.isResend && (
+                <Chip label="Already sent once" size="small" sx={{ bgcolor: '#fef7e0', color: '#b06000', fontWeight: 700, borderRadius: '6px', fontSize: '0.65rem', height: 20 }} />
+              )}
+            </Box>
             <Typography variant="caption" color="text.secondary">Platform: <strong>{draftDialog.brandLabel} Onboarding</strong></Typography>
           </Box>
           <Box>
@@ -923,25 +985,22 @@ export default function SwiggyZomatoIntegration() {
                       : isFssai 
                         ? '#92400e' 
                         : '#0369a1';
+                    // Preview through the filler for every attachment; the backend detects
+                    // whether the file is really a PDF and passes anything else through
+                    // untouched. Matching on the label is unreliable — it is typed by hand.
+                    const origUrl = doc.fileUrl || doc.url;
+                    const previewUrl = (draftDialog.store?.id && origUrl)
+                      ? `/api/stores/${draftDialog.store.id}/preview-onboarding-pdf?fileUrl=${encodeURIComponent(origUrl)}&fileName=${encodeURIComponent(doc.fileName || 'Document.pdf')}`
+                      : origUrl;
                     return (
-                      <Chip 
+                      <Chip
                         key={idx}
                         icon={<DescriptionIcon sx={{ fontSize: 14, color: `${color} !important` }} />}
                         label={label}
                         size="small"
-                        component="a"
-                        href={(() => {
-                          const origUrl = doc.fileUrl || doc.url;
-                          // Preview through the filler for every attachment; the backend detects
-                          // whether the file is really a PDF and passes anything else through
-                          // untouched. Matching on the label is unreliable — it is typed by hand.
-                          if (draftDialog.store?.id && origUrl) {
-                            return `/api/stores/${draftDialog.store.id}/preview-onboarding-pdf?fileUrl=${encodeURIComponent(origUrl)}&fileName=${encodeURIComponent(doc.fileName || 'Document.pdf')}`;
-                          }
-                          return origUrl;
-                        })()}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        // Blur first: the chip keeps DOM focus while the modal marks the
+                        // page behind it aria-hidden, which is an accessibility violation.
+                        onClick={(e) => { e.currentTarget.blur(); openAttachmentPreview(previewUrl, doc.fileName || 'Attachment'); }}
                         sx={{
                           bgcolor: bgcolor,
                           color: color,
@@ -964,8 +1023,93 @@ export default function SwiggyZomatoIntegration() {
 
         <DialogActions sx={{ p: 2 }}>
           <Button variant="outlined" onMouseDown={(e) => { e.preventDefault(); setDraftDialog(prev => ({ ...prev, open: false })); }} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>Cancel</Button>
-          <Button variant="contained" onMouseDown={(e) => { e.preventDefault(); handleSendOnboardingEmail(); }} startIcon={<SendIcon />} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>OK — Send Email</Button>
+          <Button variant="contained" onMouseDown={(e) => { e.preventDefault(); handleSendOnboardingEmail(); }} startIcon={<SendIcon />} sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
+            {draftDialog.isResend ? 'OK — Resend Email' : 'OK — Send Email'}
+          </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Attachment Preview Modal */}
+      <Dialog
+        open={attachmentPreview.open}
+        onClose={closeAttachmentPreview}
+        // Documents are portrait, so a wide dialog wastes space and squashes the page.
+        // Images size to whatever they actually are rather than being letterboxed.
+        maxWidth={attachmentPreview.isImage ? 'md' : 'sm'}
+        fullWidth
+        // MUI v9 removed PaperProps — passing it silently drops these styles (and leaks
+        // the prop into the DOM), which is what collapsed this dialog's height.
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: '12px',
+              display: 'flex',
+              flexDirection: 'column',
+              // A4 is 1:√2, so an A4-width dialog needs ~1.414× that in height to show a
+              // full page; cap at the viewport. Images just take what they need.
+              height: attachmentPreview.isImage ? 'auto' : 'min(90vh, calc(min(600px, 92vw) * 1.414))',
+              maxHeight: '90vh',
+            },
+          },
+        }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1.5, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <DescriptionIcon sx={{ fontSize: 20, color: 'primary.main' }} /> {attachmentPreview.fileName}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {attachmentPreview.blobUrl && (
+              <Tooltip title="Open in new tab">
+                <IconButton size="small" component="a" href={attachmentPreview.blobUrl} target="_blank" rel="noopener noreferrer">
+                  <OpenInNewIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            <IconButton size="small" onClick={closeAttachmentPreview}><CloseIcon /></IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent
+          sx={{
+            p: 0,
+            position: 'relative',
+            bgcolor: '#525659',
+            // flex:1 + minHeight:0 give the iframe a real height to fill; without them a
+            // percentage-height iframe inside an auto-height parent resolves to zero.
+            flex: 1,
+            minHeight: attachmentPreview.isImage ? 240 : 0,
+            display: 'flex',
+          }}
+        >
+          {attachmentPreview.loading && (
+            <Box sx={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1.5, color: '#e2e8f0' }}>
+              <CircularProgress size={32} sx={{ color: '#e2e8f0' }} />
+              <Typography variant="caption" sx={{ fontWeight: 600 }}>Generating preview with store details…</Typography>
+            </Box>
+          )}
+          {attachmentPreview.error && (
+            <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', px: 3 }}>
+              <Alert severity="error" sx={{ borderRadius: '8px' }}>{attachmentPreview.error}</Alert>
+            </Box>
+          )}
+          {attachmentPreview.blobUrl && (
+            attachmentPreview.isImage
+              ? (
+                <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2, minWidth: 0 }}>
+                  <img
+                    src={attachmentPreview.blobUrl}
+                    alt={attachmentPreview.fileName}
+                    style={{ maxWidth: '100%', maxHeight: 'calc(90vh - 120px)', objectFit: 'contain', borderRadius: 4, background: '#fff' }}
+                  />
+                </Box>
+              ) : (
+                <iframe
+                  src={attachmentPreview.blobUrl}
+                  title={attachmentPreview.fileName}
+                  style={{ flex: 1, width: '100%', border: 'none', display: 'block' }}
+                />
+              )
+          )}
+        </DialogContent>
       </Dialog>
 
       {/* Snackbar */}

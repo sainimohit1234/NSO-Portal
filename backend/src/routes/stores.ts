@@ -3125,21 +3125,98 @@ async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand:
     for (let i = 1; i <= parsedPdf.numPages; i++) {
       const page = await parsedPdf.getPage(i);
       const textContent = await page.getTextContent();
+
+      // pdf.js splits a token across text runs whenever Word broke it into
+      // fragments ("[" + "Today Date]"), so no single item ever contains the whole
+      // placeholder. Group items by baseline and match against the joined line too.
+      const lines = new Map<number, any[]>();
       for (const item of textContent.items as any[]) {
-        const origText: string = item.str || '';
-        const text = applyReplacements(origText);
-        if (text !== origText) {
-          items.push({
-            pageIdx: i - 1,
-            x: item.transform[4],
-            y: item.transform[5],
-            size: Math.max(item.transform[0], 6),
-            w: Math.max(item.width, 10),
-            h: Math.max(item.height, item.transform[0] + 2),
-            newText: text,
-            origText: item.str
-          });
-          console.log(`[PDF Process] Queue page=${i}: "${item.str}" → "${text}"`);
+        if (!item.str) continue;
+        const key = Math.round(item.transform[5] * 2) / 2;
+        if (!lines.has(key)) lines.set(key, []);
+        lines.get(key)!.push(item);
+      }
+
+      for (const lineItems of lines.values()) {
+        lineItems.sort((a: any, b: any) => a.transform[4] - b.transform[4]);
+
+        const offsets: number[] = [];
+        let joined = '';
+        for (const it of lineItems) {
+          offsets.push(joined.length);
+          joined += it.str;
+        }
+
+        const consumed = new Set<number>();
+
+        // Pass 1 — tokens spanning multiple fragments. The merged entry starts at the
+        // token's exact x, so any label text before it on the line keeps its original
+        // rendering; the last fragment's tail (text after the token) is re-drawn with it.
+        for (const { re, value } of matchers) {
+          for (const m of Array.from(joined.matchAll(re)) as RegExpMatchArray[]) {
+            const a = m.index!;
+            const b = a + m[0].length;
+            let first = -1;
+            let last = -1;
+            for (let k = 0; k < lineItems.length; k++) {
+              const s = offsets[k];
+              const e = s + lineItems[k].str.length;
+              if (a < e && b > s) {
+                if (first === -1) first = k;
+                last = k;
+              }
+            }
+            if (first === -1 || first === last) continue; // single-item matches: pass 2
+            if (consumed.has(first) || consumed.has(last)) continue;
+            // A real token never jumps a table-cell gap — only merge abutting fragments.
+            let contiguous = true;
+            for (let k = first; k < last; k++) {
+              const gap = lineItems[k + 1].transform[4] - (lineItems[k].transform[4] + lineItems[k].width);
+              if (gap > Math.max(lineItems[k].transform[0], 6) * 1.5) { contiguous = false; break; }
+            }
+            if (!contiguous) continue;
+
+            const fi = lineItems[first];
+            const li = lineItems[last];
+            const startInFirst = a - offsets[first];
+            const startX = fi.transform[4] + (fi.str.length ? (startInFirst / fi.str.length) * fi.width : 0);
+            const tail = li.str.slice(b - offsets[last]);
+            const newText = value + applyReplacements(tail);
+            const size = Math.max(fi.transform[0], 6);
+            items.push({
+              pageIdx: i - 1,
+              x: startX,
+              y: fi.transform[5],
+              size,
+              w: Math.max(li.transform[4] + li.width - startX, 10),
+              h: size + 2,
+              newText,
+              origText: joined.slice(a, b),
+            });
+            for (let k = first; k <= last; k++) consumed.add(k);
+            console.log(`[PDF Process] Queue page=${i} (spanning): "${joined.slice(a, b)}" → "${newText}"`);
+          }
+        }
+
+        // Pass 2 — tokens contained in a single item (the common case).
+        for (let k = 0; k < lineItems.length; k++) {
+          if (consumed.has(k)) continue;
+          const item = lineItems[k];
+          const origText: string = item.str;
+          const text = applyReplacements(origText);
+          if (text !== origText) {
+            items.push({
+              pageIdx: i - 1,
+              x: item.transform[4],
+              y: item.transform[5],
+              size: Math.max(item.transform[0], 6),
+              w: Math.max(item.width, 10),
+              h: Math.max(item.height, item.transform[0] + 2),
+              newText: text,
+              origText: item.str
+            });
+            console.log(`[PDF Process] Queue page=${i}: "${item.str}" → "${text}"`);
+          }
         }
       }
     }
@@ -3158,28 +3235,102 @@ async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand:
     const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const pdfPages = pdfDoc.getPages();
 
+    // Standard fonts are WinAnsi-encoded; an unsupported glyph makes drawText throw. Strip
+    // accents first, then drop any character that still can't be measured (i.e. encoded).
+    const toDrawableText = (text: string): string => {
+      const flat = text.replace(/[\r\n\t]+/g, ' ').trim();
+      try {
+        helveticaFont.widthOfTextAtSize(flat, 10);
+        return flat;
+      } catch {
+        let safe = '';
+        for (const ch of flat.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')) {
+          try {
+            helveticaFont.widthOfTextAtSize(ch, 10);
+            safe += ch;
+          } catch { /* glyph not in WinAnsi — drop it */ }
+        }
+        return safe;
+      }
+    };
+
+    // pdf.js reports overprinted (fake-bold) text as two identical items at the same spot;
+    // drawing both smears the output, so keep only the first per position.
+    const seen = new Set<string>();
+    const drawables: Array<{
+      page: any; x: number; y: number; text: string; drawSize: number;
+      rectX: number; rectY: number; rectW: number; rectH: number;
+    }> = [];
+
     for (const it of items) {
       const page = pdfPages[it.pageIdx];
       if (!page) continue;
-      // White rectangle — generous extra width for longer replacement text
-      page.drawRectangle({
-        x: it.x - 1,
-        y: it.y - 1,
-        width: it.w + 80,
-        height: it.h + 4,
-        color: rgb(1, 1, 1),
-        opacity: 1,
-      });
-      // Draw replacement text
-      page.drawText(it.newText, {
+      const posKey = `${it.pageIdx}:${it.x.toFixed(1)}:${it.y.toFixed(1)}`;
+      if (seen.has(posKey)) continue;
+      seen.add(posKey);
+
+      const text = toDrawableText(it.newText);
+
+      // Shrink the font to fit the remaining line width instead of wrapping onto (and
+      // overprinting) the row below.
+      const rightLimit = page.getWidth() - 12;
+      const available = rightLimit - it.x;
+      let drawSize = it.size;
+      let textWidth = text ? helveticaFont.widthOfTextAtSize(text, drawSize) : 0;
+      if (textWidth > available && available > 0) {
+        drawSize = Math.max(6, drawSize * (available / textWidth));
+        textWidth = helveticaFont.widthOfTextAtSize(text, drawSize);
+      }
+
+      // The white box must cover the original glyphs' full vertical extent and nothing
+      // more: it.y is the baseline, glyphs reach ~80% of the font size above it and ~22%
+      // below, while the neighbouring lines of this tightly-spaced form start ~115% away.
+      // A taller box paints a white band through the line above (the "cropped text" bug);
+      // a wider one erases table borders — so both dimensions hug the measured text.
+      const ascent = it.size * 0.8;
+      const descent = it.size * 0.22;
+      drawables.push({
+        page,
         x: it.x,
         y: it.y,
-        size: it.size,
-        font: helveticaFont,
-        color: rgb(0, 0, 0),
-        maxWidth: 450,
-        lineHeight: it.size * 1.2,
+        text,
+        drawSize,
+        rectX: it.x - 1,
+        rectY: it.y - descent,
+        rectW: Math.min(Math.max(it.w, textWidth) + 3, rightLimit - (it.x - 1)),
+        rectH: ascent + descent,
       });
+    }
+
+    // Two passes: every white box first, then every string. Interleaving lets a later box
+    // erase text an earlier item just drew when fields share a line.
+    for (const d of drawables) {
+      try {
+        d.page.drawRectangle({
+          x: d.rectX,
+          y: d.rectY,
+          width: d.rectW,
+          height: d.rectH,
+          color: rgb(1, 1, 1),
+          opacity: 1,
+        });
+      } catch (e: any) {
+        console.error(`[PDF Process] drawRectangle failed at (${d.rectX},${d.rectY}):`, e?.message);
+      }
+    }
+    for (const d of drawables) {
+      if (!d.text) continue;
+      try {
+        d.page.drawText(d.text, {
+          x: d.x,
+          y: d.y,
+          size: d.drawSize,
+          font: helveticaFont,
+          color: rgb(0, 0, 0),
+        });
+      } catch (e: any) {
+        console.error(`[PDF Process] drawText failed for "${d.text}":`, e?.message);
+      }
     }
 
     // useObjectStreams: false forces traditional XRef table format — fixes empty-save bug
@@ -3228,8 +3379,11 @@ router.get('/:id/preview-onboarding-pdf', async (req: any, res) => {
       }
     }
     
-    const response = await require('axios').get(absoluteUrl, { responseType: 'arraybuffer' });
-    let buffer = Buffer.from(response.data);
+    // Node's built-in fetch — axios is not a declared backend dependency, so requiring it
+    // works on a dev box (transitive install) but crashes in the deployed function.
+    const response = await fetch(absoluteUrl);
+    if (!response.ok) throw new Error(`Fetching attachment failed: HTTP ${response.status} for ${absoluteUrl}`);
+    let buffer = Buffer.from(await response.arrayBuffer());
 
     // Only PDFs can have their placeholders replaced. Anything else (scans, images) is streamed
     // back as-is, so the preview link works for every attachment rather than 404-ing.
@@ -3237,7 +3391,7 @@ router.get('/:id/preview-onboarding-pdf', async (req: any, res) => {
       buffer = await processOnboardingPdf(buffer, store, fileName);
       res.setHeader('Content-Type', 'application/pdf');
     } else {
-      res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
+      res.setHeader('Content-Type', response.headers.get('content-type') || 'application/octet-stream');
     }
     res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
     res.send(buffer);
@@ -3246,6 +3400,17 @@ router.get('/:id/preview-onboarding-pdf', async (req: any, res) => {
     res.status(500).send('Failed to generate preview PDF');
   }
 });
+
+// Which store field records "the onboarding mail for this platform+brand went out",
+// keyed by the brand token the client sends.
+const MAIL_STATUS_FIELD_BY_BRAND: Record<string, string> = {
+  zomato_btc: 'btZomatoMailStatus',
+  swiggy_btc: 'btSwiggyMailStatus',
+  zomato_sab: 'suchaliZomatoMailStatus',
+  swiggy_sab: 'suchaliSwiggyMailStatus',
+  zomato_gottea: 'gotTeaZomatoMailStatus',
+  swiggy_gottea: 'gotTeaSwiggyMailStatus',
+};
 
 // POST /:id/send-swiggy-onboarding-email
 router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: any, res) => {
@@ -3264,6 +3429,19 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
 
     const normalizedBrand = String(brandParam || '').toLowerCase();
     const isZomato = normalizedBrand.startsWith('zomato');
+
+    // Re-sending an onboarding mail is an admin-only action. Anyone may send the first
+    // one, but once the platform has been mailed, only SUPER_ADMIN/ADMIN may send again —
+    // a duplicate onboarding mail is confusing for Swiggy/Zomato to receive. Enforced here
+    // rather than only in the UI, since the UI cannot be trusted to gate an API.
+    const alreadySent = MAIL_STATUS_FIELD_BY_BRAND[normalizedBrand]
+      ? (store as any)[MAIL_STATUS_FIELD_BY_BRAND[normalizedBrand]] === 'Sent'
+      : false;
+    if (alreadySent && !['SUPER_ADMIN', 'ADMIN'].includes(req.user?.role)) {
+      return res.status(403).json({
+        error: 'This onboarding mail has already been sent. Only an admin can send it again.',
+      });
+    }
 
     let attachments: any[] = [];
     let htmlBody = body || '';
@@ -3468,13 +3646,8 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
 
     // Update mailStatus and the specific platform status to 'Sent' in database
     const updateData: any = { mailStatus: 'Sent' };
-    const brandLower = String(brandParam || '').toLowerCase();
-    if (brandLower === 'zomato_btc') updateData.btZomatoMailStatus = 'Sent';
-    else if (brandLower === 'swiggy_btc') updateData.btSwiggyMailStatus = 'Sent';
-    else if (brandLower === 'zomato_sab') updateData.suchaliZomatoMailStatus = 'Sent';
-    else if (brandLower === 'swiggy_sab') updateData.suchaliSwiggyMailStatus = 'Sent';
-    else if (brandLower === 'zomato_gottea') updateData.gotTeaZomatoMailStatus = 'Sent';
-    else if (brandLower === 'swiggy_gottea') updateData.gotTeaSwiggyMailStatus = 'Sent';
+    const statusField = MAIL_STATUS_FIELD_BY_BRAND[normalizedBrand];
+    if (statusField) updateData[statusField] = 'Sent';
 
     await prisma.store.update({
       where: { id: storeId },
