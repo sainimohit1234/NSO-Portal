@@ -741,7 +741,10 @@ export default function SwiggyZomatoIntegration() {
 
                   const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled) => {
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
-                    const isSent = isMailSent(store, statusVal);
+                    let isSent = isMailSent(store, statusVal);
+                    if (brandKey === 'zomato_btc') {
+                      isSent = false; // Force Pending for testing purposes as requested
+                    }
                     if (isSent) {
                       const sentChip = (
                         <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />
