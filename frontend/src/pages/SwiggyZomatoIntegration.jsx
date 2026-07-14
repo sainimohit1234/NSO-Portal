@@ -925,11 +925,31 @@ export default function SwiggyZomatoIntegration() {
                         label={label}
                         size="small"
                         component="a"
-                        href={doc.fileUrl || doc.url}
+                        href={(() => {
+                          const origUrl = doc.fileUrl || doc.url;
+                          const nameLower = (doc.fileName || '').toLowerCase();
+                          const isTargetOnboardingPdf = ["SAB Onb Zomato", "SAB Onb Swiggy", "BTC Onb Zomato", "BTC Onb Swiggy", "GT Onb Zomato", "GT Onb Swiggy"].some(target => 
+                            nameLower.includes(target.toLowerCase())
+                          ) && nameLower.endsWith('.pdf');
+                          
+                          if (isTargetOnboardingPdf && draftDialog.store?.id) {
+                            return `/api/stores/${draftDialog.store.id}/preview-onboarding-pdf?fileUrl=${encodeURIComponent(origUrl)}&fileName=${encodeURIComponent(doc.fileName || 'Document.pdf')}`;
+                          }
+                          return origUrl;
+                        })()}
                         target="_blank"
                         rel="noopener noreferrer"
-                        clickable
-                        sx={{ bgcolor, color, fontWeight: 600, fontSize: '0.7rem', borderRadius: '6px', maxWidth: 220, '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' } }}
+                        sx={{
+                          bgcolor: bgcolor,
+                          color: color,
+                          fontWeight: 600,
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          '&:hover': { bgcolor: bgcolor, filter: 'brightness(0.95)' },
+                          fontSize: '0.7rem',
+                          maxWidth: 220,
+                          '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
+                        }}
                       />
                     );
                   })}

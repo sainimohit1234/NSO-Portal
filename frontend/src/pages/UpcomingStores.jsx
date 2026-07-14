@@ -275,24 +275,41 @@ export default function UpcomingStores() {
 
   return (
     <Box sx={{ py: 1 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-              All Upcoming Stores
-            </Typography>
-            <Chip 
-              label={`${filteredStores.length} ${filteredStores.length === 1 ? 'Store' : 'Stores'}`} 
-              color="primary" 
-              size="small" 
-              sx={{ fontWeight: 700 }} 
-            />
+      <Card sx={{ mb: 4, overflow: 'hidden', bgcolor: '#0f2942' }}>
+        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -72,
+              right: -24,
+              width: { xs: 180, md: 240 },
+              height: { xs: 180, md: 240 },
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(111,205,220,0.15) 0%, rgba(111,205,220,0) 70%)'
+            }}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, position: 'relative' }}>
+            <Box sx={{ maxWidth: 760 }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase' }}>
+                PROJECT TRACKER
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
+                <Typography variant="h4" sx={{ fontWeight: 800, color: '#ffffff', fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
+                  All Upcoming Stores
+                </Typography>
+                <Chip 
+                  label={`${filteredStores.length} ${filteredStores.length === 1 ? 'Store' : 'Stores'}`} 
+                  sx={{ fontWeight: 700, bgcolor: 'rgba(255,255,255,0.15)', color: '#ffffff' }} 
+                  size="small" 
+                />
+              </Box>
+              <Typography variant="body2" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' }, color: 'rgba(255,255,255,0.8)' }}>
+                Monitor, filter, and plan for upcoming cafe setups and dry launches.
+              </Typography>
+            </Box>
           </Box>
-          <Typography variant="body2" color="text.secondary">
-            Monitor, filter, and plan for upcoming cafe setups and dry launches.
-          </Typography>
-        </Box>
-      </Box>
+        </CardContent>
+      </Card>
 
       {/* Status Summary Tiles */}
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2.25, mb: 3.5 }}>

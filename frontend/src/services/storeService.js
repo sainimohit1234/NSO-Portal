@@ -56,6 +56,19 @@ function normalizeStoreDocument(docSnapshot) {
   };
 }
 
+export async function getCachedStores() {
+  try {
+    const idb = await openIndexedDB();
+    const cachedData = await idb.get('stores_cache');
+    if (cachedData && cachedData.stores) {
+      return cachedData.stores;
+    }
+  } catch (e) {
+    console.error('Failed to get cached stores', e);
+  }
+  return null;
+}
+
 export async function fetchStoresFromFirestore() {
   const currentUser = await waitForAuthState();
   logStoreDebug('Fetching stores from Firestore.', {

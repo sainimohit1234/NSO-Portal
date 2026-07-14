@@ -1,17 +1,15 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
+// Temporary HTTP-only config for local dev (no SSL).
+// Used to preview the /store-journey page on localhost.
+// Do NOT commit or use in production.
 export default defineConfig({
-  plugins: [
-    react(),
-  ],
-  build: {
-    sourcemap: true,
-  },
+  plugins: [react()],
   server: {
     host: true,
-    allowedHosts: ['nso.new.bluetokaicoffee.com', 'localhost', '127.0.0.1'],
+    port: 5175,
+    allowedHosts: ['localhost', '127.0.0.1'],
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
@@ -26,4 +24,3 @@ export default defineConfig({
     }
   }
 })
-

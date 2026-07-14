@@ -1,4 +1,5 @@
 import { firebaseAdmin } from '../lib/firebase-admin';
+import { logAudit } from '../lib/audit-logger';
 
 export async function getThemes(): Promise<string[]> {
   let themes: string[] = [];
@@ -14,5 +15,10 @@ export async function getThemes(): Promise<string[]> {
 }
 
 export async function saveThemes(urls: string[]): Promise<void> {
+  const oldDoc = await firebaseAdmin.firestore().collection('system').doc('themes').get();
+  const oldData = oldDoc.exists ? oldDoc.data()?.urls || [] : [];
+
   await firebaseAdmin.firestore().collection('system').doc('themes').set({ urls });
+  
+  await logAudit('Settings', 'Update Custom Themes', oldData, urls);
 }

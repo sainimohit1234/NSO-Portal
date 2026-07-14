@@ -7,6 +7,7 @@ import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 
+const Summary = React.lazy(() => import('./pages/Summary'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Stores = React.lazy(() => import('./pages/Stores'));
 const NewStore = React.lazy(() => import('./pages/NewStore'));
@@ -23,6 +24,10 @@ const ExpansionPipeline = React.lazy(() => import('./pages/ExpansionPipeline'));
 const DeleteBranches = React.lazy(() => import('./pages/DeleteBranches'));
 const UserRegistrations = React.lazy(() => import('./pages/UserRegistrations'));
 const SwiggyZomatoIntegration = React.lazy(() => import('./pages/SwiggyZomatoIntegration'));
+const AuditTrail = React.lazy(() => import('./pages/AuditTrail'));
+const StoreContactEmailManagement = React.lazy(() => import('./pages/StoreContactEmailManagement'));
+// DEV ONLY – not deployed to production
+const StoreJourney = import.meta.env.DEV ? React.lazy(() => import('./pages/StoreJourney')) : null;
 
 const PageLoader = () => (
   <FullScreenLoader messages={[
@@ -72,6 +77,10 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
+        element: <Suspense fallback={<PageLoader />}><Dashboard /></Suspense>
+      },
+      {
+        path: 'dashboard',
         element: <Suspense fallback={<PageLoader />}><Dashboard /></Suspense>
       },
       {
@@ -130,6 +139,19 @@ const router = createBrowserRouter([
         path: 'user-registrations',
         element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}><Suspense fallback={<PageLoader />}><UserRegistrations /></Suspense></ProtectedRoute>
       },
+      {
+        path: 'store-contact-email',
+        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}><Suspense fallback={<PageLoader />}><StoreContactEmailManagement /></Suspense></ProtectedRoute>
+      },
+      {
+        path: 'audit-trail',
+        element: <ProtectedRoute allowedRoles={['SUPER_ADMIN', 'ADMIN']}><Suspense fallback={<PageLoader />}><AuditTrail /></Suspense></ProtectedRoute>
+      },
+      // DEV ONLY – Store Journey preview. Guarded so it never appears in production.
+      ...(import.meta.env.DEV && StoreJourney ? [{
+        path: 'store-journey',
+        element: <ProtectedRoute><Suspense fallback={<PageLoader />}><StoreJourney /></Suspense></ProtectedRoute>
+      }] : []),
       {
         path: '*',
         element: <Navigate to="/" replace />

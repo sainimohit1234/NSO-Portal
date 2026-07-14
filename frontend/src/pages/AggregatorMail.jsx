@@ -4,7 +4,7 @@ import {
   Paper, CardHeader, Divider, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, IconButton, Alert, Dialog, 
   DialogTitle, DialogContent, DialogActions, MenuItem, useTheme,
-  Tabs, Tab
+  Tabs, Tab, InputAdornment
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -12,6 +12,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import PaletteIcon from '@mui/icons-material/Palette';
+import SearchIcon from '@mui/icons-material/Search';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignRightIcon from '@mui/icons-material/FormatAlignRight';
@@ -41,6 +42,9 @@ const STATUS_OPTIONS = [
   'Draft a mail for SAB | Swiggy',
   'Draft a mail for GT | Zomato',
   'Draft a mail for GT | Swiggy',
+  'Draft a mail to Legal Team',
+  'Draft a mail to Finance Team',
+  'Draft a mail to Project Team',
 ];
 
 const htmlToTextMessage = (html) => {
@@ -171,8 +175,9 @@ export default function AggregatorMail() {
 
   // Mappings state
   const [mappings, setMappings] = useState([]);
-  const [categoryFilter, setCategoryFilter] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const [mappingType, setMappingType] = useState('general');
+  const [addMappingOpen, setAddMappingOpen] = useState(false);
 
   // Expandable tree state
   const [expandedCategories, setExpandedCategories] = useState({});
@@ -453,6 +458,7 @@ export default function AggregatorMail() {
 
       const updated = [...mappings, newRow];
       await saveMappingsToBackend(updated);
+      setAddMappingOpen(false);
 
       // Reset form
       if (mappingType === 'status') {
@@ -545,11 +551,23 @@ export default function AggregatorMail() {
     }));
   };
 
-  const uniqueCategories = ['All', ...new Set(mappings.map(m => m.category))];
-
   const filteredMappings = mappings.filter(m => {
-    if (categoryFilter === 'All') return true;
-    return m.category.toLowerCase() === categoryFilter.toLowerCase();
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase().trim();
+    
+    // 1. Search by Category Name
+    const matchesCategory = m.category.toLowerCase().includes(query);
+    
+    // 2. Search by Sub-Category Name (or Status name)
+    const matchesSubCategory = m.subCategory.toLowerCase().includes(query);
+    
+    // 3. Search by Mail ID (To list)
+    const matchesTo = m.to.some(email => email.toLowerCase().includes(query));
+    
+    // 4. Search by Mail ID (CC list)
+    const matchesCc = m.cc.some(email => email.toLowerCase().includes(query));
+    
+    return matchesCategory || matchesSubCategory || matchesTo || matchesCc;
   });
 
   // Sort mappings so categories are grouped together for row spanning
@@ -578,20 +596,63 @@ export default function AggregatorMail() {
 
   return (
     <Box sx={{ py: 1 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-          Email Directory
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Configure Category, Sub-Category recipient mappings, and customize automated email templates.
-        </Typography>
-      </Box>
+      {/* Full-width dark navy header tile at the top of the page */}
+      <Card sx={{ 
+        mb: 4, 
+        borderRadius: '16px', 
+        background: 'linear-gradient(135deg, #0A314D 0%, #061e30 100%)', 
+        px: 4, 
+        py: 3, 
+        border: '1px solid rgba(255,255,255,0.08)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 2
+      }}>
+        <Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: '#ffffff', mb: 0.5, letterSpacing: '-0.01em' }}>
+            Email Recipient & Template Configuration
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.65)' }}>
+            Configure Category/Sub-Category recipient mappings and customize automated templates.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {canManageEmailDirectory && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => {
+                setErrorMsg('');
+                setSuccessMsg('');
+                setAddMappingOpen(true);
+              }}
+              sx={{ 
+                borderRadius: '8px', 
+                textTransform: 'none', 
+                fontWeight: 700, 
+                fontSize: '0.78rem',
+                py: 0.8,
+                px: 2.5,
+                bgcolor: '#ffffff',
+                color: '#0A314D',
+                '&:hover': {
+                  bgcolor: 'rgba(255,255,255,0.9)'
+                }
+              }}
+            >
+              Add Mapping
+            </Button>
+          )}
+        </Box>
+      </Card>
 
-      {successMsg && <Alert severity="success" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600 }}>{successMsg}</Alert>}
-      {errorMsg && <Alert severity="error" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600 }}>{errorMsg}</Alert>}
+      {successMsg && <Alert severity="success" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600, color: '#1b5e20 !important', bgcolor: '#e8f5e9 !important', '& .MuiAlert-icon': { color: '#1b5e20 !important' } }}>{successMsg}</Alert>}
+      {errorMsg && <Alert severity="error" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600, color: '#c62828 !important', bgcolor: '#ffebee !important', '& .MuiAlert-icon': { color: '#c62828 !important' } }}>{errorMsg}</Alert>}
 
       {!canManageEmailDirectory && (
-        <Alert severity="info" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600 }}>
+        <Alert severity="info" sx={{ mb: 3, borderRadius: '12px', fontWeight: 600, color: '#0d47a1 !important', bgcolor: '#e3f2fd !important', '& .MuiAlert-icon': { color: '#0d47a1 !important' } }}>
           You are in view-only mode. You need the "Email Directory" sub-access permission to add, edit, or delete recipient and template configurations.
         </Alert>
       )}
@@ -600,155 +661,55 @@ export default function AggregatorMail() {
       <Grid container spacing={4}>
         {/* Left Side: Recipient Mappings (width 50%) */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', height: '100%' }}>
-            <CardHeader 
-              title="Email Recipient Configuration" 
-              titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
-              subheader="Manage recipient email addresses for Swiggy, Zomato, and other categories"
-              action={
-                <Box sx={{ display: 'flex', gap: 2, mt: 1, mr: 2 }}>
-                  <TextField
-                    select
-                    size="small"
-                    label="Filter Category"
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    sx={{ width: 160 }}
-                  >
-                    {uniqueCategories.map(cat => (
-                      <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                    ))}
-                  </TextField>
-                </Box>
-              }
-            />
-            <Divider />
-            <CardContent sx={{ p: 3 }}>
-              
-              {/* Add Mapping Form (Enabled only for users with permissions) */}
-              {canManageEmailDirectory && (
-                <Paper variant="outlined" sx={{ p: 2.5, mb: 4, borderRadius: '12px', bgcolor: 'action.hover' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 2 }}>
-                    Add New Email Mapping
-                  </Typography>
-                  <Grid container spacing={2}>
-                    <Grid size={12}>
-                      <TextField
-                        select
-                        fullWidth
-                        size="small"
-                        label="Mapping Type"
-                        value={mappingType}
-                        onChange={(e) => {
-                          const type = e.target.value;
-                          setMappingType(type);
-                          if (type === 'status') {
-                            setNewCategory('Status Changes');
-                          } else {
-                            setNewCategory('');
-                          }
-                          setNewSubCategory('');
-                        }}
-                      >
-                        <MenuItem value="general">General (Category / Sub-Category)</MenuItem>
-                        <MenuItem value="status">Status Triggered Notification</MenuItem>
-                      </TextField>
-                    </Grid>
-
-                    {mappingType === 'general' ? (
-                      <>
-                        <Grid size={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label="Category"
-                            placeholder="e.g. Zomato"
-                            value={newCategory}
-                            onChange={(e) => setNewCategory(e.target.value)}
-                          />
-                        </Grid>
-                        <Grid size={6}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            label="Sub-Category"
-                            placeholder="e.g. BTC Zomato"
-                            value={newSubCategory}
-                            onChange={(e) => setNewSubCategory(e.target.value)}
-                          />
-                        </Grid>
-                      </>
-                    ) : (
-                      <Grid size={12}>
-                        <TextField
-                          select
-                          fullWidth
-                          size="small"
-                          label="Select Status"
-                          value={newSubCategory}
-                          onChange={(e) => setNewSubCategory(e.target.value)}
-                        >
-                          <MenuItem value="">
-                            <em>— Select Status —</em>
-                          </MenuItem>
-                          {STATUS_OPTIONS.map(status => {
-                            const isAlreadyMapped = mappings.some(
-                              m => m.category === 'Status Changes' && m.subCategory.toLowerCase() === status.toLowerCase()
-                            );
-                            return (
-                              <MenuItem key={status} value={status} disabled={isAlreadyMapped}>
-                                {status} {isAlreadyMapped ? '(Already Mapped)' : ''}
-                              </MenuItem>
-                            );
-                          })}
-                        </TextField>
-                      </Grid>
-                    )}
-                    <Grid size={12}>
-                      <TextField
-                        required
-                        fullWidth
-                        size="small"
-                        label="To Recipient List *"
-                        placeholder="e.g. abc@company.com, xyz@company.com"
-                        value={newTo}
-                        onChange={(e) => setNewTo(e.target.value)}
-                      />
-                    </Grid>
-                    <Grid size={12}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="CC Recipient List"
-                        placeholder="e.g. manager@company.com"
-                        value={newCc}
-                        onChange={(e) => setNewCc(e.target.value)}
-                      />
-                    </Grid>
-                    <Grid size={12} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
-                      <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={handleAddMapping}
-                        sx={{ borderRadius: '8px', px: 3, fontWeight: 700 }}
-                      >
-                        Add Mapping
-                      </Button>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              )}
-
+          <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', height: 650, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <Box sx={{ 
+              background: 'linear-gradient(135deg, #0A314D 0%, #061e30 100%)', 
+              px: 3, 
+              py: 1.75, 
+              display: 'flex',
+              alignItems: 'center',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              height: '56px',
+              boxSizing: 'border-box'
+            }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#ffffff', fontSize: '0.9rem' }}>
+                Recipient Mapping Table
+              </Typography>
+            </Box>
+            <CardContent sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: 'calc(100% - 56px)' }}>
+              {/* Search Bar Filter */}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Search by mail ID, status name, category..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: 'text.secondary', fontSize: '1.1rem' }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery && (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setSearchQuery('')}>
+                        <CloseIcon sx={{ fontSize: '0.9rem' }} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+              />
               {/* Table View */}
-              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', overflow: 'hidden' }}>
-                <Table size="medium" sx={{ tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}>
+              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', overflow: 'auto', flexGrow: 1, maxHeight: '100%' }}>
+                <Table stickyHeader size="medium" sx={{ tableLayout: 'fixed', width: '100%', borderCollapse: 'collapse' }}>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064' }}>
-                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '15%' }}>Category</TableCell>
-                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Sub-Category</TableCell>
-                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '30%' }}>To</TableCell>
-                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>CC</TableCell>
-                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '10%', textAlign: 'center' }}>Actions</TableCell>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '15%' }}>Category</TableCell>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '20%' }}>Sub-Category</TableCell>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '30%' }}>To</TableCell>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '25%' }}>CC</TableCell>
+                      <TableCell sx={{ fontWeight: 800, py: 2, color: '#fff', bgcolor: theme.palette.mode === 'dark' ? '#00363a' : '#006064', border: `1px solid ${theme.palette.mode === 'dark' ? '#004d40' : '#004d40'}`, width: '10%', textAlign: 'center' }}>Actions</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -761,7 +722,7 @@ export default function AggregatorMail() {
                     ) : (
                       categoriesList.map((catName) => {
                         const catRows = categoryMap[catName];
-                        const isCatExpanded = !!expandedCategories[catName];
+                        const isCatExpanded = !!expandedCategories[catName] || searchQuery.trim() !== '';
 
                         const catLower = catName.toLowerCase();
                         
@@ -822,7 +783,7 @@ export default function AggregatorMail() {
                         }
 
                         return catRows.map((row, idx) => {
-                          const isSubExpanded = !!expandedSubCategories[row.id];
+                          const isSubExpanded = !!expandedSubCategories[row.id] || searchQuery.trim() !== '';
                           const isFirst = idx === 0;
 
                           return (
@@ -954,14 +915,22 @@ export default function AggregatorMail() {
 
         {/* Right Side: Email Template Configuration (width 50%) */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', height: '100%' }}>
-            <CardHeader
-              title="Email Template Configuration"
-              titleTypographyProps={{ fontWeight: 800, variant: 'h6' }}
-              subheader="Configure custom subject and body templates per sub-category"
-            />
-            <Divider />
-            <CardContent sx={{ p: 3 }}>
+          <Card sx={{ borderRadius: '16px', bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', height: 650, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <Box sx={{ 
+              background: 'linear-gradient(135deg, #0A314D 0%, #061e30 100%)', 
+              px: 3, 
+              py: 1.75, 
+              display: 'flex',
+              alignItems: 'center',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              height: '56px',
+              boxSizing: 'border-box'
+            }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#ffffff', fontSize: '0.9rem' }}>
+                Email Template Configuration
+              </Typography>
+            </Box>
+            <CardContent sx={{ p: 3, flexGrow: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', height: 'calc(100% - 56px)' }}>
               <Stack spacing={3}>
                 <TextField
                   select
@@ -1514,6 +1483,134 @@ export default function AggregatorMail() {
             sx={{ fontWeight: 700, borderRadius: '8px' }}
           >
             Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add New Email Mapping Popup Modal */}
+      <Dialog 
+        open={addMappingOpen} 
+        onClose={() => setAddMappingOpen(false)} 
+        fullWidth 
+        maxWidth="sm" 
+        PaperProps={{ sx: { borderRadius: '16px', p: 0, overflow: 'hidden' } }}
+      >
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #0A314D 0%, #061e30 100%)', 
+          color: '#ffffff',
+          fontWeight: 800, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          px: 3,
+          py: 2,
+          flexShrink: 0
+        }}>
+          <Typography sx={{ fontWeight: 800, fontSize: '1rem', color: '#ffffff' }}>Add New Email Mapping</Typography>
+          <IconButton 
+            onClick={() => setAddMappingOpen(false)}
+            sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: '#ffffff' } }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, mt: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Mapping Type"
+              value={mappingType}
+              onChange={(e) => {
+                const type = e.target.value;
+                setMappingType(type);
+                if (type === 'status') {
+                  setNewCategory('Status Changes');
+                } else {
+                  setNewCategory('');
+                }
+                setNewSubCategory('');
+              }}
+            >
+              <MenuItem value="general">General (Category / Sub-Category)</MenuItem>
+              <MenuItem value="status">Status Triggered Notification</MenuItem>
+            </TextField>
+
+            {mappingType === 'general' ? (
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Category"
+                  placeholder="e.g. Zomato"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Sub-Category"
+                  placeholder="e.g. BTC Zomato"
+                  value={newSubCategory}
+                  onChange={(e) => setNewSubCategory(e.target.value)}
+                />
+              </Box>
+            ) : (
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Select Status"
+                value={newSubCategory}
+                onChange={(e) => setNewSubCategory(e.target.value)}
+              >
+                <MenuItem value="">
+                  <em>— Select Status —</em>
+                </MenuItem>
+                {STATUS_OPTIONS.map(status => {
+                  const isAlreadyMapped = mappings.some(
+                    m => m.category === 'Status Changes' && m.subCategory.toLowerCase() === status.toLowerCase()
+                  );
+                  return (
+                    <MenuItem key={status} value={status} disabled={isAlreadyMapped}>
+                      {status} {isAlreadyMapped ? '(Already Mapped)' : ''}
+                    </MenuItem>
+                  );
+                })}
+              </TextField>
+            )}
+            
+            <TextField
+              required
+              fullWidth
+              size="small"
+              label="To Recipient List *"
+              placeholder="e.g. abc@company.com, xyz@company.com"
+              value={newTo}
+              onChange={(e) => setNewTo(e.target.value)}
+            />
+
+            <TextField
+              fullWidth
+              size="small"
+              label="CC Recipient List"
+              placeholder="e.g. manager@company.com"
+              value={newCc}
+              onChange={(e) => setNewCc(e.target.value)}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Button onClick={() => setAddMappingOpen(false)} variant="outlined" sx={{ borderRadius: '8px', textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleAddMapping} 
+            variant="contained" 
+            sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+          >
+            Done
           </Button>
         </DialogActions>
       </Dialog>

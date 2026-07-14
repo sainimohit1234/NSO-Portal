@@ -720,105 +720,188 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
           <Box sx={{ width: { xs: '100%', md: '50%' }, p: 1.5, display: 'flex', flexDirection: 'column', bgcolor: 'background.default', overflow: 'hidden' }}>
              {previewDoc ? (
                <>
-                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                     <Typography variant="h6" fontWeight={800} sx={{ mt: 0.5 }}>{previewDoc.type}</Typography>
-                     {(previewDoc.type === 'GST Docs' || previewDoc.type === 'GST Certificate') && (
-                       <TextField
-                         label="GST Number" size="small"
-                         value={gstNo}
-                         onChange={(e) => {
-                           setGstNo(e.target.value);
-                           setHasUnsavedChanges(true);
-                         }}
-                         disabled={!canModify || !isEditMode}
-                         sx={{ width: 316 }}
-                       />
-                     )}
-                     {getRequiredTypes().find(rt => rt.type === previewDoc.type)?.requiresDates && (
-                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                         {previewDoc.type === 'FSSAI License' && (
-                           <TextField
-                             label="FSSAI Number" size="small"
-                             value={previewDoc.metadata?.fssaiNumber || ''}
-                             onChange={(e) => handleUpdateMetadata(previewDoc.id, 'fssaiNumber', e.target.value)}
-                             disabled={!canModify || !isEditMode}
-                             sx={{ width: 316 }}
-                           />
-                         )}
-                         <Box sx={{ display: 'flex', gap: 2 }}>
-                           <TextField 
-                             label="Issued On" type="date" size="small" InputLabelProps={{ shrink: true }}
-                             value={previewDoc.metadata?.issuedOn || ''}
-                             onChange={(e) => handleUpdateMetadata(previewDoc.id, 'issuedOn', e.target.value)}
-                             disabled={!canModify || !isEditMode}
-                             sx={{ width: 150 }}
-                           />
-                           <TextField 
-                             label="Valid Until" type="date" size="small" InputLabelProps={{ shrink: true }}
-                             value={previewDoc.metadata?.validUntil || ''}
-                             onChange={(e) => handleUpdateMetadata(previewDoc.id, 'validUntil', e.target.value)}
-                             disabled={!canModify || !isEditMode}
-                             sx={{ width: 150 }}
-                           />
-                         </Box>
-                       </Box>
-                     )}
-                   </Box>
-                   <Box sx={{ display: 'flex', gap: 1 }}>
-                     <Button size="small" variant="outlined" startIcon={<DownloadIcon />} component="a" href={previewDoc.url} target="_blank" rel="noopener noreferrer">
+                 {/* Styled Navy Header Bar */}
+                 <Box sx={{ 
+                   background: 'linear-gradient(135deg, #0A314D 0%, #061e30 100%)', 
+                   px: 2.5, 
+                   py: 1.5, 
+                   display: 'flex', 
+                   justifyContent: 'space-between', 
+                   alignItems: 'center', 
+                   borderRadius: '12px 12px 0 0',
+                   borderBottom: '1px solid rgba(255,255,255,0.08)',
+                   flexShrink: 0
+                 }}>
+                   <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#ffffff', fontSize: '0.92rem' }}>
+                     {previewDoc.type}
+                   </Typography>
+                   
+                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                     <Button 
+                       size="small" 
+                       variant="outlined" 
+                       startIcon={<DownloadIcon />} 
+                       component="a" 
+                       href={previewDoc.url} 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       sx={{
+                         borderRadius: '8px',
+                         textTransform: 'none',
+                         fontWeight: 700,
+                         fontSize: '0.72rem',
+                         color: '#ffffff',
+                         borderColor: 'rgba(255,255,255,0.3)',
+                         '&:hover': {
+                           borderColor: '#ffffff',
+                           bgcolor: 'rgba(255,255,255,0.08)'
+                         }
+                       }}
+                     >
                        Download
                      </Button>
                      {canModify && isEditMode && (
-                       <Button size="small" color="error" variant="outlined" startIcon={<DeleteIcon />} onClick={() => handleDelete(previewDoc.id)}>
+                       <Button 
+                         size="small" 
+                         variant="outlined" 
+                         color="error"
+                         startIcon={<DeleteIcon />} 
+                         onClick={() => handleDelete(previewDoc.id)}
+                         sx={{
+                           borderRadius: '8px',
+                           textTransform: 'none',
+                           fontWeight: 700,
+                           fontSize: '0.72rem',
+                           color: '#f87171',
+                           borderColor: 'rgba(248,113,113,0.3)',
+                           '&:hover': {
+                             borderColor: '#ef4444',
+                             bgcolor: 'rgba(239,68,68,0.08)'
+                           }
+                         }}
+                       >
                          Remove
                        </Button>
                      )}
                    </Box>
                  </Box>
-                 <Box sx={{ flexGrow: 1, bgcolor: 'background.paper', borderRadius: '12px', border: '1px solid', borderColor: 'divider', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    {getFileType(previewDoc.url, previewDoc.fileName) === 'pdf' ? (
-                      <iframe src={previewDoc.url} width="100%" height="100%" style={{ border: 'none' }} title="preview" />
-                    ) : getFileType(previewDoc.url, previewDoc.fileName) === 'image' ? (
-                      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 2 }}>
-                        <img src={previewDoc.url} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                      </Box>
-                    ) : getFileType(previewDoc.url, previewDoc.fileName) === 'office' ? (
-                      <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewDoc.url.startsWith('http') ? previewDoc.url : window.location.origin + previewDoc.url)}`} width="100%" height="100%" style={{ border: 'none' }} title="preview" />
-                    ) : getFileType(previewDoc.url, previewDoc.fileName) === 'csv' ? (
-                      <Box sx={{ flexGrow: 1, overflow: 'auto', bgcolor: 'background.paper' }}>
-                        {previewData ? (
-                          <Table size="small" stickyHeader sx={{ minWidth: 650, '& td, & th': { border: '1px solid', borderColor: 'divider', p: 1 } }}>
-                            <TableBody>
-                              {previewData.map((row, i) => (
-                                <TableRow key={i} hover={i !== 0} sx={i === 0 ? { bgcolor: 'grey.100', position: 'sticky', top: 0, zIndex: 1 } : {}}>
-                                  {row.map((cell, j) => (
-                                    <TableCell key={j} sx={{ whiteSpace: 'nowrap', fontWeight: i === 0 ? 700 : 400 }}>
-                                      {cell}
-                                    </TableCell>
-                                  ))}
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        ) : (
-                          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}>
-                             <CircularProgress />
-                          </Box>
-                        )}
-                      </Box>
-                    ) : getFileType(previewDoc.url, previewDoc.fileName) === 'text' ? (
-                      <Box sx={{ p: 2, height: '100%', overflow: 'auto', bgcolor: 'background.paper', color: 'text.primary', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                         <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{previewText}</pre>
-                      </Box>
-                    ) : (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}>
-                         <Typography>No inline preview available.</Typography>
-                         <Button sx={{ mt: 2 }} variant="contained" component="a" href={previewDoc.url} target="_blank" rel="noopener noreferrer">
-                           Open File
-                         </Button>
-                      </Box>
-                    )}
+
+                 {/* Body Container (holds inputs and iframe/image previewer) */}
+                 <Box sx={{ 
+                   display: 'flex', 
+                   flexDirection: 'column', 
+                   flexGrow: 1, 
+                   bgcolor: 'background.paper', 
+                   borderRadius: '0 0 12px 12px', 
+                   border: '1px solid', 
+                   borderColor: 'divider',
+                   borderTop: 'none', 
+                   overflow: 'hidden',
+                   p: 2,
+                   gap: 2
+                 }}>
+                   {/* Metadata Fields Section */}
+                   {(((previewDoc.type === 'GST Docs' || previewDoc.type === 'GST Certificate') || getRequiredTypes().find(rt => rt.type === previewDoc.type)?.requiresDates)) && (
+                     <Box sx={{ 
+                       p: 1.75, 
+                       bgcolor: 'background.default', 
+                       borderRadius: '8px', 
+                       border: '1px solid', 
+                       borderColor: 'divider',
+                       display: 'flex', 
+                       flexDirection: 'column', 
+                       gap: 1.5,
+                       flexShrink: 0
+                     }}>
+                       {(previewDoc.type === 'GST Docs' || previewDoc.type === 'GST Certificate') && (
+                         <TextField
+                           label="GST Number" size="small"
+                           value={gstNo}
+                           onChange={(e) => {
+                             setGstNo(e.target.value);
+                             setHasUnsavedChanges(true);
+                           }}
+                           disabled={!canModify || !isEditMode}
+                           sx={{ width: '100%', maxWidth: 316 }}
+                         />
+                       )}
+                       {getRequiredTypes().find(rt => rt.type === previewDoc.type)?.requiresDates && (
+                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                           {previewDoc.type === 'FSSAI License' && (
+                             <TextField
+                               label="FSSAI Number" size="small"
+                               value={previewDoc.metadata?.fssaiNumber || ''}
+                               onChange={(e) => handleUpdateMetadata(previewDoc.id, 'fssaiNumber', e.target.value)}
+                               disabled={!canModify || !isEditMode}
+                               sx={{ width: '100%', maxWidth: 316 }}
+                             />
+                           )}
+                           <Box sx={{ display: 'flex', gap: 2 }}>
+                             <TextField 
+                               label="Issued On" type="date" size="small" InputLabelProps={{ shrink: true }}
+                               value={previewDoc.metadata?.issuedOn || ''}
+                               onChange={(e) => handleUpdateMetadata(previewDoc.id, 'issuedOn', e.target.value)}
+                               disabled={!canModify || !isEditMode}
+                               sx={{ width: 150 }}
+                             />
+                             <TextField 
+                               label="Valid Until" type="date" size="small" InputLabelProps={{ shrink: true }}
+                               value={previewDoc.metadata?.validUntil || ''}
+                               onChange={(e) => handleUpdateMetadata(previewDoc.id, 'validUntil', e.target.value)}
+                               disabled={!canModify || !isEditMode}
+                               sx={{ width: 150 }}
+                             />
+                           </Box>
+                         </Box>
+                       )}
+                     </Box>
+                   )}
+
+                   {/* File Preview Frame Container */}
+                   <Box sx={{ flexGrow: 1, borderRadius: '8px', border: '1px solid', borderColor: 'divider', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                      {getFileType(previewDoc.url, previewDoc.fileName) === 'pdf' ? (
+                        <iframe src={previewDoc.url} width="100%" height="100%" style={{ border: 'none' }} title="preview" />
+                      ) : getFileType(previewDoc.url, previewDoc.fileName) === 'image' ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 2 }}>
+                          <img src={previewDoc.url} alt="Preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                        </Box>
+                      ) : getFileType(previewDoc.url, previewDoc.fileName) === 'office' ? (
+                        <iframe src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewDoc.url.startsWith('http') ? previewDoc.url : window.location.origin + previewDoc.url)}`} width="100%" height="100%" style={{ border: 'none' }} title="preview" />
+                      ) : getFileType(previewDoc.url, previewDoc.fileName) === 'csv' ? (
+                        <Box sx={{ flexGrow: 1, overflow: 'auto', bgcolor: 'background.paper' }}>
+                          {previewData ? (
+                            <Table size="small" stickyHeader sx={{ minWidth: 650, '& td, & th': { border: '1px solid', borderColor: 'divider', p: 1 } }}>
+                              <TableBody>
+                                {previewData.map((row, i) => (
+                                  <TableRow key={i} hover={i !== 0} sx={i === 0 ? { bgcolor: 'grey.100', position: 'sticky', top: 0, zIndex: 1 } : {}}>
+                                    {row.map((cell, j) => (
+                                      <TableCell key={j} sx={{ whiteSpace: 'nowrap', fontWeight: i === 0 ? 700 : 400 }}>
+                                        {cell}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          ) : (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}>
+                               <CircularProgress />
+                            </Box>
+                          )}
+                        </Box>
+                      ) : getFileType(previewDoc.url, previewDoc.fileName) === 'text' ? (
+                        <Box sx={{ p: 2, height: '100%', overflow: 'auto', bgcolor: 'background.paper', color: 'text.primary', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                           <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{previewText}</pre>
+                        </Box>
+                      ) : (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100%', p: 4 }}>
+                           <Typography>No inline preview available.</Typography>
+                           <Button sx={{ mt: 2 }} variant="contained" component="a" href={previewDoc.url} target="_blank" rel="noopener noreferrer">
+                             Open File
+                           </Button>
+                        </Box>
+                      )}
+                   </Box>
                  </Box>
                </>
              ) : (

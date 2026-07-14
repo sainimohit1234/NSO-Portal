@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { hashPassword } from '../utils/auth';
 import { authenticateToken, authorizeRoles } from './auth';
 import { firebaseAdmin } from '../lib/firebase-admin';
+import { logAudit } from '../lib/audit-logger';
 
 const router = Router();
 const db = firebaseAdmin.firestore();
@@ -151,6 +152,11 @@ router.post('/', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'), a
     };
 
     await db.collection('users').doc(uid).set(newUser);
+    
+    const sanitizedUser = { ...newUser };
+    delete sanitizedUser.password;
+    await logAudit('User Management', 'Create User', null, sanitizedUser);
+
     res.status(201).json(newUser);
   } catch (error: any) {
     console.error('Create user error:', error);
@@ -236,9 +242,17 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
     if (phone !== undefined) updates.phone = phone;
     if (role !== undefined) updates.role = role;
     if (req.body.permissions !== undefined) updates.permissions = req.body.permissions;
+    if (req.body.approved !== undefined) updates.approved = req.body.approved;
+    if (req.body.registrationStatus !== undefined) updates.registrationStatus = req.body.registrationStatus;
 
     await db.collection('users').doc(id).update(updates);
     
+    const sanitizedOld = { ...targetUser };
+    delete sanitizedOld.password;
+    const sanitizedNew = { ...targetUser, ...updates };
+    delete sanitizedNew.password;
+    await logAudit('User Management', 'Update User', sanitizedOld, sanitizedNew);
+
     const updatedDoc = await db.collection('users').doc(id).get();
     res.json({ id: updatedDoc.id, ...updatedDoc.data() });
   } catch (error: any) {
@@ -287,6 +301,11 @@ router.delete('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN'), async (req, res) =
     }
 
     await db.collection('users').doc(id).delete();
+    
+    const sanitizedOld = { ...targetUser };
+    delete sanitizedOld.password;
+    await logAudit('User Management', 'Delete User', sanitizedOld, null);
+
     res.json({ message: 'User deleted successfully' });
   } catch (error: any) {
     console.error('Delete user error:', error);

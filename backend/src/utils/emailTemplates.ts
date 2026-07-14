@@ -1,4 +1,5 @@
 import { firebaseAdmin } from '../lib/firebase-admin';
+import { logAudit } from '../lib/audit-logger';
 
 interface EmailTemplate {
   subject: string;
@@ -23,5 +24,10 @@ export async function getEmailTemplates(): Promise<EmailTemplatesMap> {
 }
 
 export async function saveEmailTemplates(config: EmailTemplatesMap): Promise<void> {
+  const oldDoc = await firebaseAdmin.firestore().collection('system').doc('email_templates').get();
+  const oldData = oldDoc.exists ? oldDoc.data()?.templates || {} : {};
+
   await firebaseAdmin.firestore().collection('system').doc('email_templates').set({ templates: config });
+  
+  await logAudit('Email Directory', 'Update Email Templates', oldData, config);
 }

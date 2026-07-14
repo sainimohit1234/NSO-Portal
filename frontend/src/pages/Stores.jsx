@@ -20,10 +20,12 @@ import {
   computeIntegrationStatus
 } from '../utils/status';
 import GoLiveDialog from '../components/GoLiveDialog';
+import CafeJourneyModal from '../components/CafeJourneyModal';
 
 export default function Stores() {
   const [goLiveDialogOpen, setGoLiveDialogOpen] = useState(false);
   const [selectedGoLiveStore, setSelectedGoLiveStore] = useState(null);
+  const [isJourneyModalOpen, setIsJourneyModalOpen] = useState(false);
 
   const getCurrentMonthValue = () => {
     const now = new Date();
@@ -174,14 +176,15 @@ export default function Stores() {
       });
     }
     
-    // Search Filter
+    // Search Filter (Global)
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
-      if (filters.searchType === 'name') {
-        result = result.filter(s => s.cafeName?.toLowerCase().includes(query));
-      } else if (filters.searchType === 'code') {
-        result = result.filter(s => s.cafeCode?.toLowerCase().includes(query));
-      }
+      result = result.filter(s => 
+        s.cafeName?.toLowerCase().includes(query) ||
+        s.cafeCode?.toLowerCase().includes(query) ||
+        s.address?.toLowerCase().includes(query) ||
+        s.city?.toLowerCase().includes(query)
+      );
     }
 
     // Expiry Month Filter
@@ -341,29 +344,79 @@ export default function Stores() {
 
   return (
     <Box sx={{ py: 1 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-              All Stores
-            </Typography>
-            <Chip 
-              label={`${filteredStores.length} ${filteredStores.length === 1 ? 'Store' : 'Stores'}`} 
-              color="primary" 
-              size="small" 
-              sx={{ fontWeight: 700 }} 
-            />
+      <Card sx={{ mb: 3, overflow: 'hidden', bgcolor: '#0f2942' }}>
+        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -72,
+              right: -24,
+              width: { xs: 180, md: 240 },
+              height: { xs: 180, md: 240 },
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(111,205,220,0.15) 0%, rgba(111,205,220,0) 70%)'
+            }}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, position: 'relative' }}>
+            <Box sx={{ maxWidth: 760 }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase' }}>
+                STORE DIRECTORY
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
+                <Typography variant="h4" sx={{ fontWeight: 800, color: '#ffffff', fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
+                  All Stores
+                </Typography>
+                <Chip 
+                  label={`${filteredStores.length} ${filteredStores.length === 1 ? 'Store' : 'Stores'}`} 
+                  sx={{ fontWeight: 700, bgcolor: 'rgba(255,255,255,0.15)', color: '#ffffff' }} 
+                  size="small" 
+                />
+              </Box>
+              <Typography variant="body2" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' }, color: 'rgba(255,255,255,0.8)' }}>
+                Manage, search, and view all registered cafes and kitchen locations.
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Button
+                variant="contained"
+                onClick={() => setIsJourneyModalOpen(true)}
+                sx={{
+                  bgcolor: '#6fccdc',
+                  color: '#0f2942',
+                  px: 3,
+                  py: 0.75,
+                  borderRadius: '999px',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  boxShadow: '0 4px 14px 0 rgba(111,205,220,0.3)',
+                  '&:hover': { bgcolor: '#5ebbc9', boxShadow: '0 6px 20px 0 rgba(111,205,220,0.4)' }
+                }}
+              >
+                Café Journey
+              </Button>
+            </Box>
           </Box>
-          <Typography variant="body2" color="text.secondary">
-            Manage, search, and view all registered cafes and kitchen locations.
-          </Typography>
-        </Box>
-      </Box>
+        </CardContent>
+      </Card>
 
-      <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
+      <Card sx={{ mb: 3, bgcolor: '#0f2942' }}>
         <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Filter Stores</Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#ffffff' }}>Filter Stores</Typography>
+          <Box sx={{ 
+            display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center',
+            '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7) !important' },
+            '& .MuiInputLabel-root.Mui-focused': { color: '#ffffff !important' },
+            '& .MuiInputLabel-root.Mui-disabled': { color: 'rgba(255,255,255,0.4) !important' },
+            '& .MuiOutlinedInput-root': { 
+              color: '#fff',
+              bgcolor: 'rgba(255,255,255,0.06) !important',
+              '& fieldset': { borderColor: 'rgba(255,255,255,0.2) !important' },
+              '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4) !important' },
+              '&.Mui-focused fieldset': { borderColor: '#6fccdc !important' },
+              '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.03) !important', color: 'rgba(255,255,255,0.4) !important' }
+            },
+            '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.7) !important' }
+          }}>
             {/* Brand Filter */}
             <TextField
               select
@@ -372,54 +425,23 @@ export default function Stores() {
               name="brand"
               value={filters.brand}
               onChange={handleFilterChange}
-              sx={{ minWidth: 200 }}
+              sx={{ flex: 1, minWidth: 160 }}
             >
               <MenuItem value="">All Brands</MenuItem>
               <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's</MenuItem>
               <MenuItem value="GOT_TEA">Got Tea</MenuItem>
             </TextField>
 
-            {/* Search By Dropdown */}
-            <TextField
-              select
-              size="small"
-              label="Search By"
-              name="searchType"
-              value={filters.searchType}
-              onChange={handleFilterChange}
-              sx={{ minWidth: 150 }}
-            >
-              <MenuItem value="name">Branch Name</MenuItem>
-              <MenuItem value="code">Branch Code</MenuItem>
-            </TextField>
-
-            {/* Search Input */}
+            {/* Search Bar */}
             <TextField
               size="small"
-              label={filters.searchType === 'name' ? 'Branch Name' : 'Branch Code'}
-              placeholder={filters.searchType === 'name' ? 'Search by name...' : 'Search by code...'}
+              label="Search Bar"
+              placeholder="Search anything..."
               name="searchQuery"
               value={filters.searchQuery}
               onChange={handleFilterChange}
-              sx={{ minWidth: 200 }}
+              sx={{ flex: 1, minWidth: 200 }}
             />
-
-            {/* Integration Status filter */}
-            <TextField
-              select
-              size="small"
-              label="Integration Status"
-              name="integrationStatus"
-              value={filters.integrationStatus || ''}
-              onChange={handleFilterChange}
-              sx={{ minWidth: 180 }}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="Integration Completed">Integration Completed</MenuItem>
-              <MenuItem value="Pending">Pending</MenuItem>
-              <MenuItem value="Mail Sent">Mail Sent</MenuItem>
-              <MenuItem value="Needs Follow-up">Needs Follow-up with S/Z</MenuItem>
-            </TextField>
 
             {/* Filter Expiries */}
             <TextField
@@ -429,7 +451,7 @@ export default function Stores() {
               name="expiryType"
               value={filters.expiryType}
               onChange={handleFilterChange}
-              sx={{ minWidth: 160 }}
+              sx={{ flex: 1, minWidth: 160 }}
             >
               <MenuItem value="">None (All Data)</MenuItem>
               <MenuItem value="fssai">FSSAI Expiry</MenuItem>
@@ -445,7 +467,7 @@ export default function Stores() {
               value={filters.expiryMonth}
               onChange={handleFilterChange}
               disabled={!filters.expiryType}
-              sx={{ minWidth: 150 }}
+              sx={{ flex: 1, minWidth: 150 }}
             >
               {MONTHS.map(m => (
                 <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
@@ -460,7 +482,7 @@ export default function Stores() {
               name="launchStatusType"
               value={filters.launchStatusType}
               onChange={handleFilterChange}
-              sx={{ minWidth: 180 }}
+              sx={{ flex: 1, minWidth: 180 }}
             >
               <MenuItem value="">None (All Data)</MenuItem>
               <MenuItem value="newly_launched">Newly Launch Stores</MenuItem>
@@ -472,19 +494,6 @@ export default function Stores() {
               <MenuItem value="upcoming">Upcoming Stores</MenuItem>
               <MenuItem value="closed">Closed Stores</MenuItem>
             </TextField>
-
-            {/* Launch Month & Year Range */}
-            <TextField
-              type="month"
-              size="small"
-              label="Launch Month & Year"
-              name="launchMonthYear"
-              value={filters.launchMonthYear}
-              onChange={handleFilterChange}
-              InputLabelProps={{ shrink: true }}
-              disabled={!['live', 'upcoming', 'closed', 'approved', 'pending_approval', 'on_hold'].includes(filters.launchStatusType)}
-              sx={{ minWidth: 190 }}
-            />
 
             {/* Clear Filters Button */}
             {hasActiveFilters && (
@@ -856,20 +865,23 @@ export default function Stores() {
         </TableContainer>
       </Card>
 
-      <GoLiveDialog 
-        open={goLiveDialogOpen}
-        onClose={() => {
-          setGoLiveDialogOpen(false);
-          setSelectedGoLiveStore(null);
-        }}
-        store={selectedGoLiveStore}
-        onSave={async (payload) => {
-          if (selectedGoLiveStore) {
-            await handleChangeStatus(selectedGoLiveStore.id, 'LIVE', payload);
+      {selectedGoLiveStore && (
+        <GoLiveDialog
+          open={goLiveDialogOpen}
+          onClose={() => {
             setGoLiveDialogOpen(false);
             setSelectedGoLiveStore(null);
-          }
-        }}
+          }}
+          store={selectedGoLiveStore}
+          onSuccess={(updatedStore) => {
+            setStores(prev => prev.map(s => s.id === updatedStore.id ? updatedStore : s));
+            setFilteredStores(prev => prev.map(s => s.id === updatedStore.id ? updatedStore : s));
+          }}
+        />
+      )}
+      <CafeJourneyModal 
+        open={isJourneyModalOpen} 
+        onClose={() => setIsJourneyModalOpen(false)} 
       />
     </Box>
   );

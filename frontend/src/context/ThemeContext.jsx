@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useMemo } from 'react';
+import { createContext, useContext, useState, useMemo, useEffect } from 'react';
 import { ThemeProvider, createTheme, responsiveFontSizes } from '@mui/material/styles';
 import { alpha } from '@mui/material/styles';
+import loginBack from '../assets/loginback.png';
 
 const ThemeContext = createContext();
 
@@ -17,7 +18,7 @@ const darkThemeDefaults = {
 
 const lightThemeDefaults = {
   text: '#000000',
-  border: 'rgba(0, 0, 0, 0.12)',
+  border: 'rgba(15, 23, 42, 0.28)',
   header: '#0A314D', // Dark sky-blue header
   background: '#ffffff',
   paper: '#ffffff',
@@ -26,7 +27,7 @@ const lightThemeDefaults = {
 
 const systemDayThemeDefaults = {
   text: '#334155', // Slate 700
-  border: 'rgba(0, 0, 0, 0.12)',
+  border: 'rgba(15, 23, 42, 0.28)',
   header: '#f59e0b', // Amber 500 (Sunny daytime)
   background: '#fdfbf7', // Warm off-white
   paper: '#ffffff',
@@ -35,7 +36,7 @@ const systemDayThemeDefaults = {
 
 const systemNightThemeDefaults = {
   text: '#e0e7ff', // Indigo 100
-  border: 'rgba(255, 255, 255, 0.1)',
+  border: 'rgba(255, 255, 255, 0.24)',
   header: '#172554', // Blue 950
   background: '#0f172a', // Slate 900
   paper: '#1e1b4b', // Indigo 900
@@ -44,7 +45,7 @@ const systemNightThemeDefaults = {
 
 const systemRainThemeDefaults = {
   text: '#f1f5f9', // Slate 100
-  border: 'rgba(255, 255, 255, 0.08)',
+  border: 'rgba(255, 255, 255, 0.22)',
   header: 'rgba(15, 23, 42, 0.7)', // Slate 900 highly transparent for video
   background: 'transparent', // Transparent to see video
   paper: 'rgba(51, 65, 85, 0.65)', // Slate 700 highly transparent
@@ -52,14 +53,16 @@ const systemRainThemeDefaults = {
 };
 
 export const CustomThemeProvider = ({ children }) => {
+  const [analyzedTheme, setAnalyzedTheme] = useState({
+    isDark: true,
+    avgColor: 'rgba(15, 23, 42, 0.7)',
+    avgRgb: [15, 23, 42]
+  });
+
   const [themeMode, setThemeModeState] = useState(() => {
-    const saved = localStorage.getItem('themeMode');
-    // Dark theme has been removed — migrate any existing 'dark' preference to 'light'.
-    if (saved === 'dark') {
-      localStorage.setItem('themeMode', 'light');
-      return 'light';
-    }
-    return saved || 'light';
+    // Force default to 'light' for Light Theme only
+    localStorage.setItem('themeMode', 'light');
+    return 'light';
   });
 
   const [customColors, setCustomColorsState] = useState(() => {
@@ -72,8 +75,8 @@ export const CustomThemeProvider = ({ children }) => {
   });
 
   const setThemeMode = (mode) => {
-    setThemeModeState(mode);
-    localStorage.setItem('themeMode', mode);
+    setThemeModeState('light');
+    localStorage.setItem('themeMode', 'light');
   };
 
   const setCustomColors = (colors) => {
@@ -82,8 +85,55 @@ export const CustomThemeProvider = ({ children }) => {
   };
 
   const [customBgUrl, setCustomBgUrlState] = useState(() => {
-    return localStorage.getItem('customBgUrl') || '';
+    return '';
   });
+
+  useEffect(() => {
+    if (!customBgUrl) {
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 10;
+        canvas.height = 10;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, 10, 10);
+        const imgData = ctx.getImageData(0, 0, 10, 10);
+        const data = imgData.data;
+        let r = 0, g = 0, b = 0;
+        let count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          r += data[i];
+          g += data[i+1];
+          b += data[i+2];
+          count++;
+        }
+        r = Math.round(r / count);
+        g = Math.round(g / count);
+        b = Math.round(b / count);
+        
+        // Calculate perceived brightness using standard luminance formula
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        const isDark = brightness < 155; // 155 threshold allows clean light theme adaptation on bright images
+        
+        setAnalyzedTheme({
+          isDark,
+          avgColor: `rgb(${r}, ${g}, ${b})`,
+          avgRgb: [r, g, b]
+        });
+      } catch (err) {
+        console.error('Error analyzing image background:', err);
+      }
+    };
+    img.onerror = () => {
+      console.warn('Could not load custom background image to analyze. Falling back to default dark theme.');
+    };
+    img.src = customBgUrl;
+  }, [customBgUrl]);
 
   const setCustomBgUrl = (url) => {
     setCustomBgUrlState(url);
@@ -118,13 +168,27 @@ export const CustomThemeProvider = ({ children }) => {
       primaryMain = customColors.primary || darkThemeDefaults.primary;
       
       if (themeMode === 'customize') {
-        headerBg = 'rgba(15, 23, 42, 0.7)'; // Transparent for custom background
-        bgPaper = 'rgba(15, 23, 42, 0.65)'; // Semi-transparent paper
+        const bgIsDark = analyzedTheme.isDark;
+        if (bgIsDark) {
+          paletteMode = 'dark';
+          text = '#F8FAFC';
+          border = 'rgba(255, 255, 255, 0.24)';
+          headerBg = 'rgba(15, 23, 42, 0.82)'; // Sleek transparent header for dark background
+          bgPaper = 'rgba(15, 23, 42, 0.72)'; // Glassmorphic cards
+          primaryMain = '#3b82f6';
+        } else {
+          paletteMode = 'light';
+          text = '#0f172a';
+          border = 'rgba(15, 23, 42, 0.32)';
+          headerBg = 'rgba(255, 255, 255, 0.85)'; // Sleek transparent header for light background
+          bgPaper = 'rgba(255, 255, 255, 0.78)'; // Glassmorphic light cards
+          primaryMain = '#1e3a8a';
+        }
       }
       primaryDark = alpha(primaryMain, 0.8);
       primaryLight = alpha(primaryMain, 0.4);
       textSecondary = alpha(text, 0.65);
-      paletteMode = 'dark';
+      paletteMode = paletteMode || 'dark';
     }
 
     const isLight = paletteMode === 'light';
@@ -231,6 +295,13 @@ export const CustomThemeProvider = ({ children }) => {
             },
             '#root': {
               minHeight: '100vh'
+            },
+            '.MuiCard-root:has(.MuiTable-root), .MuiPaper-root:has(.MuiTable-root), .MuiTableContainer-root': {
+              borderTopLeftRadius: '0px !important',
+              borderTopRightRadius: '0px !important'
+            },
+            '.MuiTableHead-root .MuiTableCell-root': {
+              borderRadius: '0px !important'
             }
           }
         },
@@ -271,8 +342,22 @@ export const CustomThemeProvider = ({ children }) => {
               background: bgPaper,
               backgroundImage: 'none',
               transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+              ...(themeMode === 'customize' && {
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: `1px solid ${analyzedTheme.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`,
+                boxShadow: analyzedTheme.isDark 
+                  ? '0 8px 32px 0 rgba(0, 0, 0, 0.3)' 
+                  : '0 8px 32px 0 rgba(31, 38, 135, 0.06)'
+              }),
               '&:hover': {
-                boxShadow: isLight ? '0 12px 24px rgba(10,49,77,0.05)' : '0 12px 38px rgba(0, 0, 0, 0.25)'
+                boxShadow: isLight ? '0 12px 24px rgba(10,49,77,0.05)' : '0 12px 38px rgba(0, 0, 0, 0.25)',
+                ...(themeMode === 'customize' && {
+                  transform: 'translateY(-2px)',
+                  boxShadow: analyzedTheme.isDark 
+                    ? '0 12px 40px 0 rgba(0, 0, 0, 0.45)' 
+                    : '0 12px 40px 0 rgba(31, 38, 135, 0.12)'
+                })
               }
             }
           }
@@ -282,7 +367,12 @@ export const CustomThemeProvider = ({ children }) => {
             root: {
               backgroundImage: 'none',
               backgroundColor: bgPaper,
-              boxShadow: isLight ? '0 4px 12px rgba(0,0,0,0.03)' : '0 4px 20px rgba(0, 0, 0, 0.15)'
+              boxShadow: isLight ? '0 4px 12px rgba(0,0,0,0.03)' : '0 4px 20px rgba(0, 0, 0, 0.15)',
+              ...(themeMode === 'customize' && {
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: `1px solid ${analyzedTheme.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`
+              })
             }
           }
         },
@@ -371,7 +461,12 @@ export const CustomThemeProvider = ({ children }) => {
               borderRadius: 14,
               border: `1px solid ${border}`,
               background: bgPaper,
-              boxShadow: '0 12px 36px rgba(0,0,0,0.25)'
+              boxShadow: '0 12px 36px rgba(0,0,0,0.25)',
+              ...(themeMode === 'customize' && {
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: `1px solid ${analyzedTheme.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`
+              })
             }
           }
         },
@@ -415,13 +510,16 @@ export const CustomThemeProvider = ({ children }) => {
           styleOverrides: {
             root: {
               '& .MuiTableCell-root': {
-                backgroundColor: isLight ? '#f1f5f9' : '#1e293b',
-                color: textSecondary,
-                fontWeight: 800,
+                background: 'linear-gradient(90deg, #0A314D 0%, #084c7c 60%, #0c4a6e 100%) !important',
+                color: '#ffffff !important',
+                fontWeight: 900,
                 textTransform: 'uppercase',
-                fontSize: '0.7rem',
-                letterSpacing: '0.08em',
-                borderBottom: `2px solid ${alpha(primaryMain, 0.3)}`
+                fontSize: '0.78rem',
+                letterSpacing: '0.06em',
+                textAlign: 'center !important',
+                borderBottom: '3px solid #00f2ff !important',
+                textShadow: '0 1.5px 3px rgba(0, 0, 0, 0.7)',
+                boxShadow: 'inset 0 -1px 0 rgba(255,255,255,0.15)'
               }
             }
           }
@@ -561,7 +659,12 @@ export const CustomThemeProvider = ({ children }) => {
               borderRadius: 18,
               border: `1px solid ${border}`,
               background: bgPaper,
-              boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
+              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+              ...(themeMode === 'customize' && {
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: `1px solid ${analyzedTheme.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}`
+              })
             }
           }
         }
@@ -571,10 +674,10 @@ export const CustomThemeProvider = ({ children }) => {
     return responsiveFontSizes(baseTheme, {
       factor: 2.4
     });
-  }, [themeMode, customColors]);
+  }, [themeMode, customColors, analyzedTheme]);
 
   return (
-    <ThemeContext.Provider value={{ themeMode, setThemeMode, customColors, setCustomColors, customBgUrl, setCustomBgUrl }}>
+    <ThemeContext.Provider value={{ themeMode, setThemeMode, customColors, setCustomColors, customBgUrl, setCustomBgUrl, analyzedTheme }}>
       <ThemeProvider theme={activeTheme}>
         {children}
       </ThemeProvider>

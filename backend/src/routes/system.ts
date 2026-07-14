@@ -8,6 +8,53 @@ import { getThemes, saveThemes } from '../utils/themes';
 
 const router = Router();
 
+
+import { firebaseAdmin } from '../lib/firebase-admin';
+import { PDFDocument } from 'pdf-lib';
+
+
+// Temporary debug: inspect PDF text items to diagnose placeholder replacement
+router.get('/debug-pdf-items', async (req: any, res) => {
+  try {
+    const db = firebaseAdmin.firestore();
+    const snapshot = await db.collection('globalDocuments').get();
+    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+    const targetDoc = docs.find(d => String(d.fileName || '').includes('SAB Onb Zomato'));
+    if (!targetDoc) return res.json({ error: 'SAB Onb Zomato not found' });
+
+    let filename = '';
+    const normalizedUrl = targetDoc.fileUrl || '';
+    if (normalizedUrl.startsWith('/uploads/')) filename = normalizedUrl.replace(/^\/uploads\//, '');
+    else if (normalizedUrl.includes('/uploads/')) filename = normalizedUrl.split('/uploads/').pop() || '';
+    filename = decodeURIComponent(filename);
+
+    const bucket = firebaseAdmin.storage().bucket();
+    const file = bucket.file(`NSO DATA/${filename}`);
+    const [exists] = await file.exists();
+    if (!exists) return res.json({ error: 'GCS file not found', filename });
+
+    const [buffer] = await file.download();
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(buffer) });
+    const pdfDoc = await loadingTask.promise;
+
+    const allItems: any[] = [];
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const textContent = await page.getTextContent();
+      for (const item of textContent.items as any[]) {
+        allItems.push({ page: i, str: item.str, x: Math.round(item.transform[4]), y: Math.round(item.transform[5]), size: Math.round(item.transform[0]) });
+      }
+    }
+    // Return items that may relate to placeholders (bracket chars or nearby text)
+    const bracketItems = allItems.filter(it => it.str.includes('[') || it.str.includes(']') || it.str.includes('Date') || it.str.includes('Address') || it.str.includes('City') || it.str.includes('State') || it.str.includes('Pin') || it.str.includes('Effective') || it.str.includes('Caf'));
+    res.json({ total: allItems.length, bracketItems, firstPage: allItems.filter(it => it.page === 1).slice(0, 80) });
+  } catch (err: any) {
+    res.json({ error: err.message || String(err) });
+  }
+});
+
+
 router.use(authenticateToken);
 
 // Get SMTP configuration
@@ -225,6 +272,24 @@ router.put('/themes', authorizeRoles('SUPER_ADMIN'), async (req, res) => {
   } catch (error) {
     console.error('Error saving themes:', error);
     res.status(500).json({ error: 'Failed to save themes' });
+  }
+});
+
+// Get Audit Logs
+router.get('/audit-logs', authorizeRoles('SUPER_ADMIN', 'ADMIN'), async (req, res) => {
+  try {
+    const { firebaseAdmin } = await import('../lib/firebase-admin');
+    const db = firebaseAdmin.firestore();
+    const snapshot = await db.collection('auditLogs')
+      .orderBy('timestamp', 'desc')
+      .limit(2000)
+      .get();
+      
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    res.status(500).json({ error: 'Failed to fetch audit logs' });
   }
 });
 

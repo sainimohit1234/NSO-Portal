@@ -332,7 +332,7 @@ export default function Dashboard() {
 
   return (
     <Box sx={{ py: 0.5 }}>
-      <Card sx={{ mb: 2.5, overflow: 'hidden' }}>
+      <Card sx={{ mb: 2.5, overflow: 'hidden', bgcolor: '#0f2942' }}>
         <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
           <Box
             sx={{
@@ -342,25 +342,25 @@ export default function Dashboard() {
               width: { xs: 180, md: 240 },
               height: { xs: 180, md: 240 },
               borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(111,205,220,0.22) 0%, rgba(111,205,220,0) 70%)'
+              background: 'radial-gradient(circle, rgba(111,205,220,0.15) 0%, rgba(111,205,220,0) 70%)'
             }}
           />
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', flexWrap: 'wrap', gap: 2, position: 'relative' }}>
             <Box sx={{ maxWidth: 760 }}>
-              <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem' }}>
-                Executive Overview
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase' }}>
+                EXECUTIVE OVERVIEW
               </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.75, fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: '#ffffff', mb: 0.75, fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
                 Operations Dashboard
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' } }}>
+              <Typography variant="body2" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' }, color: 'rgba(255,255,255,0.8)' }}>
                 Live view of store growth, readiness, approvals, and compliance signals across the network.
               </Typography>
             </Box>
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(3, minmax(0, 1fr))', sm: 'repeat(3, minmax(92px, 1fr))' }, gap: 1, minWidth: { xs: '100%', md: 320 }, alignSelf: 'flex-start' }}>
-              <Chip label={`${stats.liveStoreCount} Live`} sx={{ justifyContent: 'center', bgcolor: 'rgba(111,205,220,0.18)', color: 'text.primary' }} />
-              <Chip label={`${stats.upcomingStoreCount} Upcoming`} sx={{ justifyContent: 'center', bgcolor: 'rgba(139,108,240,0.14)', color: 'text.primary' }} />
-              <Chip label={`${stats.pendingApprovalCount} Pending`} sx={{ justifyContent: 'center', bgcolor: 'rgba(217,154,40,0.18)', color: 'text.primary' }} />
+              <Chip label={`${stats.liveStoreCount} Live`} sx={{ justifyContent: 'center', bgcolor: 'rgba(111,205,220,0.2)', color: '#ffffff', fontWeight: 700 }} />
+              <Chip label={`${stats.upcomingStoreCount} Upcoming`} sx={{ justifyContent: 'center', bgcolor: 'rgba(139,108,240,0.2)', color: '#ffffff', fontWeight: 700 }} />
+              <Chip label={`${stats.pendingApprovalCount} Pending`} sx={{ justifyContent: 'center', bgcolor: 'rgba(217,154,40,0.2)', color: '#ffffff', fontWeight: 700 }} />
             </Box>
           </Box>
         </CardContent>

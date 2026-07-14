@@ -1,4 +1,5 @@
 import { firebaseAdmin } from './firebase-admin';
+import { auditContext } from './audit-context';
 
 const db = firebaseAdmin.firestore();
 
@@ -249,6 +250,27 @@ class MockDelegate {
     return results;
   }
 
+  private async logAudit(activity: string, oldData: any, newData: any) {
+    if (this.modelName === 'auditLog') return;
+    const context = auditContext.getStore();
+    if (!context || !context.user) return; // Only log user-initiated actions
+    const user = context.user;
+    const logData = {
+      module: this.modelName,
+      activity: activity,
+      userName: user.name || user.email || 'Unknown User',
+      userId: user.id,
+      timestamp: new Date().toISOString(),
+      oldValue: oldData ? JSON.stringify(oldData) : null,
+      newValue: newData ? JSON.stringify(newData) : null,
+    };
+    try {
+      await db.collection('auditLogs').add(logData);
+    } catch (e) {
+      console.error('Failed to write audit log:', e);
+    }
+  }
+
   private async updateMetadataIfStore() {
     if (this.modelName === 'store') {
       try {
@@ -293,11 +315,15 @@ class MockDelegate {
     data.updatedAt = new Date().toISOString();
     await docRef.set(data);
     await this.updateMetadataIfStore();
+    await this.logAudit('Create Record', null, data);
     return data;
   }
 
   async update(args: any) {
     const docId = String(args.where.id);
+    const existingDoc = await db.collection(this.collectionName).doc(docId).get();
+    const oldData = existingDoc.exists ? existingDoc.data() : null;
+
     const data = { ...args.data, updatedAt: new Date().toISOString() };
     // Serialize Date objects to ISO strings
     for (const key of Object.keys(data)) {
@@ -306,6 +332,8 @@ class MockDelegate {
       }
     }
     await db.collection(this.collectionName).doc(docId).update(data);
+    await this.logAudit('Update Record', oldData, data);
+    
     const doc = await db.collection(this.collectionName).doc(docId).get();
     await this.updateMetadataIfStore();
     return mapDocumentData(this.modelName, doc.id, doc.data() || {});
@@ -317,6 +345,7 @@ class MockDelegate {
     for (const res of results) {
        const ref = db.collection(this.collectionName).doc(String(res.id));
        batch.update(ref, { ...args.data, updatedAt: new Date().toISOString() });
+       this.logAudit('Bulk Update Record', res, args.data).catch(() => {});
     }
     await batch.commit();
     await this.updateMetadataIfStore();
@@ -325,7 +354,11 @@ class MockDelegate {
 
   async delete(args: any) {
     const docId = String(args.where.id);
+    const existingDoc = await db.collection(this.collectionName).doc(docId).get();
+    const oldData = existingDoc.exists ? existingDoc.data() : null;
+
     await db.collection(this.collectionName).doc(docId).delete();
+    await this.logAudit('Delete Record', oldData, null);
     await this.updateMetadataIfStore();
     return { id: docId };
   }
@@ -336,6 +369,7 @@ class MockDelegate {
     for (const res of results) {
        const ref = db.collection(this.collectionName).doc(String(res.id));
        batch.delete(ref);
+       this.logAudit('Bulk Delete Record', res, null).catch(() => {});
     }
     await batch.commit();
     await this.updateMetadataIfStore();
@@ -364,6 +398,7 @@ class MockDelegate {
        item.createdAt = new Date().toISOString();
        item.updatedAt = new Date().toISOString();
        batch.set(ref, item);
+       this.logAudit('Bulk Create Record', null, item).catch(() => {});
     }
     await batch.commit();
     await this.updateMetadataIfStore();

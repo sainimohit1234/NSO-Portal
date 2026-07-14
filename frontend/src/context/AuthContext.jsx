@@ -100,48 +100,30 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [authMessage, setAuthMessage] = useState('');
 
-  useEffect(() => {
-    const completeEmailLinkSignIn = async () => {
-      const currentUrl = window.location.href;
-      const isEmailLink = isSignInWithEmailLink(auth, currentUrl);
+  const completeEmailLinkLogin = async (emailToUse) => {
+    const currentUrl = window.location.href;
+    const isEmailLink = isSignInWithEmailLink(auth, currentUrl);
 
-      logAuthDebug('Checking email-link sign-in state.', {
-        url: currentUrl,
-        isEmailLink
+    if (!isEmailLink) {
+      throw new Error('Invalid sign-in link.');
+    }
+
+    try {
+      await signInWithEmailLink(auth, emailToUse, currentUrl);
+      logAuthDebug('Email-link sign-in completed.', { emailToUse });
+      localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
+      setAuthMessage('Email sign-in completed successfully.');
+      window.history.replaceState({}, document.title, `${window.location.origin}/`);
+      return true;
+    } catch (error) {
+      logAuthError('Email-link sign-in failed.', error, {
+        email: emailToUse,
+        url: currentUrl
       });
-
-      if (!isEmailLink) {
-        return;
-      }
-
-      const storedEmail = localStorage.getItem(EMAIL_LINK_STORAGE_KEY);
-      logAuthDebug('Found stored email context for email-link sign-in.', {
-        hasStoredEmail: Boolean(storedEmail),
-        storedEmail
-      });
-
-      if (!storedEmail) {
-        setAuthMessage('Your sign-in link is ready, but the email context is missing. Request a new login link and try again.');
-        return;
-      }
-
-      try {
-        await signInWithEmailLink(auth, storedEmail, currentUrl);
-        logAuthDebug('Email-link sign-in completed.', { storedEmail });
-        localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
-        setAuthMessage('Email sign-in completed successfully.');
-        window.history.replaceState({}, document.title, `${window.location.origin}/`);
-      } catch (error) {
-        logAuthError('Email-link sign-in failed.', error, {
-          storedEmail,
-          url: currentUrl
-        });
-        setAuthMessage('The sign-in link is invalid or expired. Request a new login link.');
-      }
-    };
-
-    completeEmailLinkSignIn();
-  }, []);
+      setAuthMessage('The sign-in link is invalid or expired. Request a new login link.');
+      throw error;
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async firebaseUser => {
@@ -237,18 +219,34 @@ export function AuthProvider({ children }) {
       handleCodeInApp: true
     };
 
-    logAuthDebug('Requesting email-link sign-in.', {
+    logAuthDebug('Requesting custom SMTP email-link sign-in.', {
       email: normalizedEmail,
       actionCodeSettings
     });
 
     try {
-      await sendSignInLinkToEmail(auth, normalizedEmail, actionCodeSettings);
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const response = await fetch(`${baseUrl}/api/public-auth/send-login-link`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          continueUrl: actionCodeSettings.url
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send login link');
+      }
+
       localStorage.setItem(EMAIL_LINK_STORAGE_KEY, normalizedEmail);
-      logAuthDebug('Email-link sign-in request accepted.', {
+      logAuthDebug('Email-link sign-in request accepted (via SMTP).', {
         email: normalizedEmail
       });
-      setAuthMessage(`Sign-in link sent to ${normalizedEmail}. Check inbox, spam, and promotions.`);
+      setAuthMessage('A secure login link has been sent to your registered email address.');
     } catch (error) {
       logAuthError('Email-link sign-in request failed.', error, {
         email: normalizedEmail,
@@ -290,14 +288,27 @@ export function AuthProvider({ children }) {
     setAuthMessage('Registration request submitted. Wait for admin approval before logging in.');
   };
 
-  const sendResetPassword = async email => {
+  const sendResetPassword = async (email) => {
     const normalizedEmail = normalizeUserEmail(email);
-    logAuthDebug('Sending password reset email.', {
+    logAuthDebug('Sending password reset email (via SMTP).', {
       email: normalizedEmail
     });
     try {
-      await sendPasswordResetEmail(auth, normalizedEmail);
-      logAuthDebug('Password reset email request accepted.', {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const response = await fetch(`${baseUrl}/api/public-auth/send-password-reset-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: normalizedEmail })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send password reset email.');
+      }
+      
+      logAuthDebug('Password reset email request accepted (via SMTP).', {
         email: normalizedEmail
       });
     } catch (error) {
@@ -378,9 +389,11 @@ export function AuthProvider({ children }) {
       value={{
         user,
         loading,
+        auth,
         login,
         logout,
         sendLoginLink,
+        completeEmailLinkLogin,
         registerUserRequest,
         sendResetPassword,
         changePassword,

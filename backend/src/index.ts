@@ -5,7 +5,10 @@ import path from 'path';
 import dns from 'dns';
 import fs from 'fs';
 import * as functions from 'firebase-functions/v2';
+import { defineSecret } from 'firebase-functions/params';
 import { firebaseAdmin, getActiveBucket } from './lib/firebase-admin';
+
+const smtpPass = defineSecret('SMTP_PASS');
 
 // v2 - Updated MANDATORY_FIELDS: removed launchStatus
 
@@ -15,6 +18,7 @@ dns.setDefaultResultOrder('ipv4first');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
+app.set('trust proxy', true);
 
 // The SPA calls the API same-origin via the Firebase Hosting rewrite, so only a
 // small set of origins ever legitimately makes cross-origin calls. Extra origins
@@ -94,6 +98,7 @@ import userRoutes from './routes/users';
 import contactRoutes from './routes/contacts';
 import systemRoutes from './routes/system';
 import globalDocsRoutes from './routes/globalDocs';
+import publicAuthRoutes from './routes/publicAuth';
 
 // Basic health check endpoint
 app.get('/api/health', (req, res) => {
@@ -106,6 +111,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/contacts', contactRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/global-docs', globalDocsRoutes);
+app.use('/api/public-auth', publicAuthRoutes);
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
@@ -115,10 +121,12 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-export const api: functions.https.HttpsFunction = functions.https.onRequest({
+export const api = functions.https.onRequest({
+  cors: false,
   invoker: 'public',
   memory: '1GiB',
-  timeoutSeconds: 300
+  timeoutSeconds: 300,
+  secrets: [smtpPass]
 }, app as any);
 
 // Firebase Cloud Functions (Gen 2) runs on Cloud Run and manages its own HTTP server.

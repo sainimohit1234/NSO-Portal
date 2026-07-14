@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { firebaseAdmin } from '../lib/firebase-admin';
+import { auditContext } from '../lib/audit-context';
 
 // NOTE: All authentication (login, password reset) is handled client-side by
 // Firebase Auth. The former backend /api/auth/* endpoints (custom JWT login,
@@ -40,6 +41,9 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     }
 
     const dbUser = { id: userQuery.docs[0].id, ...userQuery.docs[0].data() } as any;
+    if (dbUser.approved !== true && dbUser.email !== 'admin@bluetokaicoffee.com') {
+      return res.status(403).json({ error: 'Access denied: User account is pending admin approval' });
+    }
     req.user = dbUser;
 
     // Update heartbeat and lastLoginAt
@@ -56,7 +60,9 @@ export const authenticateToken = async (req: AuthenticatedRequest, res: Response
     await db.collection('users').doc(dbUser.id).update(updates)
       .catch(e => console.error('Failed to update lastActiveAt/lastLoginAt:', e));
 
-    next();
+    auditContext.run({ user: dbUser }, () => {
+      next();
+    });
   } catch (error) {
     console.error('Firebase token verification error:', error);
     return res.status(403).json({ error: 'Invalid or expired token' });

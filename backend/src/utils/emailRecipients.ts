@@ -1,4 +1,5 @@
 import { firebaseAdmin } from '../lib/firebase-admin';
+import { logAudit } from '../lib/audit-logger';
 
 export interface EmailCategory {
   id: string;
@@ -153,5 +154,10 @@ export async function getEmailMappings(): Promise<EmailMapping[]> {
 }
 
 export async function saveEmailMappings(config: EmailMapping[]): Promise<void> {
+  const oldDoc = await firebaseAdmin.firestore().collection('system').doc('email_recipients').get();
+  const oldData = oldDoc.exists ? oldDoc.data()?.mappings || [] : [];
+  
   await firebaseAdmin.firestore().collection('system').doc('email_recipients').set({ mappings: config }, { merge: true });
+  
+  await logAudit('Email Directory', 'Update Email Mappings', oldData, config);
 }

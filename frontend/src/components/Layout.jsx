@@ -42,33 +42,50 @@ import TuneIcon from '@mui/icons-material/Tune';
 import HowToRegIcon from '@mui/icons-material/HowToReg';
 import ViewWeekIcon from '@mui/icons-material/ViewWeek';
 import SyncIcon from '@mui/icons-material/Sync';
+import ContactMailIcon from '@mui/icons-material/ContactMail';
 import Chip from '@mui/material/Chip';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
 import PaletteIcon from '@mui/icons-material/Palette';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import CircularProgress from '@mui/material/CircularProgress';
-import axios from 'axios';
+import axios from '../utils/api';
 import { useThemeMode } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import suchaliLogo from '../assets/suchali_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
+import loginBack from '../assets/loginback.png';
 
 const drawerWidth = 260;
 
 export default function Layout() {
   const theme = useTheme();
-  const { themeMode, setThemeMode, customColors, customBgUrl, setCustomBgUrl } = useThemeMode();
+  const { themeMode, setThemeMode, customColors, customBgUrl, setCustomBgUrl, analyzedTheme } = useThemeMode();
   const isLight = theme.palette.mode === 'light';
 
+  const overlayStyle = useMemo(() => {
+    if (themeMode !== 'customize' || !customBgUrl) return null;
+    const isDark = analyzedTheme?.isDark ?? true;
+    const bgColor = isDark ? '#0a0f1d' : '#f1f5f9';
+    const imgOpacity = isDark ? 0.75 : 0.65;
+    const overlayBg = isDark 
+      ? 'linear-gradient(180deg, rgba(10, 15, 29, 0.4) 0%, rgba(10, 15, 29, 0.82) 100%)'
+      : 'linear-gradient(180deg, rgba(241, 245, 249, 0.45) 0%, rgba(241, 245, 249, 0.85) 100%)';
+    return { bgColor, imgOpacity, overlayBg };
+  }, [themeMode, customBgUrl, analyzedTheme]);
+
   const glassPanelSx = {
-    background: isLight 
-      ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(244, 246, 248, 0.88) 100%)'
-      : themeMode === 'custom'
-        ? `linear-gradient(180deg, ${alpha(customColors?.header || '#111827', 0.85)} 0%, ${alpha(customColors?.background || '#0B0F19', 0.75)} 100%)`
+    background: themeMode === 'customize'
+      ? isLight 
+        ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(244, 246, 248, 0.65) 100%)'
+        : 'linear-gradient(180deg, rgba(15, 23, 42, 0.78) 0%, rgba(10, 15, 29, 0.72) 100%)'
+      : isLight 
+        ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(244, 246, 248, 0.88) 100%)'
         : 'linear-gradient(180deg, rgba(18, 24, 36, 0.82) 0%, rgba(11, 15, 25, 0.68) 100%)',
-    backdropFilter: 'blur(22px)',
-    WebkitBackdropFilter: 'blur(22px)',
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
     borderRight: isLight 
       ? '1px solid rgba(0, 0, 0, 0.08)' 
       : '1px solid rgba(255, 255, 255, 0.06)',
@@ -78,55 +95,6 @@ export default function Layout() {
   };
 
   const [themeAnchorEl, setThemeAnchorEl] = useState(null);
-  const [themeBgDialogOpen, setThemeBgDialogOpen] = useState(false);
-
-  const [themes, setThemes] = useState([]);
-  const [uploadingTheme, setUploadingTheme] = useState(false);
-
-  useEffect(() => {
-    if (themeBgDialogOpen) {
-      axios.get('/api/system/themes').then(res => setThemes(res.data)).catch(console.error);
-    }
-  }, [themeBgDialogOpen]);
-
-  const handleUploadTheme = async (e) => {
-    if (!e.target.files?.[0]) return;
-    const file = e.target.files[0];
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    setUploadingTheme(true);
-    try {
-      const uploadRes = await axios.post('/api/stores/upload-file', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (uploadRes.data?.url) {
-        const newThemes = [...themes, uploadRes.data.url];
-        await axios.put('/api/system/themes', { urls: newThemes });
-        setThemes(newThemes);
-      }
-    } catch (error) {
-      console.error('Theme upload failed', error);
-      alert('Failed to upload theme image');
-    } finally {
-      setUploadingTheme(false);
-    }
-  };
-
-  const handleDeleteTheme = async (urlToDelete) => {
-    try {
-      const newThemes = themes.filter(url => url !== urlToDelete);
-      await axios.put('/api/system/themes', { urls: newThemes });
-      setThemes(newThemes);
-      if (customBgUrl === urlToDelete) {
-        setThemeMode('dark');
-        setCustomBgUrl('');
-      }
-    } catch (error) {
-      console.error('Failed to delete theme', error);
-      alert('Failed to delete theme');
-    }
-  };
 
   // Custom theme color editor local state
   const [customBg, setCustomBg] = useState(customColors?.background || '#0B0F19');
@@ -236,9 +204,11 @@ export default function Layout() {
     { text: 'Bulk Action', icon: <LayersIcon />, path: '/bulk-action', color: '#6366f1', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
     { text: 'Settings', icon: <Settings />, path: '/settings', color: '#64748b', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
     { text: 'Images and Other Docs', icon: <PhotoLibraryIcon />, path: '/images-docs', color: '#a855f7', roles: ['SUPER_ADMIN'] },
+    { text: 'Store Contact & Email Management', icon: <ContactMailIcon />, path: '/store-contact-email', color: '#0A314D', roles: ['SUPER_ADMIN', 'ADMIN'] },
     { text: 'Store Control Center', icon: <TuneIcon />, path: '/delete-branches', color: '#ef4444', roles: ['SUPER_ADMIN'] },
     { text: 'Contact Details', icon: <ContactsIcon />, path: '/contacts', color: '#22c55e', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
     { text: 'User Registrations', icon: <HowToRegIcon />, path: '/user-registrations', color: '#d97706', roles: ['SUPER_ADMIN', 'ADMIN'] },
+    { text: 'Audit Trail', icon: <NotificationsActive />, path: '/audit-trail', color: '#14b8a6', roles: ['SUPER_ADMIN', 'ADMIN'] },
   ];
 
   const MODULE_KEYS = {
@@ -248,8 +218,10 @@ export default function Layout() {
     'NSO Approval': 'nso_approval',
     'Swiggy / Zomato Integration': 'swiggy_zomato',
     'Email Directory': 'email_directory',
+    'Store Contact & Email Management': 'store_contact_email',
     'Store Control Center': 'store_control_center',
     'User Registrations': 'user_registrations',
+    'Audit Trail': 'audit_trail',
     'Settings': 'settings'
   };
 
@@ -268,33 +240,245 @@ export default function Layout() {
     return true;
   });
   const currentPage = useMemo(
-    () => menuItems.find(item => item.path === location.pathname)?.text || 'Dashboard',
+    () => menuItems.find(item => item.path === location.pathname || (item.path === '/' && location.pathname === '/dashboard'))?.text || 'Dashboard',
     [location.pathname]
   );
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', ...(themeMode === 'customize' ? { background: 'transparent' } : glassPanelSx) }}>
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', px: 2, pt: 2.75, pb: 2, gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: 52, width: 52, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
-          <img src={suchaliLogo} alt="Suchali's" style={{ height: 52, width: 52, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
-          <img src={gotTeaLogo} alt="Got Tea" style={{ height: 52, width: 52, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid rgba(255,255,255,0.72)', boxShadow: '0 6px 14px rgba(15,23,42,0.08)' }} />
+      <Box sx={{ 
+        flexShrink: 0,
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        px: 2, 
+        pt: 3.5, 
+        pb: 5.75, 
+        gap: 1.25,
+        background: 'linear-gradient(135deg, #0A314D 0%, #051622 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        borderBottom: '1.5px solid rgba(0, 242, 255, 0.15)',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: '-40%',
+          right: '-30%',
+          width: '160px',
+          height: '160px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(0, 242, 255, 0.15) 0%, transparent 70%)',
+          filter: 'blur(20px)',
+          pointerEvents: 'none'
+        },
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          bottom: '-30%',
+          left: '-20%',
+          width: '140px',
+          height: '140px',
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%)',
+          filter: 'blur(20px)',
+          pointerEvents: 'none'
+        }
+      }}>
+        {/* Brand Logos with premium 3D/7D glassy sphere design */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1, position: 'relative', zIndex: 1 }}>
+          {/* Blue Tokai Logo */}
+          <Box sx={{
+            position: 'relative',
+            width: 58,
+            height: 58,
+            borderRadius: '50%',
+            background: '#000000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.45), 0 0 16px rgba(0, 242, 255, 0.6)',
+            border: '2.5px solid #00f2ff',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: 'pointer',
+            '&:hover': {
+              transform: 'scale(1.1) translateY(-2px)',
+              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.7), inset 0 2px 6px rgba(255,255,255,0.65), 0 0 24px #00f2ff',
+            },
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 2,
+              left: '15%',
+              right: '15%',
+              height: '35%',
+              borderRadius: '50%',
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 100%)',
+              zIndex: 2,
+              pointerEvents: 'none'
+            }
+          }}>
+            <img src={blueTokaiLogo} alt="Blue Tokai" style={{ height: '100%', width: '100%', borderRadius: '50%', objectFit: 'cover', position: 'relative', zIndex: 1 }} />
+          </Box>
+
+          {/* Suchali's Logo */}
+          <Box sx={{
+            position: 'relative',
+            width: 58,
+            height: 58,
+            borderRadius: '50%',
+            background: '#000000',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.45), 0 0 16px rgba(245, 158, 11, 0.6)',
+            border: '2.5px solid #f59e0b',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: 'pointer',
+            '&:hover': {
+              transform: 'scale(1.1) translateY(-2px)',
+              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.7), inset 0 2px 6px rgba(255,255,255,0.65), 0 0 24px #f59e0b',
+            },
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 2,
+              left: '15%',
+              right: '15%',
+              height: '35%',
+              borderRadius: '50%',
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 100%)',
+              zIndex: 2,
+              pointerEvents: 'none'
+            }
+          }}>
+            <img src={suchaliLogo} alt="Suchali's" style={{ height: '100%', width: '100%', borderRadius: '50%', objectFit: 'cover', position: 'relative', zIndex: 1 }} />
+          </Box>
+
+          {/* Got Tea Logo */}
+          <Box sx={{
+            position: 'relative',
+            width: 58,
+            height: 58,
+            borderRadius: '50%',
+            background: '#e2f8fc',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.6), inset 0 2px 4px rgba(255,255,255,0.45), 0 0 16px rgba(16, 185, 129, 0.6)',
+            border: '2.5px solid #10b981',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            cursor: 'pointer',
+            '&:hover': {
+              transform: 'scale(1.1) translateY(-2px)',
+              boxShadow: '0 12px 28px rgba(0, 0, 0, 0.7), inset 0 2px 6px rgba(255,255,255,0.65), 0 0 24px #10b981',
+            },
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 2,
+              left: '15%',
+              right: '15%',
+              height: '35%',
+              borderRadius: '50%',
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 100%)',
+              zIndex: 2,
+              pointerEvents: 'none'
+            }
+          }}>
+            <img src={gotTeaLogo} alt="Got Tea" style={{ height: '100%', width: '100%', borderRadius: '50%', objectFit: 'cover', position: 'relative', zIndex: 1 }} />
+          </Box>
         </Box>
-        <Typography variant="h5" noWrap component="div" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '1.5rem', letterSpacing: '0.06em' }}>
+
+        {/* NSO PORTAL text with premium metallic visual effects */}
+        <Typography 
+          variant="h5" 
+          component="div" 
+          sx={{ 
+            fontWeight: 900, 
+            fontSize: '1.65rem', 
+            letterSpacing: '0.08em',
+            color: '#ffffff',
+            textShadow: '0 4px 10px rgba(0, 0, 0, 0.65), 0 0 12px rgba(0, 242, 255, 0.25)',
+            position: 'relative',
+            zIndex: 1,
+            display: 'block',
+            lineHeight: 1.3,
+            py: 0.25,
+            mb: 0.5
+          }}
+        >
           NSO PORTAL
         </Typography>
-        <Chip
-          label="Store Management Console"
-          size="medium"
-          sx={{
-            height: 32,
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            bgcolor: alpha(theme.palette.primary.main, 0.1),
-            color: theme.palette.primary.main,
-            border: `1px solid ${alpha(theme.palette.primary.main, 0.25)}`
-          }}
-        />
+
+        {/* Decorative Gold & Blue Split Line */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '90%', my: 0.25, position: 'relative', zIndex: 1, mb: 1.5 }}>
+          <Box sx={{ flex: 1, height: '1.5px', background: 'linear-gradient(90deg, transparent, #00f2ff)' }} />
+          <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: '#f59e0b', boxShadow: '0 0 8px #f59e0b' }} />
+          <Box sx={{ flex: 1, height: '1.5px', background: 'linear-gradient(90deg, #f59e0b, transparent)' }} />
+        </Box>
+
+        {/* Premium Capsule Button from mockup */}
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: '100%',
+          minHeight: 38,
+          p: '6px 10px',
+          borderRadius: '30px',
+          background: 'linear-gradient(135deg, rgba(10, 25, 47, 0.95) 0%, rgba(16, 37, 66, 0.85) 100%)',
+          border: '1px solid rgba(0, 242, 255, 0.35)',
+          boxShadow: '0 8px 20px rgba(0, 242, 255, 0.2), inset 0 1px 2px rgba(255, 255, 255, 0.15)',
+          position: 'relative',
+          overflow: 'hidden',
+          zIndex: 1,
+          transition: 'all 0.3s ease',
+          '&:hover': {
+            transform: 'translateY(-1px)',
+            boxShadow: '0 10px 24px rgba(0, 242, 255, 0.35), inset 0 1px 2px rgba(255, 255, 255, 0.25)',
+            borderColor: 'rgba(0, 242, 255, 0.55)'
+          },
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            inset: -1,
+            borderRadius: '30px',
+            padding: '1px',
+            background: 'linear-gradient(90deg, #00f2ff, #f59e0b)',
+            WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+            WebkitMaskComposite: 'xor',
+            maskComposite: 'exclude',
+            pointerEvents: 'none'
+          }
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, width: '100%' }}>
+            <Box sx={{
+              width: 22,
+              height: 22,
+              borderRadius: '50%',
+              bgcolor: 'rgba(0, 242, 255, 0.2)',
+              border: '1px solid rgba(0, 242, 255, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#00f2ff',
+              flexShrink: 0
+            }}>
+              <StorefrontIcon sx={{ fontSize: 12 }} />
+            </Box>
+            <Typography 
+              sx={{ 
+                color: '#ffffff', 
+                fontSize: '0.68rem', 
+                fontWeight: 850, 
+                letterSpacing: '0.03em',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              Store Management Console
+            </Typography>
+          </Box>
+        </Box>
       </Box>
       <Divider sx={{ mb: 1.5, borderColor: 'divider' }} />
       <List sx={{ px: 1.5, flexGrow: 1, overflowY: 'auto', '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px' } }}>
@@ -353,9 +537,13 @@ export default function Layout() {
                 <ListItemText 
                   primary={item.text} 
                   primaryTypographyProps={{ 
-                    fontWeight: isActive ? 700 : 600, 
-                    fontSize: '0.8rem',
-                    lineHeight: 1.25
+                    fontWeight: isActive ? 800 : 650, 
+                    fontSize: '0.84rem',
+                    lineHeight: 1.3,
+                    letterSpacing: '0.02em',
+                    color: isActive ? item.color : 'inherit',
+                    textShadow: isActive ? `0 0 12px ${alpha(item.color, 0.3)}` : 'none',
+                    transition: 'color 0.2s ease, text-shadow 0.2s ease'
                   }} 
                   sx={{ my: 0, '& .MuiTypography-root': { whiteSpace: 'normal' } }}
                 />
@@ -369,7 +557,7 @@ export default function Layout() {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default', position: 'relative' }}>
-      {themeMode === 'customize' && customBgUrl && (
+      {themeMode === 'customize' && customBgUrl && overlayStyle && (
         <Box
           sx={{
             position: 'fixed',
@@ -379,14 +567,33 @@ export default function Layout() {
             height: '100vh',
             zIndex: -1,
             overflow: 'hidden',
-            backgroundColor: '#050a10',
-            opacity: 0.95,
+            backgroundColor: overlayStyle.bgColor,
+            transition: 'background-color 0.4s ease',
           }}
         >
+          {/* Main Background Image with adaptive opacity */}
           <img
             src={customBgUrl}
             alt="Custom Theme"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.8 }}
+            style={{ 
+              width: '100%', 
+              height: '100%', 
+              objectFit: 'cover', 
+              opacity: overlayStyle.imgOpacity,
+              transition: 'opacity 0.4s ease',
+            }}
+          />
+          {/* Readability & Contrast Visual Overlay Layer */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: overlayStyle.overlayBg,
+              transition: 'background 0.4s ease',
+            }}
           />
         </Box>
       )}
@@ -395,13 +602,13 @@ export default function Layout() {
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
           ml: { sm: `${drawerWidth}px` },
-          bgcolor: 'transparent',
-          backgroundImage: 'none',
-          boxShadow: 'none',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          backdropFilter: 'blur(18px)',
-          WebkitBackdropFilter: 'blur(18px)'
+          background: 'linear-gradient(135deg, #0A314D 0%, #051622 100%) !important',
+          backgroundColor: '#0A314D !important',
+          backgroundImage: 'none !important',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12) !important',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.15) !important',
+          backdropFilter: 'blur(24px) !important',
+          WebkitBackdropFilter: 'blur(24px) !important'
         }}
       >
         <Toolbar sx={{ px: { xs: 1.5, sm: 2.5, lg: 3 } }}>
@@ -410,28 +617,47 @@ export default function Layout() {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 1.25, display: { sm: 'none' } }}
+            sx={{ mr: 1.25, display: { sm: 'none' }, color: 'rgba(255, 255, 255, 0.9)' }}
           >
             <MenuIcon />
           </IconButton>
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.disabled', display: { xs: 'none', md: 'block' }, textTransform: 'uppercase', letterSpacing: '0.16em', mb: 0.35 }}>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                fontWeight: 800, 
+                display: { xs: 'none', md: 'block' }, 
+                textTransform: 'uppercase', 
+                letterSpacing: '0.22em', 
+                mb: 0.35,
+                background: 'linear-gradient(90deg, #93c5fd 0%, #e0f2fe 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 1px 4px rgba(55,146,164,0.35)',
+                fontSize: '0.8rem'
+              }}
+            >
               BTC — New Store Management
             </Typography>
-            <Typography variant="subtitle1" noWrap sx={{ fontWeight: 800, color: 'text.primary', fontSize: { xs: '0.9rem', md: '1rem' } }}>
+            <Typography 
+              variant="subtitle1" 
+              noWrap 
+              sx={{ 
+                fontWeight: 900, 
+                fontSize: { xs: '1rem', md: '1.22rem' }, 
+                letterSpacing: '0.06em',
+                background: 'linear-gradient(90deg, #ffffff 0%, #a5f3fc 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 2px 8px rgba(0,0,0,0.2), 0 0 16px rgba(255,255,255,0.45)',
+                display: 'inline-block',
+                textTransform: 'uppercase',
+              }}
+            >
               {currentPage}
             </Typography>
           </Box>
-          <IconButton
-            size="medium"
-            onClick={handleThemeClick}
-            sx={{ mr: 1, color: 'text.secondary', border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}
-            title="Theme options"
-            aria-label="Theme options"
-          >
-            <PaletteIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-          <IconButton size="medium" aria-label="Notifications" title="Notifications" sx={{ mr: 1, color: 'text.secondary', border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+          <IconButton size="medium" aria-label="Notifications" title="Notifications" sx={{ mr: 1, color: 'rgba(255, 255, 255, 0.85)', border: '1px solid', borderColor: 'rgba(255, 255, 255, 0.15)', bgcolor: 'rgba(255, 255, 255, 0.05)', '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.12)', color: '#ffffff' } }}>
             <NotificationsActive sx={{ fontSize: 18 }} />
           </IconButton>
           <IconButton
@@ -443,7 +669,7 @@ export default function Layout() {
             aria-expanded={Boolean(anchorEl)}
             sx={{ p: 0 }}
           >
-            <Avatar sx={{ bgcolor: 'rgba(111, 205, 220, 0.24)', color: 'text.primary', width: 36, height: 36, fontWeight: 800, fontSize: '0.82rem', border: '1px solid rgba(63,174,191,0.18)', boxShadow: '0 8px 18px rgba(15,23,42,0.06)' }}>
+            <Avatar sx={{ bgcolor: 'rgba(255, 255, 255, 0.12)', color: '#ffffff', width: 36, height: 36, fontWeight: 800, fontSize: '0.82rem', border: '1px solid', borderColor: 'rgba(255, 255, 255, 0.2)', boxShadow: '0 8px 18px rgba(0, 0, 0, 0.15)' }}>
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </Avatar>
           </IconButton>
@@ -626,126 +852,6 @@ export default function Layout() {
         </form>
       </Dialog>
 
-      {/* Theme Menu Dropdown */}
-      <Menu
-        anchorEl={themeAnchorEl}
-        open={Boolean(themeAnchorEl)}
-        onClose={handleThemeClose}
-        anchorOrigin={{
-          vertical: 'bottom',
-          horizontal: 'right',
-        }}
-        transformOrigin={{
-          vertical: 'top',
-          horizontal: 'right',
-        }}
-        sx={{ mt: 1 }}
-      >
-        <MenuItem
-          onClick={() => { setThemeMode('light'); handleThemeClose(); }}
-          selected={themeMode === 'light'}
-          sx={{ fontWeight: 600, minWidth: 165 }}
-        >
-          Light Theme
-        </MenuItem>
-        {user?.role === 'SUPER_ADMIN' && (
-          <MenuItem 
-            onClick={() => { setThemeBgDialogOpen(true); handleThemeClose(); }} 
-            selected={themeMode === 'customize'} 
-            sx={{ fontWeight: 600 }}
-          >
-            Customize Theme
-          </MenuItem>
-        )}
-      </Menu>
-
-      {/* Theme Background Selection Dialog */}
-      <Dialog 
-        open={themeBgDialogOpen} 
-        onClose={() => setThemeBgDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: { borderRadius: '24px', p: 2, background: 'background.paper' }
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 800, textAlign: 'center', fontSize: '1.5rem', pb: 1 }}>
-          Customize Your Theme
-        </DialogTitle>
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mb: 3 }}>
-          Select a background image to personalize your dashboard.
-        </Typography>
-        <DialogContent sx={{ overflowY: 'visible', pb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-            <Button
-              component="label"
-              variant="contained"
-              startIcon={uploadingTheme ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
-              disabled={uploadingTheme || themes.length >= 10}
-            >
-              Add Image
-              <input type="file" hidden accept="image/*" onChange={handleUploadTheme} />
-            </Button>
-          </Box>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 3 }}>
-            {themes.map((url, idx) => (
-              <Box 
-                key={idx}
-                onClick={() => {
-                  setThemeMode('customize');
-                  setCustomBgUrl(url);
-                  setThemeBgDialogOpen(false);
-                }}
-                sx={{
-                  position: 'relative',
-                  width: '100%',
-                  aspectRatio: '16/9',
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  cursor: 'pointer',
-                  border: customBgUrl === url && themeMode === 'customize' ? '4px solid #0A314D' : '2px solid transparent',
-                  boxShadow: customBgUrl === url && themeMode === 'customize' ? '0 0 20px rgba(10, 49, 77, 0.5)' : '0 4px 12px rgba(0,0,0,0.1)',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    transform: 'scale(1.02)',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
-                  },
-                  '&:hover .delete-btn': {
-                    opacity: 1
-                  }
-                }}
-              >
-                <img src={url} alt={`Theme ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <IconButton
-                  className="delete-btn"
-                  size="small"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteTheme(url);
-                  }}
-                  sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    bgcolor: 'rgba(0,0,0,0.5)',
-                    color: 'white',
-                    opacity: 0,
-                    transition: 'opacity 0.2s',
-                    '&:hover': { bgcolor: 'rgba(255,0,0,0.7)' }
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            ))}
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'center' }}>
-          <Button onClick={() => setThemeBgDialogOpen(false)} color="inherit" sx={{ fontWeight: 600 }}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
 
     </Box>
   );

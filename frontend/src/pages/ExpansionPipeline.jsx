@@ -27,6 +27,30 @@ import { fetchStoresFromFirestore } from '../services/storeService';
 import { CAFE_MODELS } from '../constants/storeOptions';
 
 
+const DebouncedTextField = ({ value, onChange, debounceTime = 400, ...props }) => {
+  const [localValue, setLocalValue] = useState(value || '');
+
+  useEffect(() => {
+    setLocalValue(value || '');
+  }, [value]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      if (localValue !== (value || '')) {
+        onChange({ target: { value: localValue } });
+      }
+    }, debounceTime);
+    return () => clearTimeout(handler);
+  }, [localValue, value, onChange, debounceTime]);
+
+  return (
+    <TextField
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      {...props}
+    />
+  );
+};
 
 export default function ExpansionPipeline() {
   const { user } = useAuth();
@@ -765,36 +789,61 @@ export default function ExpansionPipeline() {
   return (
     <Box sx={{ py: 1 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3.5, flexWrap: 'wrap', gap: 2 }}>
-        <Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-              Expansion Pipeline
-            </Typography>
-            <Chip 
-              label={selectedStatusFilter ? `${filteredStores.length} of ${stores.length} Projects` : `${stores.length} Active Projects`} 
-              color="primary" 
-              size="small" 
-              sx={{ fontWeight: 700 }} 
-            />
+      <Card sx={{ mb: 2.5, overflow: 'hidden', bgcolor: '#0f2942' }}>
+        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -72,
+              right: -24,
+              width: { xs: 180, md: 240 },
+              height: { xs: 180, md: 240 },
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(111,205,220,0.15) 0%, rgba(111,205,220,0) 70%)'
+            }}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2, position: 'relative' }}>
+            <Box sx={{ maxWidth: 760 }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase' }}>
+                NEW STORE MANAGEMENT
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: '#ffffff', mb: 0.75, fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
+                Expansion Pipeline
+              </Typography>
+              <Typography variant="body2" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' }, color: 'rgba(255,255,255,0.8)' }}>
+                Manage upcoming café properties, look up pin codes, and upload approval documents.
+              </Typography>
+            </Box>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, alignSelf: 'flex-start' }}>
+              <Chip 
+                label={selectedStatusFilter ? `${filteredStores.length} of ${stores.length} Projects` : `${stores.length} Active Projects`} 
+                sx={{ justifyContent: 'center', bgcolor: 'rgba(111,205,220,0.2)', color: '#ffffff', fontWeight: 700 }} 
+              />
+              {canModify && (
+                <Button 
+                  variant="contained" 
+                  onClick={handleAddNewRow}
+                  startIcon={<AddCircleOutlineIcon />}
+                  sx={{ 
+                    borderRadius: '10px', 
+                    fontWeight: 700, 
+                    px: 3, 
+                    height: 32,
+                    bgcolor: '#ffffff',
+                    color: '#0f2942',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.9)'
+                    }
+                  }}
+                >
+                  Add New Project
+                </Button>
+              )}
+            </Box>
           </Box>
-          <Typography variant="body2" color="text.secondary">
-            Manage upcoming café properties, look up pin codes, and upload approval documents.
-          </Typography>
-        </Box>
-
-        {canModify && (
-          <Button 
-            variant="contained" 
-            color="primary" 
-            onClick={handleAddNewRow}
-            startIcon={<AddCircleOutlineIcon />}
-            sx={{ borderRadius: '10px', fontWeight: 700, px: 3, height: 42 }}
-          >
-            Add New Project
-          </Button>
-        )}
-      </Box>
+        </CardContent>
+      </Card>
 
       {/* Filter Cards */}
       <Box
@@ -816,7 +865,7 @@ export default function ExpansionPipeline() {
             count: totalCount,
             filterValue: null,
             icon: <LayersIcon />,
-            color: '#0e8294'
+            color: '#1e3a8a'
           },
           {
             key: 'pipeline',
@@ -901,6 +950,22 @@ export default function ExpansionPipeline() {
                     : '0 12px 24px rgba(15,23,42,0.08)',
                   opacity: 1,
                   borderColor: isActive ? tile.color : `${tile.color}40`
+                },
+                '&::after': isActive ? {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: '-100%',
+                  width: '50%',
+                  height: '100%',
+                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 100%)',
+                  transform: 'skewX(-20deg)',
+                  animation: 'shimmerEffect 2.5s infinite',
+                  pointerEvents: 'none',
+                } : {},
+                '@keyframes shimmerEffect': {
+                  '0%': { left: '-100%' },
+                  '100%': { left: '200%' }
                 }
               }}
             >
@@ -1019,7 +1084,7 @@ export default function ExpansionPipeline() {
                 <TableCell sx={{ fontWeight: 800, width: 220, textAlign: 'center' }}>MISCELLANEOUS DOCUMENTS</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 180 }}>Status</TableCell>
                 <TableCell sx={{ fontWeight: 800, width: 180 }}>Created By</TableCell>
-                {canModify && <TableCell sx={{ fontWeight: 800, width: 80 }} align="center">Actions</TableCell>}
+                {canModify && <TableCell sx={{ position: 'sticky', right: 0, zIndex: 4, fontWeight: 800, width: 80, borderLeft: '1.5px solid', borderColor: 'divider' }} align="center">Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -1068,20 +1133,22 @@ export default function ExpansionPipeline() {
                       {/* Brand Select */}
                       <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.paper' }}>
                         <Select
-                          value={store.brand || 'BLUE_TOKAI_SUCHALI'}
+                          value={store.brand || ''}
+                          displayEmpty
                           size="small"
                           disabled={!rowEditable}
                           onChange={(e) => handleFieldChange(store.id, 'brand', e.target.value)}
                           fullWidth
                           sx={{ borderRadius: '8px', fontSize: '0.85rem', fontWeight: 800 }}
                         >
+                          <MenuItem value="" disabled><em>Select Brand</em></MenuItem>
                           <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's</MenuItem>
                           <MenuItem value="GOT_TEA">Got Tea</MenuItem>
                         </Select>
                       </TableCell>
                       {/* Café Name */}
                       <TableCell sx={{ position: 'sticky', left: 210, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
-                        <TextField
+                        <DebouncedTextField
                           value={store.cafeName || ''}
                           size="small"
                           placeholder="Enter name"
@@ -1106,7 +1173,7 @@ export default function ExpansionPipeline() {
 
                       {/* Café Code */}
                       <TableCell sx={{ position: 'sticky', left: 450, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
-                        <TextField
+                        <DebouncedTextField
                           value={store.cafeCode || ''}
                           size="small"
                           placeholder="Code"
@@ -1120,7 +1187,7 @@ export default function ExpansionPipeline() {
 
                       {/* Pin Code */}
                       <TableCell>
-                        <TextField
+                        <DebouncedTextField
                           value={store.pinCode || ''}
                           size="small"
                           placeholder="Pin code"
@@ -1148,7 +1215,7 @@ export default function ExpansionPipeline() {
 
                       {/* Address */}
                       <TableCell>
-                        <TextField
+                        <DebouncedTextField
                           value={store.cafeAddress || store.address || ''}
                           size="small"
                           placeholder="Address details"
@@ -1317,7 +1384,7 @@ export default function ExpansionPipeline() {
 
                       {/* Actions */}
                       {canModify && (
-                        <TableCell align="center">
+                        <TableCell align="center" sx={{ position: 'sticky', right: 0, zIndex: 2, bgcolor: 'background.paper', borderLeft: '1.5px solid', borderColor: 'divider' }}>
                           <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
                             <Tooltip title={editingStoreIds.has(store.id) ? "Cancel editing" : "Enable inline editing"}>
                               <IconButton 

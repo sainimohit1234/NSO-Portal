@@ -15,6 +15,12 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN';
     }
 
+    function isApproved() {
+      return isSignedIn()
+        && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.approved == true
+            || request.auth.token.email == 'admin@bluetokaicoffee.com');
+    }
+
     // The privileged fields that determine a user's access level. A user must
     // never be able to grant these to themselves from the client; they are only
     // set on the server (backend API via firebase-admin) or by a SUPER_ADMIN.
@@ -46,7 +52,7 @@ service cloud.firestore {
     }
 
     match /stores/{storeId} {
-      allow read: if isSignedIn();
+      allow read: if isApproved();
       allow create, update, delete: if isSuperAdmin();
     }
 
@@ -54,7 +60,7 @@ service cloud.firestore {
     // Signed-in clients read this to decide whether their local IndexedDB store
     // cache is fresh. Writes happen server-side only (backend API).
     match /metadata/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isApproved();
       allow write: if false;
     }
 

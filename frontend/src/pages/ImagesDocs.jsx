@@ -22,7 +22,9 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import axios from '../utils/api';
-
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
+import html2pdf from 'html2pdf.js';
 const INDIAN_STATES = [
   "Andaman and Nicobar Islands", "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", 
   "Chandigarh", "Chhattisgarh", "Dadra and Nagar Haveli and Daman and Diu", "Delhi", "Goa", 
@@ -118,33 +120,8 @@ function StateGSTManager({ docs, selectedDoc, setSelectedDoc, fetchDocs, showNot
 
       {uploading && <FullScreenLoader messages={['Uploading GST certificate…']} blocking={true} />}
 
-      <List sx={{ width: '100%', py: 0 }}>
-        {docs.length === 0 && !isEditMode && newRows.length === 0 && (
-          <Box sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.01)' }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-              No GST certificates uploaded. Click Edit to add them.
-            </Typography>
-          </Box>
-        )}
-        {docs.map((doc, idx) => (
-          <React.Fragment key={doc.id}>
-            <ListItem disablePadding secondaryAction={isEditMode && (
-                <IconButton edge="end" onClick={() => handleDeleteExisting(doc.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
-                  <DeleteIcon />
-                </IconButton>
-              )}>
-              <ListItemButton selected={selectedDoc?.id === doc.id} onClick={() => setSelectedDoc(doc)} sx={{ py: 1.5, px: 1.5, borderRadius: '8px', mb: 0.5, '&.Mui-selected': { bgcolor: 'rgba(111, 205, 220, 0.1)' } }}>
-                <ListItemIcon sx={{ minWidth: 40 }}>{getFileIcon(doc.fileUrl)}</ListItemIcon>
-                <ListItemText primary={<Typography variant="body2" sx={{ fontWeight: 700 }}>{doc.fileName}</Typography>} secondary={<Typography variant="caption" color="text.secondary">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-IN') : 'Unknown Date'}</Typography>} />
-              </ListItemButton>
-            </ListItem>
-            {idx < docs.length - 1 && <Divider component="li" sx={{ opacity: 0.5 }} />}
-          </React.Fragment>
-        ))}
-      </List>
-
       {isEditMode && (
-        <Box sx={{ mt: 3, pt: 2, borderTop: '1px dashed', borderColor: 'divider' }}>
+        <Box sx={{ mb: 3, pb: 2, borderBottom: '1px dashed', borderColor: 'divider' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>Add GST Certificate (State-wise)</Typography>
             <Button size="small" startIcon={<AddIcon />} onClick={handleAddRow} sx={{ textTransform: 'none', fontWeight: 600 }}>Add More</Button>
@@ -171,7 +148,181 @@ function StateGSTManager({ docs, selectedDoc, setSelectedDoc, fetchDocs, showNot
           {newRows.length === 0 && <Typography variant="caption" color="text.secondary">Click "Add More" to upload a new GST certificate.</Typography>}
         </Box>
       )}
+
+      <List sx={{ width: '100%', py: 0 }}>
+        {docs.length === 0 && !isEditMode && newRows.length === 0 && (
+          <Box sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.01)' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              No GST certificates uploaded. Click Edit to add them.
+            </Typography>
+          </Box>
+        )}
+        {docs.map((doc, idx) => (
+          <React.Fragment key={doc.id}>
+            <ListItem disablePadding secondaryAction={isEditMode && (
+                <IconButton edge="end" onClick={() => handleDeleteExisting(doc.id)} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main' } }}>
+                  <DeleteIcon />
+                </IconButton>
+              )}>
+              <ListItemButton selected={selectedDoc?.id === doc.id} onClick={() => setSelectedDoc(doc)} sx={{ py: 1.5, px: 1.5, borderRadius: '8px', mb: 0.5, '&.Mui-selected': { bgcolor: 'rgba(111, 205, 220, 0.1)' } }}>
+                <ListItemIcon sx={{ minWidth: 40 }}>{getFileIcon(doc.fileUrl)}</ListItemIcon>
+                <ListItemText primary={<Typography variant="body2" sx={{ fontWeight: 700 }}>{doc.fileName}</Typography>} secondary={<Typography variant="caption" color="text.secondary">{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('en-IN') : 'Unknown Date'}</Typography>} />
+              </ListItemButton>
+            </ListItem>
+            {idx < docs.length - 1 && <Divider component="li" sx={{ opacity: 0.5 }} />}
+          </React.Fragment>
+        ))}
+      </List>
     </Box>
+  );
+}
+
+function DocumentCreator({ fetchDocs, showNotification }) {
+  const [category, setCategory] = useState('General');
+  const [docName, setDocName] = useState('');
+  const [content, setContent] = useState('');
+  const [saving, setSaving] = useState(false);
+  
+  const fileInputRef = React.useRef(null);
+  const editorRef = React.useRef(null);
+
+  const handleImportClick = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const text = evt.target.result;
+      const formatted = file.name.endsWith('.txt') ? text.replace(/\n/g, '<br>') : text;
+      setContent(formatted);
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset
+  };
+
+  const handleSave = async () => {
+    if (!docName.trim()) return showNotification('Please enter a document name.', 'warning');
+    if (!content.trim()) return showNotification('Document content is empty.', 'warning');
+    
+    setSaving(true);
+    try {
+      const element = document.createElement('div');
+      element.innerHTML = content;
+      element.style.padding = '20px';
+      element.style.fontFamily = 'Arial, sans-serif';
+      element.style.lineHeight = '1.5';
+      element.style.color = '#000';
+      
+      const opt = {
+        margin:       10,
+        filename:     `${docName}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      const pdfBlob = await html2pdf().set(opt).from(element).outputPdf('blob');
+      const pdfFile = new File([pdfBlob], `${docName}.pdf`, { type: 'application/pdf' });
+
+      const formData = new FormData();
+      formData.append('file', pdfFile);
+      const uploadRes = await axios.post('/api/stores/upload-file', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (!uploadRes.data?.url) throw new Error('Upload failed.');
+
+      await axios.post('/api/global-docs/add-link', {
+        category,
+        linkName: docName,
+        linkUrl: uploadRes.data.url
+      });
+
+      showNotification('Document created and saved successfully!', 'success');
+      setDocName('');
+      setContent('');
+      fetchDocs();
+    } catch (err) {
+      console.error(err);
+      showNotification('Failed to save document.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card sx={{ mt: 3, borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid', borderColor: 'divider' }}>
+      <Box sx={{ px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <EditIcon sx={{ fontSize: 20 }} /> Document Creator
+        </Typography>
+      </Box>
+      <CardContent sx={{ p: 3 }}>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Category</InputLabel>
+              <Select value={category} label="Category" onChange={(e) => setCategory(e.target.value)}>
+                <MenuItem value="General">General</MenuItem>
+                <MenuItem value="State GST">State GST</MenuItem>
+                <MenuItem value="Draft a mail for BTC | Swiggy">Draft a mail for BTC | Swiggy</MenuItem>
+                <MenuItem value="Draft a mail for BTC | Zomato">Draft a mail for BTC | Zomato</MenuItem>
+                <MenuItem value="Draft a mail for SAB | Swiggy">Draft a mail for SAB | Swiggy</MenuItem>
+                <MenuItem value="Draft a mail for SAB | Zomato">Draft a mail for SAB | Zomato</MenuItem>
+                <MenuItem value="Draft a mail for GT | Swiggy">Draft a mail for GT | Swiggy</MenuItem>
+                <MenuItem value="Draft a mail for GT | Zomato">Draft a mail for GT | Zomato</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={8}>
+            <TextField 
+              size="small" 
+              fullWidth 
+              label="Document Name" 
+              value={docName} 
+              onChange={(e) => setDocName(e.target.value)} 
+              placeholder="e.g. Zomato Onboarding Form" 
+            />
+          </Grid>
+        </Grid>
+        
+        <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>Editor</Typography>
+          <Button variant="outlined" size="small" startIcon={<CloudUploadIcon />} onClick={handleImportClick}>
+            Import (.txt / .html)
+          </Button>
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileChange} 
+            accept=".txt,.html,.htm" 
+            style={{ display: 'none' }} 
+          />
+        </Box>
+        
+        <Box sx={{ '.ql-container': { height: '300px', fontSize: '14px', fontFamily: 'Arial, sans-serif' } }}>
+          <ReactQuill 
+            theme="snow" 
+            value={content} 
+            onChange={setContent} 
+            ref={editorRef}
+          />
+        </Box>
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+          <Button 
+            variant="contained" 
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />} 
+            onClick={handleSave} 
+            disabled={saving}
+            sx={{ px: 4, py: 1, borderRadius: '8px', fontWeight: 600 }}
+          >
+            {saving ? 'Saving...' : 'Save as PDF Template'}
+          </Button>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -198,6 +349,10 @@ export default function ImagesDocs() {
   const [gstNumber, setGstNumber] = useState('');
   const [savingGstNo, setSavingGstNo] = useState(false);
 
+  // FSSAI Number state for FSSAI preview
+  const [fssaiNumber, setFssaiNumber] = useState('');
+  const [savingFssaiNo, setSavingFssaiNo] = useState(false);
+
   const handleSaveGstNumber = async () => {
     if (!selectedDoc?.id) return;
     setSavingGstNo(true);
@@ -218,12 +373,47 @@ export default function ImagesDocs() {
     }
   };
 
-  // Update gstNumber when selectedDoc changes
+  const handleSaveFssaiNumber = async () => {
+    if (!selectedDoc?.id) return;
+    setSavingFssaiNo(true);
+    try {
+      await axios.put(`/api/global-docs/${selectedDoc.id}`, {
+        category: selectedDoc.category,
+        linkName: selectedDoc.fileName,
+        linkUrl: selectedDoc.fileUrl,
+        fssaiNumber: fssaiNumber.trim()
+      });
+      showNotification(`FSSAI Number saved for ${selectedDoc.fileName}.`);
+      fetchDocs();
+    } catch (err) {
+      console.error('Failed to save FSSAI number:', err);
+      showNotification('Failed to save FSSAI number.', 'error');
+    } finally {
+      setSavingFssaiNo(false);
+    }
+  };
+
+  // Sync selectedDoc with newly fetched docs to keep it fresh
+  useEffect(() => {
+    if (selectedDoc) {
+      const updated = docs.find(d => d.id === selectedDoc.id);
+      if (updated) {
+        setSelectedDoc(updated);
+      }
+    }
+  }, [docs]);
+
+  // Update gstNumber and fssaiNumber when selectedDoc changes
   useEffect(() => {
     if (selectedDoc?.gstNumber) {
       setGstNumber(selectedDoc.gstNumber);
     } else {
       setGstNumber('');
+    }
+    if (selectedDoc?.fssaiNumber) {
+      setFssaiNumber(selectedDoc.fssaiNumber);
+    } else {
+      setFssaiNumber('');
     }
   }, [selectedDoc]);
 
@@ -427,25 +617,46 @@ export default function ImagesDocs() {
       <Grid container spacing={3}>
         {/* Left Half: File Upload Section & Uploaded Files List */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', minHeight: 600, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ p: 3, pb: '0 !important', display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
-              {/* Sticky Header */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexShrink: 0 }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary', fontSize: '0.95rem' }}>
-                  Document Library
-                </Typography>
-                <Button 
-                  variant="contained" 
-                  size="small"
-                  startIcon={<AddIcon />} 
-                  onClick={handleOpenDialog}
-                  sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', py: 0.6, px: 1.5 }}
-                >
-                  Add New
-                </Button>
-              </Box>
-
-              <Divider sx={{ mb: 0, flexShrink: 0 }} />
+          <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', height: 600, position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Navy Header Bar */}
+            <Box sx={{ 
+              background: 'linear-gradient(135deg, #0A314D 0%, #061e30 100%)', 
+              px: 3, 
+              py: 1.75, 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              flexShrink: 0,
+              height: '60px',
+              boxSizing: 'border-box'
+            }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#ffffff', fontSize: '0.95rem' }}>
+                Document Library
+              </Typography>
+              <Button 
+                variant="contained" 
+                size="small"
+                startIcon={<AddIcon />} 
+                onClick={handleOpenDialog}
+                sx={{ 
+                  borderRadius: '8px', 
+                  textTransform: 'none', 
+                  fontWeight: 700, 
+                  fontSize: '0.75rem', 
+                  py: 0.5, 
+                  px: 1.8,
+                  bgcolor: '#ffffff',
+                  color: '#0A314D',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.9)'
+                  }
+                }}
+              >
+                Add New
+              </Button>
+            </Box>
+            <CardContent sx={{ p: 3, pb: '24px !important', display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden', height: 'calc(100% - 60px)' }}>
 
               {loading ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
@@ -464,9 +675,9 @@ export default function ImagesDocs() {
                   </Typography>
                 </Box>
               ) : (
-                <Grid container spacing={0} sx={{ mt: 0.5, flexGrow: 1, overflow: 'hidden' }}>
+                <Grid container spacing={0} sx={{ mt: 0.5, flexGrow: 1, overflow: 'hidden', height: '100%' }}>
                   {/* Category Column */}
-                  <Grid size={{ xs: 12, sm: 4 }} sx={{ borderRight: '1px solid', borderColor: 'divider', pr: 1.5, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <Grid size={{ xs: 12, sm: 4 }} sx={{ borderRight: '1px solid', borderColor: 'divider', pr: 1.5, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
                     <Typography variant="caption" sx={{ fontWeight: 800, mb: 1, display: 'block', color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.06em', flexShrink: 0 }}>
                       Category
                     </Typography>
@@ -528,9 +739,9 @@ export default function ImagesDocs() {
                   </Grid>
 
                   {/* Uploaded Files Column */}
-                  <Grid size={{ xs: 12, sm: 8 }} sx={{ pl: 2.5, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  <Grid size={{ xs: 12, sm: 8 }} sx={{ pl: 2.5, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
                     {activeCategory === 'State GST' ? (
-                      <Box sx={{ overflow: 'auto', flexGrow: 1 }}>
+                      <Box sx={{ overflow: 'auto', flexGrow: 1, pr: 0.5, height: '100%' }}>
                         <StateGSTManager 
                           docs={filteredDocs} 
                           selectedDoc={selectedDoc} 
@@ -612,18 +823,29 @@ export default function ImagesDocs() {
               )}
             </CardContent>
           </Card>
+          
+          <DocumentCreator fetchDocs={fetchDocs} showNotification={showNotification} />
         </Grid>
-
         {/* Right Half: Live Document Preview Panel */}
         <Grid size={{ xs: 12, md: 6 }}>
-          <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', minHeight: 600, display: 'flex', flexDirection: 'column' }}>
-            <CardContent sx={{ p: 3, pb: '0 !important', display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden' }}>
-              {/* Sticky Header */}
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary', mb: 1.5, fontSize: '0.95rem', flexShrink: 0 }}>
+          <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', height: 600, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Navy Header Bar */}
+            <Box sx={{ 
+              background: 'linear-gradient(135deg, #0A314D 0%, #061e30 100%)', 
+              px: 3, 
+              py: 1.75, 
+              display: 'flex', 
+              alignItems: 'center',
+              borderBottom: '1px solid rgba(255,255,255,0.08)',
+              flexShrink: 0,
+              height: '60px',
+              boxSizing: 'border-box'
+            }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#ffffff', fontSize: '0.95rem' }}>
                 Document Preview
               </Typography>
-
-              <Divider sx={{ mb: 0, flexShrink: 0 }} />
+            </Box>
+            <CardContent sx={{ p: 3, pb: '24px !important', display: 'flex', flexDirection: 'column', flexGrow: 1, overflow: 'hidden', height: 'calc(100% - 60px)' }}>
 
               {/* Scrollable Content */}
               <Box sx={{ overflow: 'auto', flexGrow: 1, pt: 2, pb: 2 }}>
@@ -677,31 +899,62 @@ export default function ImagesDocs() {
 
                   {/* Document Preview Content */}
                   <Paper variant="outlined" sx={{ flexGrow: 1, minHeight: 380, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', p: 1, bgcolor: '#0f172a', borderRadius: '10px', position: 'relative' }}>
-                    {isImageFile(selectedDoc.fileUrl) ? (
-                      <img 
-                        src={selectedDoc.fileUrl} 
-                        alt={selectedDoc.fileName} 
-                        style={{ maxWidth: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: '6px' }}
-                      />
-                    ) : selectedDoc.fileUrl.toLowerCase().includes('.pdf') ? (
-                      <iframe 
-                        src={`${selectedDoc.fileUrl}#toolbar=0`} 
-                        title={selectedDoc.fileName} 
-                        width="100%" 
-                        height="380px" 
-                        style={{ border: 'none', borderRadius: '6px' }}
-                      />
-                    ) : (
-                      <Box sx={{ textAlign: 'center', p: 4 }}>
-                        {getFileIcon(selectedDoc.fileUrl)}
-                        <Typography variant="subtitle2" sx={{ color: '#fff', mt: 2, fontWeight: 700 }}>
-                          No Live Preview Available
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, maxWidth: 300, mx: 'auto' }}>
-                          This file type does not support live browser preview. You can open or download the file instead.
-                        </Typography>
-                      </Box>
-                    )}
+                    {(() => {
+                      const fileUrl = selectedDoc.fileUrl || '';
+                      const fileName = selectedDoc.fileName || '';
+                      const combined = (fileUrl + '|' + fileName).toLowerCase();
+                      const isImage = isImageFile(fileUrl);
+                      const isPdf = combined.includes('.pdf');
+
+                      if (!fileUrl) {
+                        return (
+                          <Box sx={{ textAlign: 'center', p: 4 }}>
+                            <InsertDriveFileIcon sx={{ color: '#6b7280', fontSize: 40 }} />
+                            <Typography variant="subtitle2" sx={{ color: '#fff', mt: 2, fontWeight: 700 }}>No Preview Available</Typography>
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>No file URL found for this document.</Typography>
+                          </Box>
+                        );
+                      }
+
+                      if (isImage) {
+                        return (
+                          <img
+                            src={fileUrl}
+                            alt={fileName}
+                            style={{ maxWidth: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: '6px' }}
+                          />
+                        );
+                      }
+
+                      if (isPdf) {
+                        // Native browser PDF viewer
+                        return (
+                          <iframe
+                            src={`${fileUrl}#toolbar=0`}
+                            title={fileName}
+                            width="100%"
+                            height="380px"
+                            style={{ border: 'none', borderRadius: '6px' }}
+                          />
+                        );
+                      }
+
+                      // For all other types (xlsx, xls, csv, docx, doc, pptx, ppt, etc.)
+                      // Use Google Docs Viewer which can preview all office formats
+                      const absoluteUrl = fileUrl.startsWith('http')
+                        ? fileUrl
+                        : `${window.location.origin}${fileUrl}`;
+                      const gdocsViewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(absoluteUrl)}&embedded=true`;
+                      return (
+                        <iframe
+                          src={gdocsViewerUrl}
+                          title={fileName}
+                          width="100%"
+                          height="380px"
+                          style={{ border: 'none', borderRadius: '6px' }}
+                        />
+                      );
+                    })()}
                   </Paper>
 
                   {/* GST Number field for State GST documents */}
@@ -727,6 +980,35 @@ export default function ImagesDocs() {
                           sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.72rem', py: 0.7 }}
                         >
                           {savingGstNo ? 'Saving…' : 'Save'}
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* FSSAI Number field for FSSAI documents */}
+                  {selectedDoc && (selectedDoc.fileName?.toLowerCase().includes('fssai') || selectedDoc.category?.toLowerCase().includes('fssai')) && (
+                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(245, 158, 11, 0.05)', borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
+                        FSSAI Number for {selectedDoc.fileName}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          size="small"
+                          placeholder="Enter FSSAI Number"
+                          value={fssaiNumber}
+                          onChange={(e) => setFssaiNumber(e.target.value)}
+                          sx={{ flexGrow: 1, '& .MuiOutlinedInput-root': { borderRadius: '8px' }, '& .MuiOutlinedInput-input': { fontSize: '0.82rem', py: 0.8 } }}
+                        />
+                        <Button
+                          variant="contained"
+                          color="warning"
+                          size="small"
+                          startIcon={<SaveIcon />}
+                          onClick={handleSaveFssaiNumber}
+                          disabled={savingFssaiNo}
+                          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.72rem', py: 0.7, bgcolor: '#f59e0b', '&:hover': { bgcolor: '#d97706' } }}
+                        >
+                          {savingFssaiNo ? 'Saving…' : 'Save'}
                         </Button>
                       </Box>
                     </Box>

@@ -2970,6 +2970,172 @@ async function getAttachmentBuffer(fileUrl: string): Promise<{ content: Buffer; 
   };
 }
 
+async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand: string = ''): Promise<Buffer> {
+  const startTime = Date.now();
+  try {
+    console.log(`[PDF Process] START — buffer size: ${buffer.length} bytes`);
+    console.log(`[PDF Process] Store: cafeName="${store.cafeName}" cafeAddress="${store.cafeAddress}" city="${store.city}" state="${store.state}" pinCode="${store.pinCode}"`);
+
+    // Determine Brand Name
+    const lowerContext = fileNameOrBrand.toLowerCase();
+    let brandName = store.brand || 'Blue Tokai Coffee Roasters';
+    if (lowerContext.includes('blue tokai') || lowerContext.includes('btc')) {
+      brandName = 'Blue Tokai Coffee Roasters';
+    } else if (lowerContext.includes("suchali") || lowerContext.includes("sab")) {
+      brandName = "Suchali's Artisan Bakehouse";
+    } else if (lowerContext.includes("got tea") || lowerContext.includes("gottea") || lowerContext.includes("gt")) {
+      brandName = "Got Tea";
+    }
+
+    // Build replacement map
+    const today = new Date();
+    const todayStr = `${String(today.getDate()).padStart(2,'0')}-${String(today.getMonth()+1).padStart(2,'0')}-${today.getFullYear()}`;
+    const replacements: Record<string, string> = {
+      '[Today Date]': todayStr,
+      '[Address]': store.cafeAddress || '',
+      '[City]': store.city || '',
+      '[State]': store.state || '',
+      '[Pin Code]': store.pinCode || '',
+      '[Café Name]': store.cafeName || '',
+      '[Cafe Name]': store.cafeName || '',
+      '[Brand Name]': brandName
+    };
+    console.log('[PDF Process] Replacements map:', JSON.stringify(replacements));
+
+    // Step 1 — pdfjs-dist: extract text item positions
+    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    const parsedPdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+    console.log(`[PDF Process] pdfjs loaded: ${parsedPdf.numPages} pages`);
+
+    const items: Array<{ pageIdx: number; x: number; y: number; size: number; w: number; h: number; newText: string; origText: string }> = [];
+
+    for (let i = 1; i <= parsedPdf.numPages; i++) {
+      const page = await parsedPdf.getPage(i);
+      const textContent = await page.getTextContent();
+      for (const item of textContent.items as any[]) {
+        let text: string = item.str || '';
+        let changed = false;
+        for (const [placeholder, value] of Object.entries(replacements)) {
+          if (text.includes(placeholder)) {
+            text = text.split(placeholder).join(value);
+            changed = true;
+          }
+        }
+        if (changed) {
+          items.push({
+            pageIdx: i - 1,
+            x: item.transform[4],
+            y: item.transform[5],
+            size: Math.max(item.transform[0], 6),
+            w: Math.max(item.width, 10),
+            h: Math.max(item.height, item.transform[0] + 2),
+            newText: text,
+            origText: item.str
+          });
+          console.log(`[PDF Process] Queue page=${i}: "${item.str}" → "${text}"`);
+        }
+      }
+    }
+
+    if (items.length === 0) {
+      console.log('[PDF Process] No placeholders found — returning original buffer');
+      return buffer;
+    }
+    console.log(`[PDF Process] ${items.length} items queued for replacement`);
+
+    // Step 2 — pdf-lib: draw white boxes + new text
+    const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+    // Uint8Array.from() creates a true independent copy to avoid any shared-memory issues
+    const pdfDoc = await PDFDocument.load(Uint8Array.from(buffer));
+    console.log(`[PDF Process] pdf-lib loaded: ${pdfDoc.getPageCount()} pages`);
+    const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const pdfPages = pdfDoc.getPages();
+
+    for (const it of items) {
+      const page = pdfPages[it.pageIdx];
+      if (!page) continue;
+      // White rectangle — generous extra width for longer replacement text
+      page.drawRectangle({
+        x: it.x - 1,
+        y: it.y - 1,
+        width: it.w + 80,
+        height: it.h + 4,
+        color: rgb(1, 1, 1),
+        opacity: 1,
+      });
+      // Draw replacement text
+      page.drawText(it.newText, {
+        x: it.x,
+        y: it.y,
+        size: it.size,
+        font: helveticaFont,
+        color: rgb(0, 0, 0),
+        maxWidth: 450,
+        lineHeight: it.size * 1.2,
+      });
+    }
+
+    // useObjectStreams: false forces traditional XRef table format — fixes empty-save bug
+    const savedBytes = await pdfDoc.save({ useObjectStreams: false });
+    console.log(`[PDF Process] pdfDoc.save() → ${savedBytes.byteLength} bytes (${Date.now() - startTime}ms)`);
+
+    if (savedBytes.byteLength < 100) {
+      console.error('[PDF Process] Saved PDF suspiciously small — returning original buffer');
+      return buffer;
+    }
+
+    const resultBuffer = Buffer.from(savedBytes);
+    console.log(`[PDF Process] SUCCESS — returning ${resultBuffer.length} byte modified PDF`);
+    return resultBuffer;
+
+  } catch (err: any) {
+    console.error('[PDF Process] ERROR:', err?.message);
+    console.error('[PDF Process] Stack:', err?.stack?.split('\n').slice(0, 6).join('\n'));
+  }
+  console.log('[PDF Process] Falling back to original buffer');
+  return buffer;
+}
+
+// GET /:id/preview-onboarding-pdf
+router.get('/:id/preview-onboarding-pdf', async (req: any, res) => {
+  const storeId = req.params.id;
+  const fileUrl = req.query.fileUrl as string;
+  const fileName = req.query.fileName as string || 'Document.pdf';
+
+  if (!storeId || !fileUrl) {
+    return res.status(400).send('Missing store ID or fileUrl');
+  }
+
+  try {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) return res.status(404).send('Store not found');
+
+    // Fetch original file
+    const isCloudFunctions = !!process.env.K_SERVICE || !!process.env.FUNCTION_TARGET;
+    let absoluteUrl = fileUrl;
+    if (!fileUrl.startsWith('http')) {
+      if (isCloudFunctions) {
+        absoluteUrl = `https://nso.bluetokaicoffee.com${fileUrl}`;
+      } else {
+        absoluteUrl = `http://localhost:${process.env.PORT || 8403}${fileUrl}`;
+      }
+    }
+    
+    const response = await require('axios').get(absoluteUrl, { responseType: 'arraybuffer' });
+    let buffer = Buffer.from(response.data);
+
+    // Apply PDF replacements
+    buffer = await processOnboardingPdf(buffer, store, fileName);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+    res.send(buffer);
+  } catch (err: any) {
+    console.error('Error generating preview PDF:', err?.message);
+    res.status(500).send('Failed to generate preview PDF');
+  }
+});
+
 // POST /:id/send-swiggy-onboarding-email
 router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: any, res) => {
   const storeId = req.params.id;
@@ -3115,11 +3281,34 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
             finalName = `${finalName}${urlExt}`;
           }
 
+          let finalContent = content;
+          const targetNames = [
+            'SAB Onb Zomato',
+            'SAB Onb Swiggy',
+            'BTC Onb Zomato',
+            'BTC Onb Swiggy',
+            'GT Onb Zomato',
+            'GT Onb Swiggy',
+            'Zomato OB',
+            'Swiggy OB',
+            'Zomato Onboarding',
+            'Swiggy Onboarding'
+          ];
+          
+          const isTargetOnboardingPdf = targetNames.some(target => 
+            finalName.toLowerCase().includes(target.toLowerCase())
+          ) && finalName.toLowerCase().endsWith('.pdf');
+          
+          if (isTargetOnboardingPdf) {
+            console.log(`[Email] Running placeholder replacement on onboarding PDF: ${finalName}`);
+            finalContent = await processOnboardingPdf(content, store, brandParam);
+          }
+
           attachments.push({
             filename: finalName,
-            content
+            content: finalContent
           });
-          console.log(`[Email] Attached: ${finalName} (${content.byteLength} bytes)`);
+          console.log(`[Email] Attached: ${finalName} (${finalContent.byteLength} bytes)`);
         } catch (err) {
           console.error(`[Email] Failed to download attachment ${attachment.fileName}:`, err);
         }
@@ -3139,7 +3328,7 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
     });
 
     const mailOptions = {
-      from: '"Analytics" <analytics@bluetokaicoffee.com>',
+      from: smtpConfig.smtpUser ? `"Analytics" <${smtpConfig.smtpUser}>` : '"Analytics" <analytics@bluetokaicoffee.com>',
       to: to || '',
       cc: cc || '',
       subject: subject || (isZomato ? `Zomato Onboarding Request | ${store.cafeName}` : `Swiggy Onboarding Request | ${store.cafeName}`),
@@ -3434,7 +3623,7 @@ router.post('/:id/send-store-code-email', authenticateToken, async (req: any, re
 
     const formatted = formatMailBody(body || '');
     const mailOptions = {
-      from: '"NSM Operations" <analytics@bluetokaicoffee.com>',
+      from: smtpConfig.smtpUser ? `"NSM Operations" <${smtpConfig.smtpUser}>` : '"NSM Operations" <analytics@bluetokaicoffee.com>',
       to: to || '',
       cc: cc || '',
       subject: subject || `New Store Code Creation Request | ${store.cafeName}`,
