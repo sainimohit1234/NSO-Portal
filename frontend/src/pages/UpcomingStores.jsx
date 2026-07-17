@@ -128,6 +128,8 @@ export default function UpcomingStores() {
       '[Cafe Address]': storeData.cafeAddress || storeData.address || '',
       '[Expected Sale]': formatIndianCurrencyHint(storeData.expectedSales || storeData.expectedSalesVal) || '',
       '[Cafe Launch Month & Year]': storeData.cafeLaunchMonth || '',
+      '[Cafe Launch Month &amp; Year]': storeData.cafeLaunchMonth || '',
+      '[Cafe Launch Month and Year]': storeData.cafeLaunchMonth || '',
       '[Launch Date]': storeData.launchDate ? new Date(storeData.launchDate).toLocaleDateString('en-IN') : '',
     };
     let result = text;
