@@ -189,7 +189,9 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
     if (!store?.state || gstFetchAttempted.current) return;
     
     const hasGst = documents.some(d => d.type === 'GST Certificate' || d.type === 'GST Docs');
-    if (hasGst) return;
+    const hasGstNo = !!gstNo;
+
+    if (hasGst && hasGstNo) return;
 
     let isMounted = true;
     gstFetchAttempted.current = true;
@@ -201,22 +203,35 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
         const stateGst = res.data.find(d => d.category === 'State GST' && d.fileName === store.state);
         
         if (stateGst) {
-          const newGst = {
-            id: Date.now() + Math.random(),
-            type: 'GST Certificate',
-            category: 'Financial Documents',
-            url: stateGst.fileUrl,
-            fileName: stateGst.fileName + ' GST.pdf',
-            uploadedBy: 'System Auto-Attach',
-            uploadedAt: new Date().toISOString(),
-            metadata: {}
-          };
-          setDocuments(prev => {
-            if (prev.some(d => d.type === 'GST Certificate' || d.type === 'GST Docs')) return prev;
-            return [...prev, newGst];
-          });
-          setHasUnsavedChanges(true);
-          setSnackbar({ open: true, message: `Auto-attached ${store.state} GST Certificate from Global Library. Please save changes.`, severity: 'info' });
+          let updated = false;
+
+          if (!hasGst && stateGst.fileUrl) {
+            const newGst = {
+              id: Date.now() + Math.random(),
+              type: 'GST Certificate',
+              category: 'Financial Documents',
+              url: stateGst.fileUrl,
+              fileName: stateGst.fileName + ' GST.pdf',
+              uploadedBy: 'System Auto-Attach',
+              uploadedAt: new Date().toISOString(),
+              metadata: {}
+            };
+            setDocuments(prev => {
+              if (prev.some(d => d.type === 'GST Certificate' || d.type === 'GST Docs')) return prev;
+              return [...prev, newGst];
+            });
+            updated = true;
+          }
+
+          if (!hasGstNo && stateGst.gstNumber) {
+            setGstNo(stateGst.gstNumber);
+            updated = true;
+          }
+
+          if (updated) {
+            setHasUnsavedChanges(true);
+            setSnackbar({ open: true, message: `Auto-attached ${store.state} GST data from Global Library. Please save changes.`, severity: 'info' });
+          }
         }
       } catch (err) {
         console.error('Failed to auto-fetch State GST:', err);
@@ -226,13 +241,13 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
     fetchGlobalGst();
 
     return () => { isMounted = false; };
-  }, [open, store?.state, documents]);
+  }, [open, store?.state, documents, gstNo]);
 
   const handleFileUpload = async (file, docType, metadata = {}, category = 'Miscellaneous Documents', isMisc = false, isExtra = false, subcategory = null, extraName = '') => {
     if (!file) return;
-    const maxSize = 500 * 1024; // 500kb
+    const maxSize = 1024 * 1024; // 1MB
     if (file.size > maxSize) {
-      setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 500KB.', severity: 'error' });
+      setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 1MB.', severity: 'error' });
       return;
     }
 

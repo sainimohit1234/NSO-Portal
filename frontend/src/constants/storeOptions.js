@@ -1,4 +1,4 @@
-// ─── Café Model Options ───
+// ─── Cafe Model Options ───
 export const CAFE_MODELS = [
   'Core',
   'Core Cafe',

@@ -12,6 +12,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import SendIcon from '@mui/icons-material/Send';
 import EditIcon from '@mui/icons-material/Edit';
 import LayersIcon from '@mui/icons-material/Layers';
+import SearchIcon from '@mui/icons-material/Search';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -127,12 +128,7 @@ export default function ExpansionPipeline() {
   const [loading, setLoading] = useState(true);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState(null);
   const [searchBrand, setSearchBrand] = useState('');
-  const [searchCafeName, setSearchCafeName] = useState('');
-  const [searchCafeCode, setSearchCafeCode] = useState('');
-  const [searchCity, setSearchCity] = useState('');
-  const [searchState, setSearchState] = useState('');
-  const [searchCafeModel, setSearchCafeModel] = useState('');
-  const [searchCreatedBy, setSearchCreatedBy] = useState('');
+  const [globalSearch, setGlobalSearch] = useState('');
   
   const [editingStoreIds, setEditingStoreIds] = useState(new Set());
 
@@ -170,7 +166,7 @@ export default function ExpansionPipeline() {
     fetchStoresFromFirestore()
       .then(fetchedStores => {
         // Load all active stores (including live and closed ones)
-        const allStores = fetchedStores;
+        let allStores = fetchedStores;
         // Pre-extract PIN code if missing
         allStores.forEach(s => {
           if (!s.pinCode) {
@@ -193,6 +189,19 @@ export default function ExpansionPipeline() {
 
           return (a.cafeName || '').localeCompare(b.cafeName || '');
         });
+        // Deduplicate stores by cafeCode to prevent UI duplication issues
+        const uniqueStores = [];
+        const seenCodes = new Set();
+        for (const s of allStores) {
+          if (s.cafeCode && s.cafeCode.trim() !== '') {
+            const code = s.cafeCode.trim().toUpperCase();
+            if (seenCodes.has(code)) continue;
+            seenCodes.add(code);
+          }
+          uniqueStores.push(s);
+        }
+        allStores = uniqueStores;
+
         console.log("Sorted pipeline stores:", allStores.map(s => ({ name: s.cafeName, isLocked: s.isLocked, isTemp: s.isTemp })));
         setStores(allStores);
         setLoading(false);
@@ -202,7 +211,7 @@ export default function ExpansionPipeline() {
         try {
           const res = await axios.get('/api/stores');
           const list = normalizeListResponse(res.data, ['stores', 'data', 'items']);
-          const allStores = list;
+          let allStores = list;
           // Pre-extract PIN code if missing
           allStores.forEach(s => {
             if (!s.pinCode) {
@@ -225,6 +234,20 @@ export default function ExpansionPipeline() {
 
             return (a.cafeName || '').localeCompare(b.cafeName || '');
           });
+
+          // Deduplicate stores by cafeCode to prevent UI duplication issues
+          const uniqueStores = [];
+          const seenCodes = new Set();
+          for (const s of allStores) {
+            if (s.cafeCode && s.cafeCode.trim() !== '') {
+              const code = s.cafeCode.trim().toUpperCase();
+              if (seenCodes.has(code)) continue;
+              seenCodes.add(code);
+            }
+            uniqueStores.push(s);
+          }
+          allStores = uniqueStores;
+
           console.log("Sorted pipeline stores (fallback API):", allStores.map(s => ({ name: s.cafeName, isLocked: s.isLocked, isTemp: s.isTemp })));
           setStores(allStores);
         } catch (apiError) {
@@ -254,9 +277,21 @@ export default function ExpansionPipeline() {
         if (res.data && res.data[0] && res.data[0].Status === 'Success') {
           const postOfficeList = res.data[0].PostOffice;
           if (postOfficeList && postOfficeList.length > 0) {
-            const district = postOfficeList[0].District;
+            let district = postOfficeList[0].District;
+            let block = postOfficeList[0].Block;
+            let city = district;
+            if (block && block.toLowerCase() !== 'na') {
+              const match = block.match(/\((.*?)\)/);
+              if (match && match[1]) {
+                city = match[1].trim();
+              } else if (district === 'Rupnagar' && block.toLowerCase().includes('mohali')) {
+                city = 'Mohali';
+              } else if (district === 'Gautam Buddha Nagar' && block.toLowerCase().includes('noida')) {
+                city = 'Noida';
+              }
+            }
             const stateName = postOfficeList[0].State;
-            setStores(prev => prev.map(s => s.id === storeId ? { ...s, city: district, state: stateName } : s));
+            setStores(prev => prev.map(s => s.id === storeId ? { ...s, city: city, state: stateName } : s));
           }
         }
       })
@@ -271,25 +306,7 @@ export default function ExpansionPipeline() {
       if (s.id === storeId) {
         const updated = { ...s, [field]: value };
         
-        // Auto-generate emails on cafeName or brand change
-        if (field === 'cafeName' || field === 'brand') {
-          const name = field === 'cafeName' ? value : s.cafeName;
-          const brand = field === 'brand' ? value : s.brand;
-          if (name && brand) {
-            const cleanName = String(name).replace(/\s+/g, '').toLowerCase();
-            let mail = '';
-            if (brand === 'BLUE_TOKAI_SUCHALI') {
-              mail = `${cleanName}@bluetokaicoffee.com`;
-            } else if (brand === 'GOT_TEA') {
-              mail = `${cleanName}@gottea.in`;
-            }
-            updated.cafeMailId = mail;
-            updated.cmMailId = mail ? `cm.${mail}` : '';
-          } else {
-            updated.cafeMailId = '';
-            updated.cmMailId = '';
-          }
-        }
+        // Auto-generate emails removed as per requirement.
 
         // Auto-extract PIN code from address field changes
         if (field === 'cafeAddress' || field === 'address') {
@@ -304,9 +321,15 @@ export default function ExpansionPipeline() {
           }
         }
 
-        // Trigger Pincode lookup at 6 digits
-        if (field === 'pinCode' && String(value).trim().length === 6) {
-          handlePincodeLookup(storeId, String(value).trim());
+        // Trigger Pincode lookup at 6 digits or clear if empty
+        if (field === 'pinCode') {
+          const trimmedVal = String(value).trim();
+          if (trimmedVal.length === 6) {
+            handlePincodeLookup(storeId, trimmedVal);
+          } else if (!trimmedVal) {
+            updated.city = '';
+            updated.state = '';
+          }
         }
 
         return updated;
@@ -346,7 +369,7 @@ export default function ExpansionPipeline() {
   const handleSaveRow = async (store) => {
     if (!canModify) return;
     if (!store.cafeName.trim()) {
-      setSnackbar({ open: true, message: 'Café Name is required.', severity: 'warning' });
+      setSnackbar({ open: true, message: 'Cafe Name is required.', severity: 'warning' });
       return;
     }
 
@@ -368,7 +391,7 @@ export default function ExpansionPipeline() {
 
     if (!canModify) return;
     if (!store.cafeName.trim()) {
-      setSnackbar({ open: true, message: 'Café Name is required.', severity: 'warning' });
+      setSnackbar({ open: true, message: 'Cafe Name is required.', severity: 'warning' });
       return;
     }
 
@@ -380,7 +403,7 @@ export default function ExpansionPipeline() {
       const method = store.isTemp ? 'post' : 'put';
       const endpoint = store.isTemp ? '/api/stores' : `/api/stores/${store.id}`;
       await axios({ method, url: endpoint, data: payload });
-      setSnackbar({ open: true, message: store.isTemp ? 'Café created successfully' : 'Changes saved successfully', severity: 'success' });
+      setSnackbar({ open: true, message: store.isTemp ? 'Cafe created successfully' : 'Changes saved successfully', severity: 'success' });
       
       if (!store.isTemp) {
         setEditingStoreIds(prev => {
@@ -467,7 +490,8 @@ export default function ExpansionPipeline() {
       .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
       .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModel || '')
       .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
-      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
+      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '')
+      .replace(/<br\s*[\/]?>/gi, '\n');
   };
 
   const handleDropdownStatusChange = (store, newStatus) => {
@@ -571,9 +595,9 @@ export default function ExpansionPipeline() {
   const handleFileChangeForSlot = (e, slot) => {
     const file = e.target.files[0];
     if (file) {
-      const maxSize = 200 * 1024; // 200kb
+      const maxSize = 1024 * 1024; // 1MB
       if (file.size > maxSize) {
-        setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 200KB.', severity: 'error' });
+        setSnackbar({ open: true, message: 'Upload blocked: File size must not exceed 1MB.', severity: 'error' });
         e.target.value = ''; // clear input
         return;
       }
@@ -602,13 +626,13 @@ export default function ExpansionPipeline() {
       }
       
       if (uploadStore.isTemp || String(uploadStore.id).startsWith('temp_')) {
-        // Unsaved Café row - only update local state
+        // Unsaved Cafe row - only update local state
         setStores(prev => prev.map(s => s.id === uploadStore.id ? { ...s, ...updatedFields } : s));
         setUploadStore(prev => ({ ...prev, ...updatedFields }));
         setSelectedFiles(prev => ({ ...prev, [slot]: null }));
         setSnackbar({ open: true, message: `${slot.toUpperCase()} file uploaded. Click Save on the row to save details.`, severity: 'success' });
       } else {
-        // Saved Café row - update Firestore via API
+        // Saved Cafe row - update Firestore via API
         await axios.put(`/api/stores/${uploadStore.id}`, updatedFields);
         setStores(prev => prev.map(s => s.id === uploadStore.id ? { ...s, ...updatedFields } : s));
         setUploadStore(prev => ({ ...prev, ...updatedFields }));
@@ -637,7 +661,7 @@ export default function ExpansionPipeline() {
     }
     
     if (uploadStore.isTemp || String(uploadStore.id).startsWith('temp_')) {
-      // Unsaved Café row - only update local state
+      // Unsaved Cafe row - only update local state
       setStores(prev => prev.map(s => s.id === uploadStore.id ? { ...s, ...updatedFields } : s));
       setUploadStore(prev => ({ ...prev, ...updatedFields }));
       setSnackbar({ open: true, message: `${slot.toUpperCase()} file removed locally.`, severity: 'success' });
@@ -767,30 +791,32 @@ export default function ExpansionPipeline() {
       }
     }
     if (searchBrand && !s.brand?.toLowerCase().includes(searchBrand.toLowerCase())) return false;
-    if (searchCafeName && !s.cafeName?.toLowerCase().includes(searchCafeName.toLowerCase())) return false;
-    if (searchCafeCode && !s.cafeCode?.toLowerCase().includes(searchCafeCode.toLowerCase())) return false;
-    if (searchCity && !s.city?.toLowerCase().includes(searchCity.toLowerCase())) return false;
-    if (searchState && !s.state?.toLowerCase().includes(searchState.toLowerCase())) return false;
-    if (searchCafeModel && !s.cafeModel?.toLowerCase().includes(searchCafeModel.toLowerCase())) return false;
-    if (searchCreatedBy && !s.enteredByEmail?.toLowerCase().includes(searchCreatedBy.toLowerCase())) return false;
+    
+    if (globalSearch) {
+      const q = globalSearch.toLowerCase();
+      const match = (
+        s.cafeName?.toLowerCase().includes(q) ||
+        s.cafeCode?.toLowerCase().includes(q) ||
+        s.city?.toLowerCase().includes(q) ||
+        s.state?.toLowerCase().includes(q) ||
+        s.cafeModel?.toLowerCase().includes(q) ||
+        s.enteredByEmail?.toLowerCase().includes(q)
+      );
+      if (!match) return false;
+    }
     return true;
   });
 
   const clearFilters = () => {
     setSearchBrand('');
-    setSearchCafeName('');
-    setSearchCafeCode('');
-    setSearchCity('');
-    setSearchState('');
-    setSearchCafeModel('');
-    setSearchCreatedBy('');
+    setGlobalSearch('');
   };
 
   return (
     <Box sx={{ py: 1 }}>
       {/* Header */}
       <Card sx={{ mb: 2.5, overflow: 'hidden', bgcolor: '#0f2942' }}>
-        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+        <CardContent sx={{ p: 1.25, '&:last-child': { pb: 1.25 }, position: 'relative' }}>
           <Box
             sx={{
               position: 'absolute',
@@ -811,35 +837,67 @@ export default function ExpansionPipeline() {
                 Expansion Pipeline
               </Typography>
               <Typography variant="body2" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' }, color: 'rgba(255,255,255,0.8)' }}>
-                Manage upcoming café properties, look up pin codes, and upload approval documents.
+                Manage upcoming cafe properties, look up pin codes, and upload approval documents.
               </Typography>
             </Box>
             
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, alignSelf: 'flex-start' }}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, alignSelf: 'flex-start' }}>
               <Chip 
                 label={selectedStatusFilter ? `${filteredStores.length} of ${stores.length} Projects` : `${stores.length} Active Projects`} 
                 sx={{ justifyContent: 'center', bgcolor: 'rgba(111,205,220,0.2)', color: '#ffffff', fontWeight: 700 }} 
               />
-              {canModify && (
-                <Button 
-                  variant="contained" 
-                  onClick={handleAddNewRow}
-                  startIcon={<AddCircleOutlineIcon />}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 180 }}>
+                {canModify && (
+                  <Button 
+                    variant="contained" 
+                    onClick={handleAddNewRow}
+                    startIcon={<AddCircleOutlineIcon />}
+                    fullWidth
+                    sx={{ 
+                      borderRadius: '10px', 
+                      fontWeight: 700, 
+                      height: 32,
+                      bgcolor: '#ffffff',
+                      color: '#0f2942',
+                      textTransform: 'none',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.9)'
+                      }
+                    }}
+                  >
+                    Add New Project
+                  </Button>
+                )}
+                <TextField 
+                  size="small" 
+                  placeholder="Global Search..." 
+                  value={globalSearch} 
+                  onChange={e => setGlobalSearch(e.target.value)} 
+                  fullWidth
                   sx={{ 
-                    borderRadius: '10px', 
-                    fontWeight: 700, 
-                    px: 3, 
-                    height: 32,
                     bgcolor: '#ffffff',
-                    color: '#0f2942',
-                    '&:hover': {
-                      bgcolor: 'rgba(255,255,255,0.9)'
+                    borderRadius: '10px',
+                    '& .MuiOutlinedInput-root': {
+                      height: 32,
+                      borderRadius: '10px',
+                      '& fieldset': { border: 'none' }
+                    },
+                    '& .MuiInputBase-input': {
+                      padding: '0 8px 0 0',
+                      fontSize: '0.75rem',
+                      color: '#0f2942',
+                      fontWeight: 700
                     }
+                  }} 
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ color: '#0f2942', fontSize: 16 }} />
+                      </InputAdornment>
+                    ),
                   }}
-                >
-                  Add New Project
-                </Button>
-              )}
+                />
+              </Box>
             </Box>
           </Box>
         </CardContent>
@@ -981,7 +1039,7 @@ export default function ExpansionPipeline() {
                   background: `radial-gradient(circle, ${tile.color}18 0%, ${tile.color}00 70%)`
                 }}
               />
-              <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+              <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Box sx={{ minWidth: 0 }}>
                     <Typography 
@@ -989,10 +1047,11 @@ export default function ExpansionPipeline() {
                       color="text.secondary" 
                       sx={{ 
                         fontWeight: 700, 
-                        mb: 0.75, 
+                        mb: 0.25, 
                         textTransform: 'uppercase', 
                         letterSpacing: '0.05em', 
-                        fontSize: '0.7rem' 
+                        fontSize: '0.65rem',
+                        lineHeight: 1.2
                       }}
                     >
                       {tile.label}
@@ -1002,22 +1061,22 @@ export default function ExpansionPipeline() {
                       sx={{ 
                         fontWeight: 800, 
                         color: 'text.primary', 
-                        fontSize: { xs: '1.8rem', md: '2.1rem' }, 
+                        fontSize: { xs: '1.4rem', md: '1.6rem' }, 
                         lineHeight: 1, 
-                        mb: 0.5 
+                        mb: 0.25 
                       }}
                     >
                       {tile.count}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem', lineHeight: 1 }}>
                       {isActive ? 'Active Filter' : 'Click to filter'}
                     </Typography>
                   </Box>
                   <Box 
                     sx={{
                       bgcolor: isActive ? tile.color : `${tile.color}15`,
-                      p: 1.25,
-                      borderRadius: 3.5,
+                      p: 0.75,
+                      borderRadius: 2.5,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -1027,7 +1086,7 @@ export default function ExpansionPipeline() {
                       boxShadow: isActive ? `0 4px 12px ${tile.color}40` : 'none'
                     }}
                   >
-                    {React.cloneElement(tile.icon, { sx: { fontSize: 24 } })}
+                    {React.cloneElement(tile.icon, { sx: { fontSize: 20 } })}
                   </Box>
                 </Box>
               </CardContent>
@@ -1038,19 +1097,7 @@ export default function ExpansionPipeline() {
 
 
 
-      {/* Filters */}
-      <Card sx={{ mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: '16px' }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-          <TextField size="small" label="Brand" value={searchBrand} onChange={e => setSearchBrand(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
-          <TextField size="small" label="Cafe Name" value={searchCafeName} onChange={e => setSearchCafeName(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
-          <TextField size="small" label="Cafe Code" value={searchCafeCode} onChange={e => setSearchCafeCode(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
-          <TextField size="small" label="City" value={searchCity} onChange={e => setSearchCity(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
-          <TextField size="small" label="State" value={searchState} onChange={e => setSearchState(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
-          <TextField size="small" label="Cafe Model" value={searchCafeModel} onChange={e => setSearchCafeModel(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
-          <TextField size="small" label="Created By" value={searchCreatedBy} onChange={e => setSearchCreatedBy(e.target.value)} sx={{ flex: 1, minWidth: 120 }} />
-          <Button variant="outlined" onClick={clearFilters} sx={{ height: 40, borderRadius: '8px', minWidth: 80 }}>Clear</Button>
-        </Box>
-      </Card>
+      {/* Filter Section Removed */}
 
       {/* Pipeline Table */}
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', overflow: 'hidden' }}>
@@ -1061,7 +1108,7 @@ export default function ExpansionPipeline() {
           '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { border: 'none' },
           '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { border: 'none' },
         }}>
-          <Table stickyHeader sx={{ minWidth: 2500, tableLayout: 'fixed', '& .MuiTableCell-root': { px: 1, py: 1.25 } }}>
+          <Table stickyHeader sx={{ width: '100%', minWidth: 1350, tableLayout: 'fixed', '& .MuiTableCell-root': { px: 0.5, py: 1, fontSize: '0.75rem' } }}>
                         <TableHead>
               {/* 
                 WARNING: The sequence and placement of the columns below are STRICTLY LOCKED. 
@@ -1069,28 +1116,27 @@ export default function ExpansionPipeline() {
                 Any new column added in the future MUST be inserted AFTER "MISCELLANEOUS DOCUMENTS" and BEFORE "Status".
               */}
               <TableRow>
-                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, fontWeight: 800, width: 50, bgcolor: 'background.paper', color: 'text.primary' }}>S.No.</TableCell>
-                <TableCell sx={{ position: 'sticky', left: 50, zIndex: 4, fontWeight: 800, width: 160, bgcolor: 'background.paper', color: 'text.primary' }}>Brand</TableCell>
-                <TableCell sx={{ position: 'sticky', left: 210, zIndex: 4, fontWeight: 800, width: 240, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary' }}>Café Name</TableCell>
-                <TableCell sx={{ position: 'sticky', left: 450, zIndex: 4, fontWeight: 800, width: 110, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary' }}>Café Code</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 110 }}>Pin Code</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 130 }}>City</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 130 }}>State</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 350 }}>Address</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 150 }}>Café Model</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>LEGAL DOCUMENTS</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>FINANCIAL DOCUMENTS</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 200, textAlign: 'center' }}>PROJECT DOCUMENTS</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 220, textAlign: 'center' }}>MISCELLANEOUS DOCUMENTS</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 180 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 800, width: 180 }}>Created By</TableCell>
-                {canModify && <TableCell sx={{ position: 'sticky', right: 0, zIndex: 4, fontWeight: 800, width: 80, borderLeft: '1.5px solid', borderColor: 'divider' }} align="center">Actions</TableCell>}
+                <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, fontWeight: 800, width: 40, bgcolor: 'background.paper', color: 'text.primary' }}>S.No.</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 40, zIndex: 4, fontWeight: 800, width: 100, bgcolor: 'background.paper', color: 'text.primary' }}>Brand</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 140, zIndex: 4, fontWeight: 800, width: 120, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary' }}>Cafe Name</TableCell>
+                <TableCell sx={{ position: 'sticky', left: 260, zIndex: 4, fontWeight: 800, width: 80, borderRight: '1.5px solid', borderColor: 'divider', bgcolor: 'background.paper', color: 'text.primary' }}>Cafe Code</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 70 }}>Pin Code</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 80 }}>City</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 80 }}>State</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 130 }}>Address</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 90 }}>Cafe Model</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 110, textAlign: 'center' }}>LEGAL DOCUMENTS</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 110, textAlign: 'center' }}>FINANCIAL DOCUMENTS</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 110, textAlign: 'center' }}>PROJECT DOCUMENTS</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 110, textAlign: 'center' }}>MISCELLANEOUS DOCUMENTS</TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 100 }}>Status</TableCell>
+                {canModify && <TableCell sx={{ position: 'sticky', right: 0, zIndex: 4, fontWeight: 800, width: 60, borderLeft: '1.5px solid', borderColor: 'divider' }} align="center">Actions</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading && stores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canModify ? 15 : 14} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6 }}>
                     <Box sx={{ py: 8 }}>
                       <FullScreenLoader messages={[
                         'Warming up the espresso machine…',
@@ -1104,13 +1150,13 @@ export default function ExpansionPipeline() {
                 </TableRow>
               ) : stores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canModify ? 15 : 14} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No expansion pipeline stores registered.
                   </TableCell>
                 </TableRow>
               ) : filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canModify ? 15 : 14} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={canModify ? 14 : 13} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No stores match the selected status filter.
                   </TableCell>
                 </TableRow>
@@ -1131,7 +1177,7 @@ export default function ExpansionPipeline() {
                       <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper', color: 'text.primary', fontWeight: 800 }}>{index + 1}</TableCell>
 
                       {/* Brand Select */}
-                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.paper' }}>
+                      <TableCell sx={{ position: 'sticky', left: 40, zIndex: 2, bgcolor: 'background.paper' }}>
                         <Select
                           value={store.brand || ''}
                           displayEmpty
@@ -1146,8 +1192,8 @@ export default function ExpansionPipeline() {
                           <MenuItem value="GOT_TEA">Got Tea</MenuItem>
                         </Select>
                       </TableCell>
-                      {/* Café Name */}
-                      <TableCell sx={{ position: 'sticky', left: 210, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
+                      {/* Cafe Name */}
+                      <TableCell sx={{ position: 'sticky', left: 140, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
                         <DebouncedTextField
                           value={store.cafeName || ''}
                           size="small"
@@ -1171,8 +1217,8 @@ export default function ExpansionPipeline() {
                         />
                       </TableCell>
 
-                      {/* Café Code */}
-                      <TableCell sx={{ position: 'sticky', left: 450, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
+                      {/* Cafe Code */}
+                      <TableCell sx={{ position: 'sticky', left: 260, zIndex: 2, bgcolor: 'background.paper', borderRight: '1.5px solid', borderColor: 'divider' }}>
                         <DebouncedTextField
                           value={store.cafeCode || ''}
                           size="small"
@@ -1229,7 +1275,7 @@ export default function ExpansionPipeline() {
                         />
                       </TableCell>
 
-                      {/* Café Model */}
+                      {/* Cafe Model */}
                       <TableCell>
                         <Select
                           value={store.cafeModel || ''}
@@ -1362,25 +1408,7 @@ export default function ExpansionPipeline() {
                         })()}
                       </TableCell>
 
-                      {/* Created By */}
-                      <TableCell>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '0.85rem' }}>
-                            {store.enteredByEmail || '—'}
-                          </Typography>
-                          {store.createdAt && (
-                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                              {new Date(store.createdAt).toLocaleString('en-IN', { 
-                                day: '2-digit', 
-                                month: 'short', 
-                                year: 'numeric', 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
-                            </Typography>
-                          )}
-                        </Box>
-                      </TableCell>
+
 
                       {/* Actions */}
                       {canModify && (

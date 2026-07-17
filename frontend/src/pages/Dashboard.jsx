@@ -702,7 +702,7 @@ export default function Dashboard() {
                     <Box key={idx} sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                         <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>{am.name}</Typography>
-                        <Chip label={`${am.cafes.length} Café${am.cafes.length > 1 ? 's' : ''}`} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
+                        <Chip label={`${am.cafes.length} Cafe${am.cafes.length > 1 ? 's' : ''}`} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
                       </Box>
                       <Box sx={{ 
                         display: 'flex', 
@@ -816,7 +816,7 @@ export default function Dashboard() {
                           <Box key={idx} sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                               <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>{ch.name}</Typography>
-                              <Chip label={`${ch.cafes.length} Café${ch.cafes.length > 1 ? 's' : ''}`} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
+                              <Chip label={`${ch.cafes.length} Cafe${ch.cafes.length > 1 ? 's' : ''}`} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
                             </Box>
                             <Box sx={{ 
                               display: 'flex', 
@@ -865,21 +865,21 @@ export default function Dashboard() {
             <CardContent sx={{ p: 2.25, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                  Café Managers
+                  Cafe Managers
                 </Typography>
                 <Chip label={`Total: ${stats.cafeManagersData.length}`} size="small" color="success" sx={{ fontWeight: 700 }} />
               </Box>
               <Box sx={{ flex: 1, overflowY: 'auto', pr: 0.5 }}>
                 {stats.cafeManagersData.length === 0 ? (
                   <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                    No assigned Café Managers.
+                    No assigned Cafe Managers.
                   </Typography>
                 ) : (
                   stats.cafeManagersData.map((cm, idx) => (
                     <Box key={idx} sx={{ py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
                         <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>{cm.name}</Typography>
-                        <Chip label={`${cm.cafes.length} Café${cm.cafes.length > 1 ? 's' : ''}`} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
+                        <Chip label={`${cm.cafes.length} Cafe${cm.cafes.length > 1 ? 's' : ''}`} size="small" variant="outlined" sx={{ fontWeight: 600 }} />
                       </Box>
                       <Box sx={{ 
                         display: 'flex', 

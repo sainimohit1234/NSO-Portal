@@ -23,6 +23,15 @@ const TRADING_AREAS = [
   'Transit - Metro/Bus Stations', 'Highways', 'B2B'
 ];
 
+const formatIndianCurrencyHint = (value) => {
+  const num = Number(value);
+  if (isNaN(num) || num <= 0) return '';
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2).replace(/\.?0+$/, '')} Crore`;
+  if (num >= 100000) return `₹${(num / 100000).toFixed(2).replace(/\.?0+$/, '')} Lakh`;
+  if (num >= 1000) return `₹${(num / 1000).toFixed(2).replace(/\.?0+$/, '')} Thousand`;
+  return `₹${num}`;
+};
+
 const RequiredBadge = () => (
   <Chip label="Required" size="small" sx={{
     ml: 1, height: 18, fontSize: '0.65rem', fontWeight: 700,
@@ -143,7 +152,7 @@ const NewStore = () => {
   const isAdmin = user?.role === 'ADMIN';
   const canEditContacts = isSuperAdmin || user?.permissions?.includes('EDIT_CONTACTS');
 
-  const { register, handleSubmit, setValue, watch, formState, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, watch, getValues, formState, reset, formState: { errors } } = useForm({
     defaultValues: DEFAULT_FORM_VALUES
   });
 
@@ -220,7 +229,7 @@ const NewStore = () => {
     'GST & FSSAI Details',
     'Others',
     'Operations Details',
-    'Swiggy / Zomato Integration'
+    'Partner Integration Hub'
   ];
 
   const TAB_FIELDS = {
@@ -246,7 +255,7 @@ const NewStore = () => {
       'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'wheelchairAccessibility',
       'petFriendly', 'expectedSalesVal', 'nearbyCafes', 'highlights'
     ],
-    'Swiggy / Zomato Integration': [
+    'Partner Integration Hub': [
       'blueTokaiSwiggyRID', 'blueTokaiZomatoRID', 'suchaliSwiggyRID', 'suchaliZomatoRID',
       'gotTeaSwiggyRID', 'gotTeaZomatoRID'
     ]
@@ -275,7 +284,7 @@ const NewStore = () => {
     'Others': [
       'cafeModule', 'cluster', 'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
     ],
-    'Swiggy / Zomato Integration': []
+    'Partner Integration Hub': []
   };
 
   const getTabErrorCount = (tabName, watchedValues) => {
@@ -386,21 +395,25 @@ const NewStore = () => {
   const brandValue = watch('brand');
 
   useEffect(() => {
-    if (cafeNameValue && brandValue) {
-      const cleanCafeName = String(cafeNameValue).replace(/\s+/g, '').toLowerCase();
-      let cafeMail = '';
-      if (brandValue === 'BLUE_TOKAI_SUCHALI') {
-        cafeMail = `${cleanCafeName}@bluetokaicoffee.com`;
-      } else if (brandValue === 'GOT_TEA') {
-        cafeMail = `${cleanCafeName}@gottea.in`;
-      }
-      setValue('cafeMailId', cafeMail, { shouldValidate: true });
-      setValue('cmMailId', cafeMail ? `cm.${cafeMail}` : '', { shouldValidate: true });
-    } else {
-      setValue('cafeMailId', '', { shouldValidate: true });
-      setValue('cmMailId', '', { shouldValidate: true });
-    }
+    // Email auto-generation removed as per requirement. User will input manually.
   }, [cafeNameValue, brandValue, setValue]);
+
+  // Auto-fetch GST Number from Global Documents based on State
+  const stateValue = watch('state');
+  useEffect(() => {
+    if (stateValue) {
+      axios.get('/api/global-docs')
+        .then(res => {
+          const stateGst = res.data.find(d => d.category === 'State GST' && d.fileName === stateValue);
+          if (stateGst && stateGst.gstNumber && !getValues('gstNo')) {
+             setValue('gstNo', stateGst.gstNumber, { shouldValidate: true, shouldDirty: true });
+             setSnackbarMessage(`Auto-filled GST Number for ${stateValue}`);
+             setOpenSnackbar(true);
+          }
+        })
+        .catch(err => console.error('Failed to auto-fetch GST number for state', err));
+    }
+  }, [stateValue, setValue, getValues]);
 
   useEffect(() => {
     const indoor = Number(watch('indoorSeatingCount')) || 0;
@@ -576,7 +589,8 @@ const NewStore = () => {
       .replace(/{address}|\[Address\]/gi, data.cafeAddress || data.address || '')
       .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, data.cafeModule || data.cafeModel || '')
       .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, data.cafeCode || '')
-      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, data.pinCode || '');
+      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, data.pinCode || '')
+      .replace(/<br\s*[\/]?>/gi, '\n');
   };
 
   const handleSendEmail = async () => {
@@ -613,9 +627,7 @@ const NewStore = () => {
         areaManagerId: pendingSubmitData.areaManagerId || null,
         cityHeadId: pendingSubmitData.cityHeadId || null,
         cafeManagerId: pendingSubmitData.cafeManagerId || null,
-        expectedSales: pendingSubmitData.expectedSalesVal
-          ? `₹${pendingSubmitData.expectedSalesVal} ${pendingSubmitData.expectedSalesUnit || 'Lakhs'}`
-          : null,
+        expectedSales: pendingSubmitData.expectedSalesVal ? Number(pendingSubmitData.expectedSalesVal) : null,
       };
       delete payload.cafeLaunchYear;
       delete payload.expectedSalesVal;
@@ -720,9 +732,7 @@ const NewStore = () => {
         areaManagerId: pendingSubmitData.areaManagerId || null,
         cityHeadId: pendingSubmitData.cityHeadId || null,
         cafeManagerId: pendingSubmitData.cafeManagerId || null,
-        expectedSales: pendingSubmitData.expectedSalesVal
-          ? `₹${pendingSubmitData.expectedSalesVal} ${pendingSubmitData.expectedSalesUnit || 'Lakhs'}`
-          : null,
+        expectedSales: pendingSubmitData.expectedSalesVal ? Number(pendingSubmitData.expectedSalesVal) : null,
       };
       delete payload.cafeLaunchYear;
       delete payload.expectedSalesVal;
@@ -746,7 +756,7 @@ const NewStore = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 1600, mx: 'auto', py: 2, px: 1 }}>
+    <Box sx={{ width: '100%', py: 2, px: { xs: 1, md: 2 } }}>
       {Object.keys(errors).length > 0 && (
         <Alert severity="error" sx={{ mb: 4, borderRadius: '12px', '& .MuiAlert-message': { fontWeight: 700 } }}>
           Validation Error: Please complete the following mandatory fields before submitting: 
@@ -1597,27 +1607,12 @@ const NewStore = () => {
                         label="Expected Sale"
                         type="number"
                         error={!!errors.expectedSalesVal}
-                        helperText={errors.expectedSalesVal?.message}
+                        helperText={errors.expectedSalesVal?.message || formatIndianCurrencyHint(watch('expectedSalesVal'))}
                         {...register('expectedSalesVal', {
-                          min: { value: 1, message: 'Value must be between 1 and 200' },
-                          max: { value: 200, message: 'Value must be between 1 and 200' }
+                          min: { value: 1, message: 'Value must be greater than 0' }
                         })}
                         InputProps={{
-                          startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <Select
-                                value={watch('expectedSalesUnit') || 'Lakhs'}
-                                onChange={(e) => setValue('expectedSalesUnit', e.target.value)}
-                                variant="standard"
-                                disableUnderline
-                                sx={{ mr: 1, fontWeight: 600, cursor: 'pointer' }}
-                              >
-                                <MenuItem value="Lakhs">Lakhs</MenuItem>
-                                <MenuItem value="Crores">Cr.</MenuItem>
-                              </Select>
-                            </InputAdornment>
-                          )
+                          startAdornment: <InputAdornment position="start">₹</InputAdornment>
                         }}
                       />
                     </Grid>
@@ -1642,14 +1637,14 @@ const NewStore = () => {
           )}
           </Grid>
 
-          {/* ─── CARD 3: Swiggy / Zomato Integration (All Optional) ─── */}
-          {activeTab === 'Swiggy / Zomato Integration' && selectedBrand && (
+          {/* ─── CARD 3: Partner Integration Hub (All Optional) ─── */}
+          {activeTab === 'Partner Integration Hub' && selectedBrand && (
             <Grid size={12}>
               <Card sx={{ bgcolor: 'background.paper' }}>
                 <CardContent sx={{ p: 4 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                      Swiggy / Zomato Integration Status
+                      Partner Integration Hub Status
                     </Typography>
                     <OptionalBadge />
                   </Box>

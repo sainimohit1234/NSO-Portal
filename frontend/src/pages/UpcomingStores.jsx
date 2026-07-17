@@ -2,12 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { 
   Box, Typography, Card, CardContent, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Chip, TextField, Grid,
-  Button, MenuItem, Tooltip, Select, Dialog, DialogTitle, DialogContent, DialogActions, Alert
+  Button, MenuItem, Tooltip, Select, Dialog, DialogTitle, DialogContent, DialogActions, Alert, InputAdornment, IconButton, Stack
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import ConstructionIcon from '@mui/icons-material/Construction';
+import SearchIcon from '@mui/icons-material/Search';
+import PauseCircleIcon from '@mui/icons-material/PauseCircle';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
+import SendIcon from '@mui/icons-material/Send';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -15,29 +22,36 @@ import { normalizeListResponse } from '../utils/api';
 import { fetchStoresFromFirestore } from '../services/storeService';
 import { sortStoresByCurrentStatus } from '../utils/status';
 
+const formatIndianCurrencyHint = (value) => {
+  if (!value) return '';
+  const num = Number(value.toString().replace(/[^0-9.]/g, ''));
+  if (isNaN(num) || num <= 0) return value;
+  
+  if (num >= 10000000) {
+    const formatted = (num / 10000000).toFixed(2).replace(/\.?0+$/, '');
+    return `₹${formatted} Crore`;
+  }
+  if (num >= 100000) {
+    const formatted = (num / 100000).toFixed(2).replace(/\.?0+$/, '');
+    return `₹${formatted} Lakh`;
+  }
+  if (num >= 1000) {
+    const formatted = (num / 1000).toFixed(2).replace(/\.?0+$/, '');
+    return `₹${formatted} Thousand`;
+  }
+  return `₹${num}`;
+};
+
 export default function UpcomingStores() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const hasUpcomingEditor = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.permissions?.includes('EDITOR');
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const [stores, setStores] = useState([]);
   const [filteredStores, setFilteredStores] = useState([]);
-  const [filters, setFilters] = useState({
-    brand: '',
-    searchType: 'name',
-    searchQuery: '',
-    city: '',
-    launchMonthYear: '',
-    workflowStatus: ''
-  });
-
-  const hasActiveFilters = !!(
-    filters.brand ||
-    (filters.searchQuery || '').trim() ||
-    filters.city ||
-    filters.launchMonthYear ||
-    filters.workflowStatus
-  );
+  const [globalSearch, setGlobalSearch] = useState('');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('');
 
   const fetchStores = () => {
     fetchStoresFromFirestore()
@@ -95,6 +109,88 @@ export default function UpcomingStores() {
     }
   };
 
+  const [draftDialog, setDraftDialog] = useState({ open: false, store: null, to: '', cc: '', subject: '', body: '' });
+  const [isDraftEditing, setIsDraftEditing] = useState(false);
+  const [draftSending, setDraftSending] = useState(false);
+  const bodyRef = React.useRef(null);
+
+  const replacePlaceholders = (text, storeData) => {
+    if (!text || !storeData) return text;
+    const completeAddress = [storeData.address, storeData.city, storeData.state, storeData.pinCode].filter(Boolean).join(', ');
+    const placeholderMap = {
+      '[Cafe Name]': storeData.cafeName || '',
+      '[Cafe Code]': storeData.cafeCode || '',
+      '[Brand]': storeData.brand || '',
+      '[Location]': storeData.location || completeAddress || '',
+      '[City]': storeData.city || '',
+      '[State]': storeData.state || '',
+      '[Pin Code]': storeData.pinCode || '',
+      '[Cafe Address]': storeData.cafeAddress || storeData.address || '',
+      '[Expected Sale]': formatIndianCurrencyHint(storeData.expectedSales || storeData.expectedSalesVal) || '',
+      '[Cafe Launch Month & Year]': storeData.cafeLaunchMonth || '',
+      '[Launch Date]': storeData.launchDate ? new Date(storeData.launchDate).toLocaleDateString('en-IN') : '',
+    };
+    let result = text;
+    for (const [token, value] of Object.entries(placeholderMap)) {
+      const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      result = result.replace(new RegExp(escaped, 'gi'), value);
+    }
+    return result.replace(/<br\s*[\/]?>/gi, '\n');
+  };
+
+  const handleOpenDraftDialog = async (store) => {
+    try {
+      const [templatesRes, mappingsRes] = await Promise.all([
+        axios.get('/api/system/email-templates'),
+        axios.get('/api/system/email-mappings'),
+      ]);
+      const templates = templatesRes.data || {};
+      const mappings = Array.isArray(mappingsRes.data) ? mappingsRes.data : [];
+      
+      const subCategoryKey = 'Hiring Alart';
+      const mapping = mappings.find(m => m.subCategory?.toLowerCase() === subCategoryKey.toLowerCase());
+      const template = templates[subCategoryKey] || {};
+      
+      const rawSubject = template.subject || `Hiring Alert | ${store.cafeName}`;
+      const rawBody = template.body || '';
+
+      const subject = replacePlaceholders(rawSubject, store);
+      const body = replacePlaceholders(rawBody, store).replace(/\n/g, '<br/>');
+
+      setDraftDialog({
+        open: true,
+        store: store,
+        to: mapping?.to?.join(', ') || '',
+        cc: mapping?.cc?.join(', ') || '',
+        subject,
+        body
+      });
+      setIsDraftEditing(false);
+    } catch (err) {
+      console.error('Error fetching template:', err);
+    }
+  };
+
+  const handleSendDraftEmail = async () => {
+    if (!draftDialog.store) return;
+    setDraftSending(true);
+    try {
+      await axios.post(`/api/stores/${draftDialog.store.id}/send-hiring-alert-email`, {
+        to: draftDialog.to,
+        cc: draftDialog.cc,
+        subject: draftDialog.subject,
+        body: draftDialog.body
+      });
+      setDraftDialog(prev => ({ ...prev, open: false }));
+      fetchStores();
+    } catch (err) {
+      console.error('Error sending email:', err);
+      alert(err.response?.data?.error || 'Failed to send email.');
+    } finally {
+      setDraftSending(false);
+    }
+  };
+
   const handleConfirmUc = async () => {
     if (!ucHandoverDate || !ucLaunchDate) {
       setUcDialogError('Project Handover Date and Launch Date are mandatory.');
@@ -136,76 +232,31 @@ export default function UpcomingStores() {
   useEffect(() => {
     let result = stores;
 
-    // Brand Filter
-    if (filters.brand) {
-      result = result.filter(s => {
-        if (filters.brand === 'BLUE_TOKAI_SUCHALI') {
-          return !s.brand || s.brand === 'BLUE_TOKAI_SUCHALI';
-        }
-        return s.brand === filters.brand;
-      });
+    if (globalSearch) {
+      const q = globalSearch.toLowerCase();
+      result = result.filter(s => 
+        s.cafeName?.toLowerCase().includes(q) ||
+        s.cafeCode?.toLowerCase().includes(q) ||
+        s.city?.toLowerCase().includes(q) ||
+        s.state?.toLowerCase().includes(q) ||
+        s.address?.toLowerCase().includes(q) ||
+        s.pinCode?.toString().includes(q) ||
+        s.brand?.toLowerCase().includes(q) ||
+        s.status?.toLowerCase().includes(q)
+      );
     }
 
-    // Search Filter
-    if (filters.searchQuery) {
-      const query = filters.searchQuery.toLowerCase();
-      if (filters.searchType === 'name') {
-        result = result.filter(s => s.cafeName?.toLowerCase().includes(query));
-      } else if (filters.searchType === 'code') {
-        result = result.filter(s => s.cafeCode?.toLowerCase().includes(query));
-      }
-    }
-
-    // City Filter
-    if (filters.city) {
-      result = result.filter(s => s.city === filters.city);
-    }
-
-    // Tentative Launch Month Year Filter
-    if (filters.launchMonthYear) {
-      const [year, month] = filters.launchMonthYear.split('-');
-      result = result.filter(s => {
-        if (s.tentativeDryLaunchDate) {
-          const dateStr = typeof s.tentativeDryLaunchDate === 'string'
-            ? s.tentativeDryLaunchDate
-            : (s.tentativeDryLaunchDate?.seconds
-                ? new Date(s.tentativeDryLaunchDate.seconds * 1000).toISOString().split('T')[0]
-                : '');
-          if (!dateStr) return false;
-          const parts = dateStr.split('-');
-          return parts.length >= 2 && parts[0] === year && parts[1] === month;
-        }
-        return false;
-      });
-    }
-
-    // Workflow Status Filter
-    if (filters.workflowStatus) {
-      if (filters.workflowStatus === 'APPROVED') {
+    if (selectedStatusFilter) {
+      if (selectedStatusFilter === 'APPROVED') {
         result = result.filter(s => s.status === 'APPROVED' || s.status === 'NSO_APPROVED');
       } else {
-        result = result.filter(s => s.status === filters.workflowStatus);
+        result = result.filter(s => s.status === selectedStatusFilter);
       }
     }
 
     const sortedResult = sortStoresByCurrentStatus(result);
     setFilteredStores(sortedResult);
-  }, [filters, stores]);
-
-  const handleFilterChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
-
-  const handleClearFilters = () => {
-    setFilters({
-      brand: '',
-      searchType: 'name',
-      searchQuery: '',
-      city: '',
-      launchMonthYear: '',
-      workflowStatus: ''
-    });
-  };
+  }, [globalSearch, selectedStatusFilter, stores]);
 
   const parseDate = (val) => {
     if (!val) return null;
@@ -266,17 +317,18 @@ export default function UpcomingStores() {
   const pipelineCount = stores.filter(s => s.status === 'In Pipeline' || s.status === 'IN_PIPELINE' || s.status === 'Pipeline').length;
   const rfcCount = stores.filter(s => s.status === 'Ready for Construction').length;
   const ucCount = stores.filter(s => s.status === 'Under Construction').length;
+  const pendingApprovalCount = stores.filter(s => s.status === 'PENDING_APPROVAL' || s.status === 'Approval Pending' || s.status === 'Pending Approval' || s.status === 'Sent to NSO Team for Approval').length;
+  const onHoldCount = stores.filter(s => s.status === 'ON_HOLD' || s.status === 'On Hold').length;
+  const approvedCount = stores.filter(s => s.status === 'APPROVED' || s.status === 'NSO_APPROVED').length;
 
   const handleTileClick = (status) => {
-    setFilters({ ...filters, workflowStatus: status });
+    setSelectedStatusFilter(status);
   };
-
-  const uniqueCities = Array.from(new Set(stores.map(s => s.city).filter(Boolean))).sort();
 
   return (
     <Box sx={{ py: 1 }}>
       <Card sx={{ mb: 4, overflow: 'hidden', bgcolor: '#0f2942' }}>
-        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+        <CardContent sx={{ p: 1.25, '&:last-child': { pb: 1.25 }, position: 'relative' }}>
           <Box
             sx={{
               position: 'absolute',
@@ -307,12 +359,42 @@ export default function UpcomingStores() {
                 Monitor, filter, and plan for upcoming cafe setups and dry launches.
               </Typography>
             </Box>
+            
+            <TextField 
+              size="small" 
+              placeholder="Global Search..." 
+              value={globalSearch} 
+              onChange={e => setGlobalSearch(e.target.value)} 
+              sx={{ 
+                bgcolor: '#ffffff',
+                borderRadius: '10px',
+                width: { xs: '100%', sm: 220 },
+                '& .MuiOutlinedInput-root': {
+                  height: 36,
+                  borderRadius: '10px',
+                  '& fieldset': { border: 'none' }
+                },
+                '& .MuiInputBase-input': {
+                  padding: '0 8px 0 0',
+                  fontSize: '0.8rem',
+                  color: '#0f2942',
+                  fontWeight: 700
+                }
+              }} 
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ color: '#0f2942', fontSize: 18 }} />
+                  </InputAdornment>
+                ),
+              }}
+            />
           </Box>
         </CardContent>
       </Card>
 
       {/* Status Summary Tiles */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2.25, mb: 3.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' }, gap: 2.25, mb: 3.5 }}>
         {[
           {
             key: 'pipeline',
@@ -320,51 +402,77 @@ export default function UpcomingStores() {
             count: pipelineCount,
             filterValue: 'In Pipeline',
             icon: <TimelineIcon />,
-            color: '#3b82f6'
+            color: '#0ea5e9'
           },
           {
             key: 'rfc',
-            label: 'Ready for Construction',
+            label: 'Ready for Const.',
             count: rfcCount,
             filterValue: 'Ready for Construction',
             icon: <AssignmentIcon />,
-            color: '#10b981'
+            color: '#3b82f6'
           },
           {
             key: 'construction',
-            label: 'Under Construction',
+            label: 'Under Const.',
             count: ucCount,
             filterValue: 'Under Construction',
             icon: <ConstructionIcon />,
-            color: '#8b5cf6'
+            color: '#6366f1'
+          },
+          {
+            key: 'approvalPending',
+            label: 'Approval Pend.',
+            count: pendingApprovalCount,
+            filterValue: 'PENDING_APPROVAL',
+            icon: <PendingActionsIcon />,
+            color: '#4f46e5'
+          },
+          {
+            key: 'onHold',
+            label: 'On Hold',
+            count: onHoldCount,
+            filterValue: 'ON_HOLD',
+            icon: <PauseCircleIcon />,
+            color: '#1e3a8a'
+          },
+          {
+            key: 'approved',
+            label: 'Approved',
+            count: approvedCount,
+            filterValue: 'APPROVED',
+            icon: <CheckCircleIcon />,
+            color: '#0284c7'
           }
         ].map((tile) => {
-          const isActive = filters.workflowStatus === tile.filterValue;
+          const isActive = selectedStatusFilter === tile.filterValue;
           return (
             <Card
               key={tile.key}
               onClick={() => handleTileClick(isActive ? '' : tile.filterValue)}
               sx={{
-                bgcolor: 'background.paper',
+                bgcolor: '#f8fafc',
+                background: isActive ? `linear-gradient(135deg, ${tile.color} 0%, ${tile.color}cc 100%)` : `linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%)`,
                 borderRadius: '16px',
-                border: '2px solid',
-                borderColor: isActive ? tile.color : 'transparent',
+                border: '1px solid',
+                borderColor: isActive ? tile.color : 'rgba(148, 163, 184, 0.2)',
                 boxShadow: isActive 
-                  ? `0 12px 24px ${tile.color}1e, inset 0 2px 0 rgba(255,255,255,0.5)`
-                  : '0 4px 12px rgba(0,0,0,0.03)',
+                  ? `0 12px 24px ${tile.color}33, inset 0 2px 0 rgba(255,255,255,0.3)`
+                  : '0 4px 12px rgba(15, 23, 42, 0.05)',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 cursor: 'pointer',
                 position: 'relative',
                 overflow: 'hidden',
-                opacity: filters.workflowStatus !== '' && !isActive ? 0.65 : 1,
-                transform: isActive ? 'scale(1.02)' : 'none',
+                opacity: selectedStatusFilter !== '' && !isActive ? 0.7 : 1,
+                transform: isActive ? 'scale(1.03)' : 'none',
                 '&:hover': {
-                  transform: isActive ? 'scale(1.02) translateY(-2px)' : 'translateY(-3px)',
+                  transform: isActive ? 'scale(1.03) translateY(-2px)' : 'translateY(-3px)',
                   boxShadow: isActive 
-                    ? `0 16px 32px ${tile.color}2c`
-                    : '0 12px 24px rgba(15,23,42,0.08)',
+                    ? `0 16px 32px ${tile.color}40`
+                    : '0 12px 24px rgba(15,23,42,0.1)',
                   opacity: 1,
-                  borderColor: isActive ? tile.color : `${tile.color}40`
+                  borderColor: isActive ? tile.color : `${tile.color}60`,
+                  background: isActive ? `linear-gradient(135deg, ${tile.color} 0%, ${tile.color}cc 100%)` : `linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)`,
                 }
               }}
             >
@@ -376,21 +484,21 @@ export default function UpcomingStores() {
                   width: 90,
                   height: 90,
                   borderRadius: '50%',
-                  background: `radial-gradient(circle, ${tile.color}18 0%, ${tile.color}00 70%)`
+                  background: isActive ? `radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)` : `radial-gradient(circle, ${tile.color}18 0%, ${tile.color}00 70%)`
                 }}
               />
-              <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Box sx={{ minWidth: 0 }}>
                     <Typography 
                       variant="body2" 
-                      color="text.secondary" 
                       sx={{ 
                         fontWeight: 700, 
-                        mb: 0.75, 
+                        mb: 0.5, 
                         textTransform: 'uppercase', 
                         letterSpacing: '0.05em', 
-                        fontSize: '0.7rem' 
+                        fontSize: { xs: '0.6rem', md: '0.65rem' },
+                        color: isActive ? 'rgba(255,255,255,0.9)' : tile.color
                       }}
                     >
                       {tile.label}
@@ -399,33 +507,34 @@ export default function UpcomingStores() {
                       variant="h4" 
                       sx={{ 
                         fontWeight: 800, 
-                        color: 'text.primary', 
-                        fontSize: { xs: '1.8rem', md: '2.1rem' }, 
+                        fontSize: { xs: '1.6rem', md: '1.8rem' }, 
                         lineHeight: 1, 
-                        mb: 0.5 
+                        mb: 0.5,
+                        color: isActive ? '#ffffff' : '#0f172a',
+                        textShadow: isActive ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
                       }}
                     >
                       {tile.count}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{ color: isActive ? 'rgba(255,255,255,0.7)' : 'text.secondary' }}>
                       {isActive ? 'Active Filter' : 'Click to filter'}
                     </Typography>
                   </Box>
                   <Box 
                     sx={{
-                      bgcolor: isActive ? tile.color : `${tile.color}12`,
-                      p: 1.25,
+                      bgcolor: isActive ? 'rgba(255,255,255,0.2)' : `${tile.color}15`,
+                      p: 1,
                       borderRadius: 3.5,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       color: isActive ? '#ffffff' : tile.color,
-                      border: `1px solid ${tile.color}20`,
+                      border: `1px solid ${isActive ? 'rgba(255,255,255,0.3)' : `${tile.color}20`}`,
                       boxShadow: isActive ? 'none' : 'inset 0 1px 0 rgba(255,255,255,0.45)',
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    {React.cloneElement(tile.icon, { sx: { fontSize: 22 } })}
+                    {React.cloneElement(tile.icon, { sx: { fontSize: 20 } })}
                   </Box>
                 </Box>
               </CardContent>
@@ -434,133 +543,7 @@ export default function UpcomingStores() {
         })}
       </Box>
 
-      {/* Filters Card */}
-      <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
-        <CardContent>
-          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 700 }}>Filter Upcoming Stores</Typography>
-          <Grid container spacing={2} alignItems="center">
-            {/* Brand Filter */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Brand"
-                name="brand"
-                value={filters.brand}
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="">All Brands</MenuItem>
-                <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's</MenuItem>
-                <MenuItem value="GOT_TEA">Got Tea</MenuItem>
-              </TextField>
-            </Grid>
-
-            {/* Search Type Filter */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Search By"
-                name="searchType"
-                value={filters.searchType}
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="name">Branch Name</MenuItem>
-                <MenuItem value="code">Branch Code</MenuItem>
-              </TextField>
-            </Grid>
-
-            {/* Search Query Filter */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label={filters.searchType === 'name' ? 'Branch Name' : 'Branch Code'}
-                placeholder={filters.searchType === 'name' ? 'Search by name...' : 'Search by code...'}
-                name="searchQuery"
-                value={filters.searchQuery}
-                onChange={handleFilterChange}
-              />
-            </Grid>
-
-            {/* City Filter */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="City"
-                name="city"
-                value={filters.city}
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="">All Cities</MenuItem>
-                {uniqueCities.map(city => (
-                  <MenuItem key={city} value={city}>{city}</MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-
-            {/* Dry Launch Date Range */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <TextField
-                type="month"
-                fullWidth
-                size="small"
-                label="Dry Launch Month"
-                name="launchMonthYear"
-                value={filters.launchMonthYear}
-                onChange={handleFilterChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-
-            {/* Workflow Status Filter */}
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <TextField
-                select
-                fullWidth
-                size="small"
-                label="Workflow Status"
-                name="workflowStatus"
-                value={filters.workflowStatus}
-                onChange={handleFilterChange}
-              >
-                <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value="In Pipeline">In Pipeline</MenuItem>
-                <MenuItem value="Ready for Construction">Ready for Construction</MenuItem>
-                <MenuItem value="Under Construction">Under Construction</MenuItem>
-                <MenuItem value="PENDING_APPROVAL">Sent to NSO Team for Approval</MenuItem>
-                <MenuItem value="APPROVED">Approved</MenuItem>
-                <MenuItem value="ON_HOLD">On Hold</MenuItem>
-
-                <MenuItem value="READY_TO_GO_LIVE">Ready to Go Live</MenuItem>
-                <MenuItem value="UPCOMING">Upcoming</MenuItem>
-                <MenuItem value="LIVE">Live</MenuItem>
-                <MenuItem value="CLOSED">Closed</MenuItem>
-                <MenuItem value="REJECTED">Rejected</MenuItem>
-              </TextField>
-            </Grid>
-
-            {/* Clear Filters Button */}
-            {hasActiveFilters && (
-              <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                <Button
-                  variant="outlined"
-                  color="secondary"
-                  fullWidth
-                  onClick={handleClearFilters}
-                  sx={{ height: 40, borderRadius: '8px', fontWeight: 700 }}
-                >
-                  Clear
-                </Button>
-              </Grid>
-            )}
-          </Grid>
-        </CardContent>
-      </Card>
+      {/* Filter Section Removed */}
 
       {/* Stores List Card */}
       <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden' }}>
@@ -576,6 +559,7 @@ export default function UpcomingStores() {
                 <TableCell>Handover Date</TableCell>
                 <TableCell>Dry Launch Date</TableCell>
                 <TableCell>Workflow Status</TableCell>
+                <TableCell>Hiring Alart</TableCell>
                 <TableCell>Sent to NSO Team for Approval By</TableCell>
                 <TableCell>Approved By</TableCell>
               </TableRow>
@@ -583,7 +567,7 @@ export default function UpcomingStores() {
             <TableBody>
               {filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={11} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No upcoming stores found.
                   </TableCell>
                 </TableRow>
@@ -622,16 +606,16 @@ export default function UpcomingStores() {
                       </TableCell>
                       <TableCell sx={{ color: 'text.secondary', fontSize: '0.825rem' }}>
                         {(() => {
+                          const address = store.address || '';
                           const city = store.city || '';
-                          const zone = store.zone || '';
-                          const parts = [];
-                          if (city) parts.push(city);
-                          if (zone) parts.push(zone);
-                          return parts.join(' - ') || 'N/A';
+                          const state = store.state || '';
+                          const pin = store.pinCode || '';
+                          const parts = [address, city, state, pin].filter(Boolean);
+                          return parts.join(', ') || '—';
                         })()}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
-                        {store.expectedSales || '—'}
+                        {formatIndianCurrencyHint(store.expectedSales) || '—'}
                       </TableCell>
                       <TableCell sx={{ color: 'text.secondary', fontSize: '0.85rem' }}>
                         {formatDateString(store.projectStartDate)}
@@ -728,6 +712,50 @@ export default function UpcomingStores() {
                           />
                         )}
                       </TableCell>
+                        <TableCell>
+                          {!store.status || ['In Pipeline', 'Agreement Signed', 'Ready for Construction'].includes(store.status) ? (
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>—</Typography>
+                          ) : store.hiringAlertMailStatus === 'Sent' ? (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Chip 
+                                icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} 
+                                label="Sent" 
+                                size="small" 
+                                sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} 
+                              />
+                              {isSuperAdmin && (
+                                <Tooltip title="Resend Hiring Alart Email">
+                                  <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenDraftDialog(store); }}>
+                                    <SendIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
+                          ) : (
+                            <Select
+                              value="Pending"
+                              size="small"
+                              onChange={(e) => {
+                                if (e.target.value === 'Hiring Alart') {
+                                  handleOpenDraftDialog(store);
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              sx={{
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                height: 30,
+                                borderRadius: '6px',
+                                minWidth: 120,
+                                bgcolor: '#f1f5f9',
+                                '& .MuiSelect-select': { py: 0.5 }
+                              }}
+                            >
+                              <MenuItem value="Pending" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>Pending</MenuItem>
+                              <MenuItem value="Hiring Alart" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>Hiring Alart</MenuItem>
+                            </Select>
+                          )}
+                        </TableCell>
                       <TableCell sx={{ fontSize: '0.825rem', color: 'text.secondary' }}>
                         {store.sentToNsoBy ? (
                           <Box>
@@ -824,6 +852,71 @@ export default function UpcomingStores() {
           </Button>
           <Button onClick={handleConfirmUc} variant="contained" color="primary" sx={{ fontWeight: 700, borderRadius: '8px', px: 3, boxShadow: 2 }}>
             Save & Continue
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Email Draft Dialog */}
+      <Dialog open={draftDialog.open} onClose={() => setDraftDialog(prev => ({ ...prev, open: false }))} fullWidth maxWidth="md" PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}>
+        <DialogTitle sx={{ fontWeight: 800, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>Draft Email Preview</Typography>
+            </Box>
+            <Typography variant="caption" color="text.secondary">Platform: <strong>Hiring Alart</strong></Typography>
+          </Box>
+          <Box>
+            {!isDraftEditing && (
+              <Button 
+                variant="outlined" 
+                startIcon={<EditIcon />} 
+                onClick={() => setIsDraftEditing(true)} 
+                sx={{ mr: 2, borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
+              >
+                Edit
+              </Button>
+            )}
+            <IconButton onClick={() => setDraftDialog(prev => ({ ...prev, open: false }))}><CloseIcon /></IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ py: 2 }}>
+          <Stack spacing={2.5}>
+            <TextField label="To" fullWidth size="small" disabled={!isDraftEditing} value={draftDialog.to} onChange={(e) => setDraftDialog(prev => ({ ...prev, to: e.target.value }))} />
+            <TextField label="Cc" fullWidth size="small" disabled={!isDraftEditing} value={draftDialog.cc} onChange={(e) => setDraftDialog(prev => ({ ...prev, cc: e.target.value }))} />
+            <TextField label="Subject" fullWidth size="small" disabled={!isDraftEditing} value={draftDialog.subject} onChange={(e) => setDraftDialog(prev => ({ ...prev, subject: e.target.value }))} />
+            
+            <Box sx={{ border: '1px solid', borderColor: isDraftEditing ? 'primary.main' : 'divider', borderRadius: '12px', bgcolor: '#ffffff', minHeight: '300px', mt: 2, overflow: 'hidden', position: 'relative' }}>
+              <Box sx={{ px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary' }}>
+                  Email Body
+                </Typography>
+                {isDraftEditing && <Typography variant="caption" color="primary">Editing Mode Active</Typography>}
+              </Box>
+              <Box sx={{ p: 2 }}>
+                <div 
+                  ref={bodyRef}
+                  contentEditable={isDraftEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => setDraftDialog(prev => ({ ...prev, body: e.target.innerHTML }))}
+                  dangerouslySetInnerHTML={{ __html: draftDialog.body || '' }} 
+                  style={{
+                    fontSize: '0.875rem',
+                    color: '#334155',
+                    lineHeight: '1.6',
+                    outline: 'none',
+                    minHeight: '250px'
+                  }}
+                />
+              </Box>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Button onClick={() => setDraftDialog(prev => ({ ...prev, open: false }))} color="inherit" sx={{ fontWeight: 600, borderRadius: '8px' }}>
+            Cancel
+          </Button>
+          <Button onClick={handleSendDraftEmail} variant="contained" disabled={draftSending} sx={{ fontWeight: 700, borderRadius: '8px', px: 3, boxShadow: 2 }}>
+            {draftSending ? 'Sending...' : 'Send Email'}
           </Button>
         </DialogActions>
       </Dialog>

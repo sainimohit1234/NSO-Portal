@@ -605,7 +605,16 @@ const AuditTrail = () => {
                     </Box>
                   </TableCell>
                   <TableCell>{formatActivity(log)}</TableCell>
-                  <TableCell>{log.userName}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="body2">{log.userName}</Typography>
+                      {log.userEmail && log.userEmail !== log.userName && (
+                        <Typography variant="caption" color="text.secondary">
+                          {log.userEmail}
+                        </Typography>
+                      )}
+                    </Box>
+                  </TableCell>
                   <TableCell>{log.timestamp ? new Date(log.timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'}</TableCell>
                   <TableCell>
                     <Button variant="outlined" size="small" onClick={() => handleViewAction(log)} sx={{ borderRadius: '8px', textTransform: 'none' }}>

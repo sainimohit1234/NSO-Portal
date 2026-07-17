@@ -49,14 +49,14 @@ const JOURNEY_STEPS = [
     description: 'A user clicks "Add New Store" in the NSO Portal. A new store record is created in the system with the initial launch status set to "Upcoming Store".',
     who: 'Any authorised NSO Portal user',
     actions: [
-      'Fill in Café Name, Café Code, Brand, City, State, Address',
-      'Select Café Model, Trading Area, Zone, Platform Type',
-      'Enter contacts: Area Manager, City Head, Café Manager',
+      'Fill in Cafe Name, Cafe Code, Brand, City, State, Address',
+      'Select Cafe Model, Trading Area, Zone, Platform Type',
+      'Enter contacts: Area Manager, City Head, Cafe Manager',
       'Add aggregator RIDs (Swiggy/Zomato) if available',
       'Click "Submit" — store is saved with status: UPCOMING',
     ],
     emailTrigger: false,
-    fields: ['Café Name', 'Café Code', 'Brand', 'City', 'State', 'Café Model', 'Trading Area'],
+    fields: ['Cafe Name', 'Cafe Code', 'Brand', 'City', 'State', 'Cafe Model', 'Trading Area'],
     statusAfter: 'UPCOMING',
     notes: 'mailStatus is set to "Pending for S/Z" automatically. The store appears in "All Upcoming Stores" and "All Stores" views.',
   },
@@ -185,7 +185,7 @@ const JOURNEY_STEPS = [
     description: 'Integration emails are sent to Swiggy and Zomato to onboard the store. Once the RIDs (Restaurant IDs) are received from the aggregators, they are entered into the system.',
     who: 'NSO Team / Integration Team',
     actions: [
-      'Go to Swiggy / Zomato Integration page',
+      'Go to Partner Integration Hub page',
       'Draft and send integration emails to Swiggy and/or Zomato',
       'mailStatus updates to "Sent" for each aggregator',
       'Receive RIDs from aggregators (Restaurant IDs)',
@@ -306,7 +306,7 @@ export default function StoreJourney() {
                 <Chip label="Preview Only · Localhost" size="small" sx={{ bgcolor: 'rgba(239,68,68,0.2)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.35)', fontWeight: 700, fontSize: '0.7rem' }} />
               </Box>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', maxWidth: 680, lineHeight: 1.6 }}>
-                Complete lifecycle of a new café — from the first click of "Add New Project" all the way through to Delivery Live. Each stage shows the internal status, responsible actor, actions taken, and automated email triggers.
+                Complete lifecycle of a new cafe — from the first click of "Add New Project" all the way through to Delivery Live. Each stage shows the internal status, responsible actor, actions taken, and automated email triggers.
               </Typography>
               {/* Legend */}
               <Box sx={{ display: 'flex', gap: 2, mt: 2, flexWrap: 'wrap' }}>

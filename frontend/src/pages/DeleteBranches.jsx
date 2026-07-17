@@ -110,9 +110,8 @@ export default function DeleteBranches() {
     try {
       // Optimistic update in UI
       setStores(prev => prev.map(s => s.id === storeId ? { ...s, isActive: newActiveState } : s));
-      // Write directly to Firestore (same source the page reads from)
-      const storeRef = doc(firestore, 'stores', storeId);
-      await updateDoc(storeRef, { isActive: newActiveState });
+      // Hit backend API to update DB and cache invalidation metadata
+      await axios.put(`/api/stores/${storeId}/toggle-active`, { isActive: newActiveState });
     } catch (err) {
       console.error('Failed to toggle active status:', err);
       setErrorMsg('Failed to update active status. Please try again.');
@@ -170,7 +169,7 @@ export default function DeleteBranches() {
   }
 
   return (
-    <Box sx={{ maxWidth: 1600, mx: 'auto', p: 1 }}>
+    <Box sx={{ width: '100%', py: 1, px: { xs: 1, md: 2 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, gap: 2, flexWrap: 'wrap' }}>
         <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em' }}>
           Store Control Center

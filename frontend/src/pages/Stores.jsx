@@ -392,7 +392,7 @@ export default function Stores() {
                   '&:hover': { bgcolor: '#5ebbc9', boxShadow: '0 6px 20px 0 rgba(111,205,220,0.4)' }
                 }}
               >
-                Café Journey
+                Cafe Journey
               </Button>
             </Box>
           </Box>
@@ -852,7 +852,7 @@ export default function Stores() {
                         <Switch
                           checked={store.isLocked || false}
                           onChange={(e) => handleToggleLock(store.id, e.target.checked)}
-                          disabled={!isSuperAdmin}
+                          disabled={!isSuperAdmin || (!store.isLocked && store.status !== 'LIVE' && store.status !== 'Live')}
                           color="success"
                         />
                       </TableCell>

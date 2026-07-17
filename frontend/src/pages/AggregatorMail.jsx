@@ -42,130 +42,13 @@ const STATUS_OPTIONS = [
   'Draft a mail for SAB | Swiggy',
   'Draft a mail for GT | Zomato',
   'Draft a mail for GT | Swiggy',
+  'Draft Mail for Rista Creation',
   'Draft a mail to Legal Team',
   'Draft a mail to Finance Team',
   'Draft a mail to Project Team',
+  'Hiring Alart',
 ];
 
-const htmlToTextMessage = (html) => {
-  if (!html) return '';
-  let txt = html.replace(/<br\s*\/?>/gi, '\n');
-  txt = txt.replace(/<\/p>|<\/div>/gi, '\n');
-  txt = txt.replace(/<[^>]*>/g, '');
-  const tempDoc = new DOMParser().parseFromString(txt, 'text/html');
-  return tempDoc.body.textContent || tempDoc.body.innerText || txt;
-};
-
-const parseTemplateBody = (bodyHtml) => {
-  if (!bodyHtml) return { intro: '', outro: '', tableData: null };
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(bodyHtml, 'text/html');
-  const table = doc.querySelector('table');
-  
-  let intro = '';
-  let outro = '';
-  let tableData = null;
-
-  if (table) {
-    let prev = table.previousSibling;
-    const intros = [];
-    while (prev) {
-      intros.unshift(prev.nodeType === Node.TEXT_NODE ? prev.textContent : (prev.outerHTML || prev.textContent || ''));
-      prev = prev.previousSibling;
-    }
-    intro = htmlToTextMessage(intros.join(''));
-
-    let next = table.nextSibling;
-    const outros = [];
-    while (next) {
-      outros.push(next.nodeType === Node.TEXT_NODE ? next.textContent : (next.outerHTML || next.textContent || ''));
-      next = next.nextSibling;
-    }
-    outro = htmlToTextMessage(outros.join(''));
-
-    const headers = [];
-    const theadRow = table.querySelector('thead tr') || table.querySelector('tr');
-    if (theadRow) {
-      const headerCells = theadRow.querySelectorAll('th, td');
-      headerCells.forEach(cell => {
-        headers.push({
-          text: cell.textContent?.trim() || '',
-          bgColor: cell.style.backgroundColor || '',
-          textColor: cell.style.color || '',
-          align: cell.style.textAlign || '',
-          vAlign: cell.style.verticalAlign || '',
-          fontWeight: cell.style.fontWeight || '',
-          fontStyle: cell.style.fontStyle || ''
-        });
-      });
-    }
-
-    const rows = [];
-    const bodyRows = table.querySelectorAll('tbody tr').length > 0
-      ? table.querySelectorAll('tbody tr')
-      : Array.from(table.querySelectorAll('tr')).slice(1);
-
-    bodyRows.forEach(tr => {
-      const rowCells = [];
-      tr.querySelectorAll('td').forEach(td => {
-        rowCells.push({
-          text: td.textContent?.trim() || '',
-          bgColor: td.style.backgroundColor || '',
-          textColor: td.style.color || '',
-          align: td.style.textAlign || '',
-          vAlign: td.style.verticalAlign || '',
-          fontWeight: td.style.fontWeight || '',
-          fontStyle: td.style.fontStyle || ''
-        });
-      });
-      rows.push(rowCells);
-    });
-
-    tableData = { headers, rows };
-  } else {
-    intro = htmlToTextMessage(bodyHtml);
-  }
-
-  return { intro: intro.trim(), outro: outro.trim(), tableData };
-};
-
-const compileVisualToHtml = (intro, outro, table) => {
-  const formattedIntro = (intro || '').replace(/\n/g, '<br />');
-  const formattedOutro = (outro || '').replace(/\n/g, '<br />');
-  
-  let html = formattedIntro;
-  if (table) {
-    html += '<table style="width: 100%; max-width: 900px; border-collapse: collapse; margin: 15px 0; text-align: left;">';
-    html += '<thead><tr style="background-color: #f8fafc;">';
-    table.headers.forEach(h => {
-      const bgStyle = h.bgColor ? ` background-color: ${h.bgColor};` : '';
-      const colorStyle = h.textColor ? ` color: ${h.textColor};` : '';
-      const alignStyle = h.align ? ` text-align: ${h.align};` : '';
-      const vAlignStyle = h.vAlign ? ` vertical-align: ${h.vAlign};` : '';
-      const fwStyle = h.fontWeight ? ` font-weight: ${h.fontWeight};` : ' font-weight: bold;';
-      const fsStyle = h.fontStyle ? ` font-style: ${h.fontStyle};` : '';
-      html += `<th style="border: 2px solid #000; padding: 8px;${alignStyle}${vAlignStyle}${fwStyle}${fsStyle}${bgStyle}${colorStyle}">${h.text}</th>`;
-    });
-    html += '</tr></thead>';
-    html += '<tbody>';
-    table.rows.forEach(row => {
-      html += '<tr>';
-      row.forEach(cell => {
-        const bgStyle = cell.bgColor ? ` background-color: ${cell.bgColor};` : '';
-        const colorStyle = cell.textColor ? ` color: ${cell.textColor};` : '';
-        const alignStyle = cell.align ? ` text-align: ${cell.align};` : '';
-        const vAlignStyle = cell.vAlign ? ` vertical-align: ${cell.vAlign};` : '';
-        const fwStyle = cell.fontWeight ? ` font-weight: ${cell.fontWeight};` : '';
-        const fsStyle = cell.fontStyle ? ` font-style: ${cell.fontStyle};` : '';
-        html += `<td style="border: 2px solid #000; padding: 8px;${alignStyle}${vAlignStyle}${fwStyle}${fsStyle}${bgStyle}${colorStyle}">${cell.text}</td>`;
-      });
-      html += '</tr>';
-    });
-    html += '</tbody></table>';
-  }
-  html += formattedOutro;
-  return html;
-};
 
 export default function AggregatorMail() {
   const { user } = useAuth();
@@ -190,116 +73,6 @@ export default function AggregatorMail() {
   const [templateBody, setTemplateBody] = useState('');
   const [isTemplateEditing, setIsTemplateEditing] = useState(false);
 
-  // Visual Editor states
-  const [editorTab, setEditorTab] = useState('visual');
-  const [introText, setIntroText] = useState('');
-  const [outroText, setOutroText] = useState('');
-  const [tableData, setTableData] = useState(null);
-  const [selectedCells, setSelectedCells] = useState([]);
-  const [formatDialogType, setFormatDialogType] = useState(null); // 'text' | 'bg'
-  const [selectionDragState, setSelectionDragState] = useState(null);
-
-  const addRow = () => {
-    if (!tableData) return;
-    const newRow = Array(tableData.headers.length).fill(null).map(() => ({ text: '', bgColor: '', textColor: '', align: '', vAlign: '', fontWeight: '', fontStyle: '' }));
-    const updated = {
-      ...tableData,
-      rows: [...tableData.rows, newRow]
-    };
-    setTableData(updated);
-    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
-  };
-
-  const deleteRow = (rowIndex) => {
-    if (!tableData) return;
-    const updatedRows = tableData.rows.filter((_, idx) => idx !== rowIndex);
-    const updated = { ...tableData, rows: updatedRows };
-    setTableData(updated);
-    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
-  };
-
-  const addColumn = () => {
-    if (!tableData) return;
-    const updatedHeaders = [...tableData.headers, { text: `Header ${tableData.headers.length + 1}`, bgColor: '', textColor: '', align: '', vAlign: '', fontWeight: '', fontStyle: '' }];
-    const updatedRows = tableData.rows.map(row => [...row, { text: '', bgColor: '', textColor: '', align: '', vAlign: '', fontWeight: '', fontStyle: '' }]);
-    const updated = { headers: updatedHeaders, rows: updatedRows };
-    setTableData(updated);
-    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
-  };
-
-  const deleteColumn = (colIndex) => {
-    if (!tableData) return;
-    const updatedHeaders = tableData.headers.filter((_, idx) => idx !== colIndex);
-    const updatedRows = tableData.rows.map(row => row.filter((_, idx) => idx !== colIndex));
-    const updated = { headers: updatedHeaders, rows: updatedRows };
-    setTableData(updated);
-    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
-  };
-
-  const updateCellText = (type, rIdx, cIdx, val) => {
-    if (!tableData) return;
-    let updated;
-    if (type === 'header') {
-      const headers = [...tableData.headers];
-      headers[cIdx] = { ...headers[cIdx], text: val };
-      updated = { ...tableData, headers };
-    } else {
-      const rows = [...tableData.rows];
-      rows[rIdx] = [...rows[rIdx]];
-      rows[rIdx][cIdx] = { ...rows[rIdx][cIdx], text: val };
-      updated = { ...tableData, rows };
-    }
-    setTableData(updated);
-    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
-  };
-
-  const applyFormattingToSelection = (property, value) => {
-    if (!tableData || selectedCells.length === 0) return;
-    let updatedHeaders = [...tableData.headers];
-    let updatedRows = tableData.rows.map(r => [...r]);
-
-    selectedCells.forEach(sel => {
-      if (sel.type === 'header') {
-        updatedHeaders[sel.colIndex] = { ...updatedHeaders[sel.colIndex], [property]: value };
-      } else {
-        updatedRows[sel.rowIndex][sel.colIndex] = { ...updatedRows[sel.rowIndex][sel.colIndex], [property]: value };
-      }
-    });
-
-    const updated = { headers: updatedHeaders, rows: updatedRows };
-    setTableData(updated);
-    setTemplateBody(compileVisualToHtml(introText, outroText, updated));
-  };
-
-  const handleCellClick = (type, rowIndex, colIndex, event) => {
-    const isShiftOrCtrl = event.shiftKey || event.ctrlKey || event.metaKey;
-    const cellId = `${type}-${rowIndex}-${colIndex}`;
-    const exists = selectedCells.find(c => c.type === type && c.rowIndex === rowIndex && c.colIndex === colIndex);
-
-    if (isShiftOrCtrl) {
-      if (exists) {
-        setSelectedCells(selectedCells.filter(c => !(c.type === type && c.rowIndex === rowIndex && c.colIndex === colIndex)));
-      } else {
-        setSelectedCells([...selectedCells, { type, rowIndex, colIndex }]);
-      }
-    } else {
-      setSelectedCells([{ type, rowIndex, colIndex }]);
-    }
-  };
-
-  const isCellSelected = (type, rowIndex, colIndex) => {
-    return selectedCells.some(c => c.type === type && c.rowIndex === rowIndex && c.colIndex === colIndex);
-  };
-
-  const updateIntroText = (val) => {
-    setIntroText(val);
-    setTemplateBody(compileVisualToHtml(val, outroText, tableData));
-  };
-
-  const updateOutroText = (val) => {
-    setOutroText(val);
-    setTemplateBody(compileVisualToHtml(introText, val, tableData));
-  };
 
   const bodyRef = React.useRef(null);
 
@@ -352,9 +125,6 @@ export default function AggregatorMail() {
     if (!selectedSubCategory) {
       setTemplateSubject('');
       setTemplateBody('');
-      setIntroText('');
-      setOutroText('');
-      setTableData(null);
       return;
     }
     const temp = templates[selectedSubCategory] || {
@@ -362,12 +132,7 @@ export default function AggregatorMail() {
       body: `Hi Team,\n\nThis is regarding our new cafe onboarding for ${selectedSubCategory}.\n\nPlease find the details below and initiate the onboarding process.\n\nBest regards,\nOperations Team`
     };
     setTemplateSubject(temp.subject);
-    setTemplateBody(temp.body);
-
-    const { intro, outro, tableData: parsedTable } = parseTemplateBody(temp.body);
-    setIntroText(intro);
-    setOutroText(outro);
-    setTableData(parsedTable);
+    setTemplateBody((temp.body || '').replace(/\\n/g, '<br/>'));
   }, [selectedSubCategory, templates]);
 
   const saveMappingsToBackend = async (updatedList) => {
@@ -987,12 +752,6 @@ export default function AggregatorMail() {
                                 const temp = templates[selectedSubCategory] || { subject: '', body: '' };
                                 setTemplateSubject(temp.subject);
                                 setTemplateBody(temp.body);
-                              } else {
-                                const { intro, outro, tableData: parsedTable } = parseTemplateBody(templateBody);
-                                setIntroText(intro);
-                                setOutroText(outro);
-                                setTableData(parsedTable);
-                                setEditorTab('visual');
                               }
                               setIsTemplateEditing(!isTemplateEditing);
                             }}
@@ -1012,29 +771,25 @@ export default function AggregatorMail() {
                           disabled={!isTemplateEditing}
                         />
 
-                        {isTemplateEditing && (
-                          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 1 }}>
-                            <Tabs
-                              value={editorTab}
-                              onChange={(_, newValue) => {
-                                if (newValue === 'visual') {
-                                  // Sync code back to visual states
-                                  const { intro, outro, tableData: parsedTable } = parseTemplateBody(templateBody);
-                                  setIntroText(intro);
-                                  setOutroText(outro);
-                                  setTableData(parsedTable);
-                                }
-                                setEditorTab(newValue);
-                              }}
-                              aria-label="editor mode tabs"
-                            >
-                              <Tab label="Visual Spreadsheet Editor" value="visual" sx={{ textTransform: 'none', fontWeight: 600 }} />
-                              <Tab label="HTML Source Code" value="html" sx={{ textTransform: 'none', fontWeight: 600 }} />
-                            </Tabs>
+                        {isTemplateEditing ? (
+                          <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: '12px', bgcolor: 'background.paper', display: 'flex', flexDirection: 'column' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+                              Mail Body
+                            </Typography>
+                            <Box sx={{ width: '100%', overflowX: 'auto', p: 1, border: '1px dashed #e2e8f0', borderRadius: '8px', bgcolor: '#f8fafc', flexGrow: 1, minHeight: '300px' }}>
+                              <div 
+                                contentEditable
+                                suppressContentEditableWarning
+                                onBlur={(e) => setTemplateBody(e.currentTarget.innerHTML)}
+                                dangerouslySetInnerHTML={{ __html: templateBody }}
+                                style={{ outline: 'none', minHeight: '100%', cursor: 'text', fontSize: '0.875rem' }}
+                              />
+                            </Box>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                              Write text, use shortcuts (Cmd+B, Cmd+I), or paste Excel tables directly.
+                            </Typography>
                           </Box>
-                        )}
-
-                        {!isTemplateEditing ? (
+                        ) : (
                           <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px', bgcolor: '#ffffff', minHeight: '250px', overflow: 'auto' }}>
                             <Box sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: '#f8fafc' }}>
                               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'text.secondary' }}>
@@ -1052,220 +807,6 @@ export default function AggregatorMail() {
                               />
                             </Box>
                           </Box>
-                        ) : editorTab === 'visual' ? (
-                          <Stack spacing={2}>
-                            <TextField
-                              fullWidth
-                              multiline
-                              rows={4}
-                              size="small"
-                              label="Intro Body Paragraph(s)"
-                              placeholder="Write intro email content here..."
-                              value={introText}
-                              onChange={(e) => updateIntroText(e.target.value)}
-                            />
-
-                            {/* Spreadsheet Visual Table Grid */}
-                            <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: '12px', bgcolor: 'background.paper' }}>
-                              <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-                                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                                  Email Table Grid Builder
-                                </Typography>
-                                {!tableData ? (
-                                  <Button
-                                    variant="contained"
-                                    size="small"
-                                    onClick={() => {
-                                      const defaultTable = {
-                                        headers: [
-                                          { text: 'Header 1', bgColor: '#f8fafc', textColor: '#334155' },
-                                          { text: 'Header 2', bgColor: '#f8fafc', textColor: '#334155' }
-                                        ],
-                                        rows: [
-                                          [
-                                            { text: 'Row 1 Col 1', bgColor: '', textColor: '' },
-                                            { text: 'Row 1 Col 2', bgColor: '', textColor: '' }
-                                          ]
-                                        ]
-                                      };
-                                      setTableData(defaultTable);
-                                      setTemplateBody(compileVisualToHtml(introText, outroText, defaultTable));
-                                    }}
-                                    sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 700 }}
-                                  >
-                                    Add Table to Email
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    variant="outlined"
-                                    size="small"
-                                    color="error"
-                                    onClick={() => {
-                                      setTableData(null);
-                                      setTemplateBody(compileVisualToHtml(introText, outroText, null));
-                                    }}
-                                    sx={{ borderRadius: '6px', textTransform: 'none', fontWeight: 600 }}
-                                  >
-                                    Remove Table
-                                  </Button>
-                                )}
-                              </Stack>
-
-                              {tableData && (
-                                <Box sx={{ width: '100%', overflowX: 'auto', mb: 1 }}>
-                                  <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #e2e8f0' }}>
-                                    <thead>
-                                      <tr>
-                                        {tableData.headers.map((h, cIdx) => {
-                                          const isSel = isCellSelected('header', 0, cIdx);
-                                          return (
-                                            <th
-                                              key={cIdx}
-                                              onClick={(e) => handleCellClick('header', 0, cIdx, e)}
-                                              style={{
-                                                border: '2px solid #000',
-                                                padding: '6px',
-                                                backgroundColor: h.bgColor || '#f8fafc',
-                                                color: h.textColor || '#334155',
-                                                minWidth: '120px',
-                                                textAlign: h.align || 'left',
-                                                verticalAlign: h.vAlign || 'middle',
-                                                fontWeight: h.fontWeight || 'bold',
-                                                fontStyle: h.fontStyle || 'normal',
-                                                boxShadow: isSel ? 'inset 0 0 0 2px #3b82f6' : 'none',
-                                                outline: 'none',
-                                                cursor: 'pointer'
-                                              }}
-                                            >
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                  <input
-                                                    value={h.text}
-                                                    onChange={(e) => updateCellText('header', 0, cIdx, e.target.value)}
-                                                    style={{
-                                                      border: 'none',
-                                                      background: 'transparent',
-                                                      width: '100%',
-                                                      fontWeight: 'inherit',
-                                                      fontStyle: 'inherit',
-                                                      textAlign: 'inherit',
-                                                      fontSize: '0.825rem',
-                                                      color: 'inherit',
-                                                      outline: 'none',
-                                                      cursor: 'text'
-                                                    }}
-                                                  />
-                                                  <IconButton
-                                                    size="small"
-                                                    color="error"
-                                                    onClick={(e) => { e.stopPropagation(); deleteColumn(cIdx); }}
-                                                    sx={{ p: 0.25 }}
-                                                  >
-                                                    <CloseIcon sx={{ fontSize: 14 }} />
-                                                  </IconButton>
-                                                </Box>
-                                              </th>
-                                            );
-                                          })}
-                                        </tr>
-                                      </thead>
-                                      <tbody>
-                                        {tableData.rows.map((row, rIdx) => (
-                                          <tr key={rIdx}>
-                                            {row.map((cell, cIdx) => {
-                                              const isSel = isCellSelected('body', rIdx, cIdx);
-                                              return (
-                                                <td
-                                                  key={cIdx}
-                                                  onClick={(e) => handleCellClick('body', rIdx, cIdx, e)}
-                                                  style={{
-                                                    border: '2px solid #000',
-                                                    padding: '6px',
-                                                    backgroundColor: cell.bgColor || '#ffffff',
-                                                    color: cell.textColor || '#333333',
-                                                    textAlign: cell.align || 'left',
-                                                    verticalAlign: cell.vAlign || 'middle',
-                                                    fontWeight: cell.fontWeight || 'normal',
-                                                    fontStyle: cell.fontStyle || 'normal',
-                                                    boxShadow: isSel ? 'inset 0 0 0 2px #3b82f6' : 'none',
-                                                    outline: 'none',
-                                                    cursor: 'pointer'
-                                                  }}
-                                                >
-                                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                    <input
-                                                      value={cell.text}
-                                                      onChange={(e) => updateCellText('body', rIdx, cIdx, e.target.value)}
-                                                      style={{
-                                                        border: 'none',
-                                                        background: 'transparent',
-                                                        width: '100%',
-                                                        fontSize: '0.825rem',
-                                                        fontWeight: 'inherit',
-                                                        fontStyle: 'inherit',
-                                                        textAlign: 'inherit',
-                                                        color: 'inherit',
-                                                        outline: 'none',
-                                                        cursor: 'text'
-                                                      }}
-                                                    />
-                                                  </Box>
-                                                </td>
-                                              );
-                                            })}
-                                          <td style={{ border: 'none', width: '30px', padding: '2px' }}>
-                                            <IconButton
-                                              size="small"
-                                              color="error"
-                                              onClick={() => deleteRow(rIdx)}
-                                            >
-                                              <DeleteIcon sx={{ fontSize: 16 }} />
-                                            </IconButton>
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-
-                                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                                    <Button size="small" variant="text" startIcon={<AddIcon />} onClick={addRow} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
-                                      Add Row
-                                    </Button>
-                                    <Button size="small" variant="text" startIcon={<AddIcon />} onClick={addColumn} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
-                                      Add Column
-                                    </Button>
-                                  </Stack>
-                                </Box>
-                              )}
-                            </Box>
-
-                            <TextField
-                              fullWidth
-                              multiline
-                              rows={4}
-                              size="small"
-                              label="Outro Body Paragraph(s)"
-                              placeholder="Write outro/signature email content here..."
-                              value={outroText}
-                              onChange={(e) => updateOutroText(e.target.value)}
-                            />
-                          </Stack>
-                        ) : (
-                          <TextField
-                            ref={bodyRef}
-                            fullWidth
-                            multiline
-                            rows={15}
-                            size="small"
-                            label="Email Body (HTML/Text)"
-                            value={templateBody}
-                            onChange={(e) => setTemplateBody(e.target.value)}
-                            disabled={!isTemplateEditing}
-                            slotProps={{
-                              input: {
-                                style: { fontFamily: 'monospace', fontSize: '0.875rem' }
-                              }
-                            }}
-                          />
                         )}
                       </Stack>
 
@@ -1283,87 +824,6 @@ export default function AggregatorMail() {
                         </Box>
                       )}
                     </Box>
-
-                    {/* Cell Styling Dialog */}
-                    <Dialog open={formatDialogType !== null} onClose={() => setFormatDialogType(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '12px', p: 1 } }}>
-                      <DialogTitle sx={{ fontWeight: 800 }}>{formatDialogType === 'bg' ? 'Cell Background Color' : 'Text Color'}</DialogTitle>
-                      <DialogContent dividers>
-                        <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: 'wrap', gap: 0.75 }}>
-                          {[
-                            { name: 'Default', value: '' },
-                            // Reds
-                            { name: 'Light Pink', value: '#fce7f3' },
-                            { name: 'Light Red', value: '#fee2e2' },
-                            { name: 'Red', value: '#fca5a5' },
-                            { name: 'Deep Red', value: '#f87171' },
-                            // Oranges
-                            { name: 'Light Orange', value: '#ffedd5' },
-                            { name: 'Orange', value: '#fed7aa' },
-                            { name: 'Amber', value: '#fde68a' },
-                            // Yellows
-                            { name: 'Light Yellow', value: '#fef9c3' },
-                            { name: 'Yellow', value: '#fef08a' },
-                            { name: 'Light Amber', value: '#fef3c7' },
-                            // Greens
-                            { name: 'Mint', value: '#d1fae5' },
-                            { name: 'Light Green', value: '#dcfce7' },
-                            { name: 'Green', value: '#bbf7d0' },
-                            { name: 'Teal', value: '#ccfbf1' },
-                            { name: 'Emerald', value: '#a7f3d0' },
-                            // Blues
-                            { name: 'Sky', value: '#e0f2fe' },
-                            { name: 'Light Blue', value: '#dbeafe' },
-                            { name: 'Blue', value: '#bfdbfe' },
-                            { name: 'Indigo', value: '#e0e7ff' },
-                            { name: 'Violet', value: '#ede9fe' },
-                            { name: 'Purple', value: '#f3e8ff' },
-                            // Grays
-                            { name: 'Light Gray', value: '#f1f5f9' },
-                            { name: 'Gray', value: '#e2e8f0' },
-                            { name: 'Dark Gray', value: '#cbd5e1' },
-                            // Darks
-                            { name: 'Dark Blue', value: '#1e3a5f' },
-                            { name: 'Dark Green', value: '#14532d' },
-                            { name: 'Black', value: '#0f172a' },
-                            { name: 'White', value: '#ffffff' },
-                          ].map(color => (
-                            <Box
-                              key={color.name}
-                              onClick={() => {
-                                applyFormattingToSelection(formatDialogType === 'bg' ? 'bgColor' : 'textColor', color.value);
-                              }}
-                              sx={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: '50%',
-                                bgcolor: color.value || (formatDialogType === 'bg' ? '#ffffff' : '#334155'),
-                                border: '2px solid white',
-                                boxShadow: '0 0 0 1.5px #94a3b8',
-                                cursor: 'pointer',
-                                '&:hover': { transform: 'scale(1.2)', transition: 'transform 0.15s', boxShadow: '0 0 0 2px #2563eb' }
-                              }}
-                              title={color.name}
-                            />
-                          ))}
-                        </Stack>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                          <Typography variant="caption" color="text.secondary">Custom:</Typography>
-                          <input
-                            type="color"
-                            style={{ width: 32, height: 32, border: 'none', borderRadius: '4px', cursor: 'pointer', padding: 0 }}
-                            onChange={(e) => {
-                              applyFormattingToSelection(formatDialogType === 'bg' ? 'bgColor' : 'textColor', e.target.value);
-                            }}
-                          />
-                          <Typography variant="caption" color="text.secondary">Pick any colour</Typography>
-                        </Box>
-                      </DialogContent>
-                      <DialogActions sx={{ p: 1.5 }}>
-                        <Button variant="contained" onClick={() => setFormatDialogType(null)} sx={{ borderRadius: '8px', textTransform: 'none' }}>
-                          Done
-                        </Button>
-                      </DialogActions>
-                    </Dialog>
                   </>
                 ) : (
                   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8, border: '1px dashed', borderColor: 'divider', borderRadius: '12px' }}>

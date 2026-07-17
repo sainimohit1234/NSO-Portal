@@ -130,59 +130,65 @@ import { hasRedshiftStoreConfig, syncStoresFromRedshift } from '../utils/redshif
 const upload = multer({ storage: multer.memoryStorage() });
 
 const STORE_CSV_HEADERS = [
-  { id: 'cafeName', title: 'cafeName' },
-  { id: 'cafeCode', title: 'cafeCode' },
-  { id: 'cafeModule', title: 'cafeModule' },
-  { id: 'cafeAddress', title: 'cafeAddress' },
-  { id: 'city', title: 'city' },
-  { id: 'state', title: 'state' },
-  { id: 'pinCode', title: 'pinCode' },
-  { id: 'zone', title: 'zone' },
-  { id: 'cafeLocationGoogleLink', title: 'cafeLocationGoogleLink' },
-  { id: 'latitude', title: 'latitude' },
-  { id: 'latt', title: 'latt' },
-  { id: 'long', title: 'long' },
-  { id: 'cafeOpenTiming', title: 'cafeOpenTiming' },
-  { id: 'cafeClosingTime', title: 'cafeClosingTime' },
-  { id: 'actualClosingTime', title: 'actualClosingTime' },
-  { id: 'gstNo', title: 'gstNo' },
-  { id: 'fssaiNo', title: 'fssaiNo' },
-  { id: 'cityHeadEmail', title: 'cityHeadEmail' },
-  { id: 'cityHeadPhone', title: 'cityHeadPhone' },
-  { id: 'platformType', title: 'platformType' },
-  { id: 'tradingArea', title: 'tradingArea' },
-  { id: 'launchStatus', title: 'launchStatus' },
-  { id: 'launchDate', title: 'launchDate' },
-  { id: 'fssaiLicense', title: 'fssaiLicense' },
-  { id: 'gstCertificateLink', title: 'gstCertificateLink' },
-  { id: 'cafePhoneNumber', title: 'cafePhoneNumber' },
-  { id: 'cafeMailId', title: 'cafeMailId' },
-  { id: 'cafeManagerName', title: 'cafeManagerName' },
-  { id: 'cafeManagerMailId', title: 'cafeManagerMailId' },
-  { id: 'cafeManagerContactNo', title: 'cafeManagerContactNo' },
-  { id: 'areaManagerName', title: 'areaManagerName' },
-  { id: 'areaManagerEmail', title: 'areaManagerEmail' },
-  { id: 'areaManagerPhone', title: 'areaManagerPhone' },
-  { id: 'cityHeadName', title: 'cityHeadName' },
-  { id: 'blueTokaiSwiggyRID', title: 'blueTokaiSwiggyRID' },
-  { id: 'blueTokaiZomatoRID', title: 'blueTokaiZomatoRID' },
-  { id: 'suchaliSwiggyRID', title: 'suchaliSwiggyRID' },
-  { id: 'suchaliZomatoRID', title: 'suchaliZomatoRID' },
-  { id: 'gotTeaSwiggyRID', title: 'gotTeaSwiggyRID' },
-  { id: 'gotTeaZomatoRID', title: 'gotTeaZomatoRID' },
-  { id: 'newPricingCategory', title: 'newPricingCategory' },
-  { id: 'newPricingSubCategory', title: 'newPricingSubCategory' },
-  { id: 'cluster', title: 'cluster' },
-  { id: 'cafeLaunchMonth', title: 'cafeLaunchMonth' },
-  { id: 'cafeOpeningHr', title: 'cafeOpeningHr' },
-  { id: 'smokingZone', title: 'smokingZone' },
-  { id: 'parkingOption', title: 'parkingOption' },
-  { id: 'wheelchairAccessibility', title: 'wheelchairAccessibility' },
-  { id: 'pricingVersion', title: 'pricingVersion' },
-  { id: 'indoorSeatingCount', title: 'indoorSeatingCount' },
-  { id: 'outdoorSeatingCount', title: 'outdoorSeatingCount' },
-  { id: 'totalNoOfTables', title: 'totalNoOfTables' },
-  { id: 'copyMenuFrom', title: 'copyMenuFrom' },
+  { id: 'brand', title: 'Brand Name' },
+  { id: 'cafeName', title: 'Cafe Name' },
+  { id: 'cafeCode', title: 'Cafe Code' },
+  { id: 'pinCode', title: 'Pin Code' },
+  { id: 'city', title: 'City' },
+  { id: 'state', title: 'State' },
+  { id: 'cafeAddress', title: 'Cafe Address' },
+  { id: 'zone', title: 'Zone' },
+  { id: 'cafeLocationGoogleLink', title: 'Google Maps Link' },
+  { id: 'latitude', title: 'Latitude' },
+  { id: 'latt', title: 'Latt' },
+  { id: 'long', title: 'Longitude' },
+  { id: 'cafeOpenTiming', title: 'Cafe Opening Time' },
+  { id: 'cafeClosingTime', title: 'Cafe Closing Time' },
+  { id: 'actualClosingTime', title: 'Actual Closing Time' },
+  { id: 'cafePhoneNumber', title: 'Cafe Phone Number' },
+  { id: 'cafeMailId', title: 'Cafe Mail Id' },
+  { id: 'cmMailId', title: 'CM Mail Id' },
+  { id: 'cafeManagerContactNo', title: 'Cafe Manager Contact No' },
+  { id: 'areaManagerEmail', title: 'Area Manager Email' },
+  { id: 'areaManagerPhone', title: 'Area Manager Phone' },
+  { id: 'cityHeadEmail', title: 'City Head Email' },
+  { id: 'cityHeadPhone', title: 'City Head Phone' },
+  { id: 'gstNo', title: 'GST No' },
+  { id: 'fssaiNo', title: 'FSSAI No' },
+  { id: 'fssaiStartDate', title: 'FSSAI Start Date' },
+  { id: 'fssaiExpiry', title: 'FSSAI Expiry' },
+  { id: 'projectStartDate', title: 'Project Start Date' },
+  { id: 'projectHandoverDate', title: 'Project Handover Date' },
+  { id: 'tentativeDryLaunchDate', title: 'Tentative Dry Launch Date' },
+  { id: 'launchDate', title: 'Launch Date' },
+  { id: 'cafeModule', title: 'Cafe Module' },
+  { id: 'cluster', title: 'Cluster' },
+  { id: 'platformType', title: 'Platform Type' },
+  { id: 'tradingArea', title: 'Trading Area' },
+  { id: 'smokingZone', title: 'Smoking Zone' },
+  { id: 'parkingOption', title: 'Parking Option' },
+  { id: 'wheelchairAccessibility', title: 'Wheelchair Accessibility' },
+  { id: 'petFriendly', title: 'Pet Friendly' },
+  { id: 'pricingVersion', title: 'Pricing Version' },
+  { id: 'indoorSeatingCount', title: 'Indoor Seating Count' },
+  { id: 'outdoorSeatingCount', title: 'Outdoor Seating Count' },
+  { id: 'totalNoOfTables', title: 'Total No Of Tables' },
+  { id: 'copyMenuFrom', title: 'Copy Menu From' },
+  { id: 'expectedSalesVal', title: 'Expected Sales Val' },
+  { id: 'expectedSalesUnit', title: 'Expected Sales Unit' },
+  { id: 'nearbyCafes', title: 'Nearby Cafes' },
+  { id: 'highlights', title: 'Highlights' },
+  { id: 'blueTokaiSwiggyRID', title: 'Blue Tokai Swiggy RID' },
+  { id: 'blueTokaiZomatoRID', title: 'Blue Tokai Zomato RID' },
+  { id: 'suchaliSwiggyRID', title: 'Suchali Swiggy RID' },
+  { id: 'suchaliZomatoRID', title: 'Suchali Zomato RID' },
+  { id: 'gotTeaSwiggyRID', title: 'Got Tea Swiggy RID' },
+  { id: 'gotTeaZomatoRID', title: 'Got Tea Zomato RID' },
+  { id: 'newPricingCategory', title: 'New Pricing Category' },
+  { id: 'newPricingSubCategory', title: 'New Pricing Sub Category' },
+  { id: 'cafeLaunchMonth', title: 'Cafe Launch Month' },
+  { id: 'cafeLaunchYear', title: 'Cafe Launch Year' },
+  { id: 'cafeOpeningHr', title: 'Cafe Opening Hr' }
 ];
 
 const MANDATORY_FIELDS = [
@@ -1296,6 +1302,16 @@ router.put('/:id/status', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), asy
         }
       }
 
+      if (targetStatus === 'APPROVED') {
+        const fssaiFields = ['fssaiNo', 'fssaiStartDate', 'fssaiExpiry'];
+        for (const field of fssaiFields) {
+          const value = (store as any)[field];
+          if (value === null || value === undefined || String(value).trim() === '') {
+            missingFields.push(field);
+          }
+        }
+      }
+
       if (missingFields.length > 0) {
         return res.status(400).json({
           error: 'NSO Validation Failed',
@@ -1585,6 +1601,15 @@ router.put('/:id', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'),
       if (user.role !== 'SUPER_ADMIN' && req.body.status !== 'Under Construction') {
         return res.status(403).json({ error: 'Access denied: Only Super Admin can change the lock status of a store.' });
       }
+      
+      // Ensure locking is only allowed for LIVE stores
+      if (req.body.isLocked === true) {
+        const finalStatus = req.body.status || currentStore.status;
+        if (finalStatus !== 'LIVE' && finalStatus !== 'Live') {
+          return res.status(400).json({ error: 'Stores can only be locked when their status is LIVE.' });
+        }
+      }
+      
       updateData.isLockedAutoApplied = true;
     }
 
@@ -2212,8 +2237,11 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
 
   const { action, brand } = req.body;
   
-  if (!brand) {
+  if (action !== 'create' && !brand) {
     return res.status(400).json({ error: 'Please select a brand before uploading.' });
+  }
+  if (action === 'create' && req.user.role !== 'SUPER_ADMIN') {
+    return res.status(403).json({ error: 'Only Super Admins can create stores in bulk.' });
   }
 
   const user = req.user;
@@ -2247,7 +2275,8 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
         
         // For creation, verify all MANDATORY_FIELDS columns are included
         if (action === 'create') {
-          const missingMandatoryHeaders = MANDATORY_FIELDS.filter(field => !cleanHeaders.includes(field));
+          const requiredHeaders = user.role === 'SUPER_ADMIN' ? ['brand', 'cafeName', 'cafeCode', 'pinCode'] : MANDATORY_FIELDS;
+          const missingMandatoryHeaders = requiredHeaders.filter(field => !cleanHeaders.includes(field));
           if (missingMandatoryHeaders.length > 0) {
             errors.push({ message: `To create new stores, please include the following required columns: ${missingMandatoryHeaders.map(getFriendlyFieldName).join(', ')}.` });
           }
@@ -2279,7 +2308,8 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
             const rowErrors: string[] = [];
 
             // 1. Validate mandatory fields (non-empty)
-            const missingFields = MANDATORY_FIELDS.filter(field => !row[field] || String(row[field]).trim() === '');
+            const requiredFields = isSuperAdmin ? ['brand', 'cafeName', 'cafeCode', 'pinCode'] : MANDATORY_FIELDS;
+            const missingFields = requiredFields.filter(field => !row[field] || String(row[field]).trim() === '');
             if (missingFields.length > 0) {
               rowErrors.push(`The following required fields are empty: ${missingFields.map(getFriendlyFieldName).join(', ')}.`);
             }
@@ -2338,6 +2368,15 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
                 }
               }
 
+              // Check if cafeName already exists
+              const cafeName = row.cafeName;
+              if (cafeName) {
+                const existingName = await prisma.store.findFirst({ where: { cafeName } });
+                if (existingName) {
+                  rowErrors.push(`A store with Cafe Name '${cafeName}' already exists in the system.`);
+                }
+              }
+
               if (rowErrors.length > 0) {
                 rowErrors.forEach(msg => errors.push({ message: `Row ${i + 2}: ${msg}` }));
                 return;
@@ -2346,7 +2385,11 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
               // Insert the record
               try {
                 const data: any = { ...row };
-                data.brand = brand;
+                if (brand) {
+                   data.brand = brand;
+                } else if (!data.brand && row.brand) {
+                   data.brand = row.brand;
+                }
 
                 if (data.lat) data.lat = parseFloat(data.lat);
                 if (data.lng) data.lng = parseFloat(data.lng);
@@ -2553,11 +2596,17 @@ router.post('/bulk/upload', authorizeRoles('SUPER_ADMIN', 'ADMIN', 'MANAGER'), p
           await Promise.all(promises);
         }
 
-        if (errors.length > 0) {
-           return res.status(400).json({ errors, message: `Processed ${processedCount} stores with some errors.` });
+        if (errors.length > 0 && processedCount === 0) {
+           return res.status(400).json({ errors, message: `Failed to process records.` });
         }
 
-        res.json({ message: `Successfully ${action === 'create' ? 'created' : 'updated'} ${processedCount} stores in bulk.` });
+        res.json({
+          message: `Successfully ${action === 'create' ? 'created' : 'updated'} ${processedCount} stores.`,
+          successCount: processedCount,
+          failedCount: errors.length,
+          errors: errors.length > 0 ? errors : undefined,
+          totalCount: results.length
+        });
       } catch (err: any) {
         console.error('Bulk upload handler crashed:', err);
         return res.status(500).json({ error: 'Bulk upload processing failed', message: 'We ran into an unexpected issue while saving the data. Please try again.' });
@@ -3228,7 +3277,7 @@ async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand:
     console.log(`[PDF Process] ${items.length} items queued for replacement`);
 
     // Step 2 — pdf-lib: draw white boxes + new text
-    const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+    const { PDFDocument, rgb, StandardFonts, pushGraphicsState, popGraphicsState, scale } = require('pdf-lib');
     // Uint8Array.from() creates a true independent copy to avoid any shared-memory issues
     const pdfDoc = await PDFDocument.load(Uint8Array.from(buffer));
     console.log(`[PDF Process] pdf-lib loaded: ${pdfDoc.getPageCount()} pages`);
@@ -3270,31 +3319,40 @@ async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand:
       seen.add(posKey);
 
       const text = toDrawableText(it.newText);
+      const isAddress = it.origText.toLowerCase().includes('address');
+      const isSwiggyOnb = lowerContext.includes('swiggy_onb') || lowerContext.includes('swiggy onb');
 
-      // Shrink the font to fit the remaining line width instead of wrapping onto (and
-      // overprinting) the row below.
       const rightLimit = page.getWidth() - 12;
       const available = rightLimit - it.x;
       let drawSize = it.size;
       let textWidth = text ? helveticaFont.widthOfTextAtSize(text, drawSize) : 0;
-      if (textWidth > available && available > 0) {
-        drawSize = Math.max(6, drawSize * (available / textWidth));
+      let xScale = 1;
+
+      if (isAddress && isSwiggyOnb && textWidth > available && available > 0) {
+        // To keep the address on the same row without shrinking the font size to microscopic levels,
+        // we use horizontal scaling to squeeze the text into the available width.
+        drawSize = Math.max(7.5, it.size * 0.85); // Keep font size readable
+        const newWidth = helveticaFont.widthOfTextAtSize(text, drawSize);
+        if (newWidth > available) {
+          xScale = available / newWidth; // Squish horizontally to fit exactly
+        }
+        textWidth = available; // The drawn width will exactly match available space
+      } else if (textWidth > available && available > 0) {
+        const minSize = isAddress ? 1 : 6;
+        drawSize = Math.max(minSize, drawSize * (available / textWidth));
         textWidth = helveticaFont.widthOfTextAtSize(text, drawSize);
       }
 
-      // The white box must cover the original glyphs' full vertical extent and nothing
-      // more: it.y is the baseline, glyphs reach ~80% of the font size above it and ~22%
-      // below, while the neighbouring lines of this tightly-spaced form start ~115% away.
-      // A taller box paints a white band through the line above (the "cropped text" bug);
-      // a wider one erases table borders — so both dimensions hug the measured text.
       const ascent = it.size * 0.8;
       const descent = it.size * 0.22;
+      
       drawables.push({
         page,
         x: it.x,
         y: it.y,
         text,
         drawSize,
+        xScale,
         rectX: it.x - 1,
         rectY: it.y - descent,
         rectW: Math.min(Math.max(it.w, textWidth) + 3, rightLimit - (it.x - 1)),
@@ -3321,13 +3379,22 @@ async function processOnboardingPdf(buffer: Buffer, store: any, fileNameOrBrand:
     for (const d of drawables) {
       if (!d.text) continue;
       try {
+        const needsScale = d.xScale && d.xScale !== 1;
+        if (needsScale) {
+          d.page.pushOperators(pushGraphicsState(), scale(d.xScale, 1));
+        }
+
         d.page.drawText(d.text, {
-          x: d.x,
+          x: needsScale ? d.x / d.xScale : d.x,
           y: d.y,
           size: d.drawSize,
           font: helveticaFont,
           color: rgb(0, 0, 0),
         });
+
+        if (needsScale) {
+          d.page.pushOperators(popGraphicsState());
+        }
       } catch (e: any) {
         console.error(`[PDF Process] drawText failed for "${d.text}":`, e?.message);
       }
@@ -3410,6 +3477,7 @@ const MAIL_STATUS_FIELD_BY_BRAND: Record<string, string> = {
   swiggy_sab: 'suchaliSwiggyMailStatus',
   zomato_gottea: 'gotTeaZomatoMailStatus',
   swiggy_gottea: 'gotTeaSwiggyMailStatus',
+  rista_creation: 'ristaMailStatus',
 };
 
 // POST /:id/send-swiggy-onboarding-email
@@ -3937,6 +4005,83 @@ router.post('/:id/send-store-code-email', authenticateToken, async (req: any, re
   } catch (error: any) {
     console.error('Error sending store code email:', error);
     res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+// POST /:id/send-hiring-alert-email
+router.post('/:id/send-hiring-alert-email', authenticateToken, async (req: any, res) => {
+  const storeId = req.params.id;
+  const { to, cc, subject, body } = req.body;
+  if (!storeId) {
+    return res.status(400).json({ error: 'Store ID is required.' });
+  }
+
+  try {
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      return res.status(404).json({ error: 'Store not found.' });
+    }
+
+    const smtpConfig = await getSMTPConfig();
+    const transporter = nodemailer.createTransport({
+      host: smtpConfig.smtpHost,
+      port: smtpConfig.smtpPort,
+      secure: smtpConfig.smtpSecure,
+      auth: {
+        user: smtpConfig.smtpUser,
+        pass: smtpConfig.smtpPass
+      }
+    });
+
+    const parsedTo = typeof to === 'string' ? to.split(',').map((e: string) => e.trim()).filter(Boolean) : to;
+    const parsedCc = typeof cc === 'string' ? cc.split(',').map((e: string) => e.trim()).filter(Boolean) : cc;
+
+    const formatted = formatMailBody(body);
+    const mailOptions: any = {
+      from: smtpConfig.smtpUser ? `"NSM Operations" <${smtpConfig.smtpUser}>` : '"NSM Operations" <analytics@bluetokaicoffee.com>',
+      to: parsedTo,
+      cc: parsedCc && parsedCc.length > 0 ? parsedCc : undefined,
+      subject: subject,
+      text: formatted.text,
+      html: formatted.html
+    };
+
+    let info;
+    if (shouldUseEtherealFallback(smtpConfig)) {
+      const testAccount = await nodemailer.createTestAccount();
+      const testTransporter = nodemailer.createTransport({
+        host: ETHEREAL_HOST,
+        port: 587,
+        secure: false,
+        auth: {
+          user: testAccount.user,
+          pass: testAccount.pass
+        }
+      });
+      info = await testTransporter.sendMail(mailOptions);
+    } else {
+      info = await transporter.sendMail(mailOptions);
+    }
+
+    // Update the store status in the database to record that the email was sent
+    const updatedStore = await prisma.store.update({
+      where: { id: storeId },
+      data: { hiringAlertMailStatus: 'Sent' }
+    });
+
+    await prisma.storeHistory.create({
+      data: {
+        storeId: updatedStore.id,
+        action: 'Hiring Alart email sent',
+        changedBy: req.user?.email || 'System',
+        createdAt: new Date().toISOString()
+      }
+    });
+
+    res.json({ message: 'Hiring Alart email sent successfully.', info });
+  } catch (error: any) {
+    console.error('Error sending Hiring Alart email:', error);
+    res.status(500).json({ error: error.message || 'Failed to send email.' });
   }
 });
 

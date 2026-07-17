@@ -28,7 +28,7 @@ const PERM_MODULES = [
   { key: 'expansion_pipeline', label: 'Expansion Pipeline' },
   { key: 'all_upcoming_stores', label: 'All Upcoming Stores' },
   { key: 'nso_approval', label: 'NSO Approval' },
-  { key: 'swiggy_zomato', label: 'Swiggy / Zomato Integration' },
+  { key: 'swiggy_zomato', label: 'Partner Integration Hub' },
   { key: 'email_directory', label: 'Email Directory' },
   { key: 'store_control_center', label: 'Store Control Center' },
   { key: 'user_registrations', label: 'User Registrations' },

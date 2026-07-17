@@ -440,7 +440,7 @@ export default function GoLiveDialog({ open, onClose, store, onSave, onStoreUpda
           />
           {!hasAnyRid && (
             <Typography variant="caption" sx={{ display: 'block', color: 'error.main', fontWeight: 700, mt: 0.5 }}>
-              Integration pending (No RIDs updated in Swiggy/Zomato Integration module)
+              Integration pending (No RIDs updated in Partner Integration Hub module)
             </Typography>
           )}
           

@@ -26,6 +26,15 @@ const TRADING_AREAS = [
   'Transit - Metro/Bus Stations', 'Highways', 'B2B'
 ];
 
+const formatIndianCurrencyHint = (value) => {
+  const num = Number(value);
+  if (isNaN(num) || num <= 0) return '';
+  if (num >= 10000000) return `₹${(num / 10000000).toFixed(2).replace(/\.?0+$/, '')} Crore`;
+  if (num >= 100000) return `₹${(num / 100000).toFixed(2).replace(/\.?0+$/, '')} Lakh`;
+  if (num >= 1000) return `₹${(num / 1000).toFixed(2).replace(/\.?0+$/, '')} Thousand`;
+  return `₹${num}`;
+};
+
 const RequiredBadge = () => (
   <Chip label="Required" size="small" sx={{
     ml: 1, height: 18, fontSize: '0.65rem', fontWeight: 700,
@@ -105,7 +114,7 @@ export default function EditStore() {
     'GST & FSSAI Details',
     'Others',
     'Operations Details',
-    'Swiggy / Zomato Integration'
+    'Partner Integration Hub'
   ];
 
   const TAB_FIELDS = {
@@ -131,7 +140,7 @@ export default function EditStore() {
       'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'wheelchairAccessibility',
       'petFriendly', 'expectedSalesVal', 'nearbyCafes', 'highlights'
     ],
-    'Swiggy / Zomato Integration': [
+    'Partner Integration Hub': [
       'blueTokaiSwiggyRID', 'blueTokaiZomatoRID', 'suchaliSwiggyRID', 'suchaliZomatoRID',
       'gotTeaSwiggyRID', 'gotTeaZomatoRID'
     ]
@@ -152,7 +161,7 @@ export default function EditStore() {
       'cafePhoneNumber', 'cafeMailId', 'cmMailId', 'areaManagerId', 'cityHeadId'
     ],
     'GST & FSSAI Details': [
-      'gstNo', 'fssaiNo'
+      'gstNo'
     ],
     'Operations Details': [
       'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
@@ -160,7 +169,7 @@ export default function EditStore() {
     'Others': [
       'cafeModule', 'cluster', 'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'expectedSalesVal', 'nearbyCafes'
     ],
-    'Swiggy / Zomato Integration': []
+    'Partner Integration Hub': []
   };
 
   const getTabErrorCount = (tabName, watchedValues) => {
@@ -347,7 +356,7 @@ export default function EditStore() {
   // Block in-app navigation when form is dirty
   const blocker = useBlocker(
     useCallback(() => {
-      if (isSavedRef.current || isViewOnly || isApprovedStatus) return false;
+      if (isSavedRef.current || isViewOnly || (isApprovedStatus && !isSuperAdmin)) return false;
       return hasDirtyFields;
     }, [hasDirtyFields, isViewOnly, isApprovedStatus])
   );
@@ -398,15 +407,13 @@ export default function EditStore() {
 
       // Parse expectedSales
       let expectedSalesVal = '';
-      let expectedSalesUnit = 'Lakhs';
       if (currentStore.expectedSales) {
-        const cleanSales = currentStore.expectedSales.replace('₹', '').trim();
-        const parts = cleanSales.split(/\s+/);
-        if (parts.length >= 1) {
-          expectedSalesVal = parts[0];
-        }
-        if (parts.length >= 2) {
-          expectedSalesUnit = parts[1];
+        if (typeof currentStore.expectedSales === 'number') {
+          expectedSalesVal = currentStore.expectedSales;
+        } else if (typeof currentStore.expectedSales === 'string') {
+          // Fallback for older data format like "₹100 Lakhs"
+          const match = currentStore.expectedSales.match(/[\d.]+/);
+          expectedSalesVal = match ? match[0] : '';
         }
       }
 
@@ -435,7 +442,6 @@ export default function EditStore() {
         tentativeDryLaunchDate: safeGetDateString(currentStore.tentativeDryLaunchDate),
         highlights: currentStore.highlights || '',
         expectedSalesVal: expectedSalesVal,
-        expectedSalesUnit: expectedSalesUnit,
         nearbyCafes: currentStore.nearbyCafes || '',
         inStoreLiveDate: safeGetDateString(currentStore.inStoreLiveDate),
         deliveryLiveDate: safeGetDateString(currentStore.deliveryLiveDate),
@@ -511,9 +517,21 @@ export default function EditStore() {
           if (res.data && res.data[0] && res.data[0].Status === 'Success') {
             const postOfficeList = res.data[0].PostOffice;
             if (postOfficeList && postOfficeList.length > 0) {
-              const district = postOfficeList[0].District;
+              let district = postOfficeList[0].District;
+              let block = postOfficeList[0].Block;
+              let city = district;
+              if (block && block.toLowerCase() !== 'na') {
+                const match = block.match(/\((.*?)\)/);
+                if (match && match[1]) {
+                  city = match[1].trim();
+                } else if (district === 'Rupnagar' && block.toLowerCase().includes('mohali')) {
+                  city = 'Mohali';
+                } else if (district === 'Gautam Buddha Nagar' && block.toLowerCase().includes('noida')) {
+                  city = 'Noida';
+                }
+              }
               const stateName = postOfficeList[0].State;
-              setValue('city', district, { shouldValidate: true, shouldDirty: false });
+              setValue('city', city, { shouldValidate: true, shouldDirty: false });
               setValue('state', stateName, { shouldValidate: true, shouldDirty: false });
             }
           }
@@ -552,25 +570,25 @@ export default function EditStore() {
   const isBrandDirty = formState.dirtyFields.brand;
 
   useEffect(() => {
-    const shouldAutoGenerate = cafeNameValue && brandValue && (
-      !cafeMailIdValue ||
-      ((isCafeNameDirty || isBrandDirty) && !isMailIdDirty)
-    );
-
-    if (shouldAutoGenerate) {
-      const cleanCafeName = String(cafeNameValue).replace(/\s+/g, '').toLowerCase();
-      let cafeMail = '';
-      if (brandValue === 'BLUE_TOKAI_SUCHALI') {
-        cafeMail = `${cleanCafeName}@bluetokaicoffee.com`;
-      } else if (brandValue === 'GOT_TEA') {
-        cafeMail = `${cleanCafeName}@gottea.in`;
-      }
-      setValue('cafeMailId', cafeMail, { shouldValidate: true });
-      if (!isCmMailIdDirty) {
-        setValue('cmMailId', cafeMail ? `cm.${cafeMail}` : '', { shouldValidate: true });
-      }
-    }
+    // Email auto-generation removed as per requirement. User will input manually.
   }, [cafeNameValue, brandValue, cafeMailIdValue, isMailIdDirty, isCmMailIdDirty, isCafeNameDirty, isBrandDirty, setValue]);
+
+  // Auto-fetch GST Number from Global Documents based on State
+  const stateValue = watch('state');
+  useEffect(() => {
+    if (stateValue) {
+      axios.get('/api/global-docs')
+        .then(res => {
+          const stateGst = res.data.find(d => d.category === 'State GST' && d.fileName === stateValue);
+          if (stateGst && stateGst.gstNumber && !getValues('gstNo')) {
+             setValue('gstNo', stateGst.gstNumber, { shouldValidate: true, shouldDirty: true });
+             setSuccessMsg(`Auto-filled GST Number for ${stateValue}`);
+             setTimeout(() => setSuccessMsg(''), 3000);
+          }
+        })
+        .catch(err => console.error('Failed to auto-fetch GST number for state', err));
+    }
+  }, [stateValue, setValue, getValues]);
 
   // Launch Date → Cafe Launch Month & Year auto-fill
   const launchDateValue = watch('launchDate');
@@ -590,7 +608,7 @@ export default function EditStore() {
   // Unique contacts by designation
   const areaManagers = contacts.filter(c => c.designation === 'Area Manager');
   const cityHeads = contacts.filter(c => c.designation === 'City Head');
-  const cafeManagers = contacts.filter(c => c.designation === 'Café Manager');
+  const cafeManagers = contacts.filter(c => c.designation === 'Cafe Manager');
 
   const handleAreaManagerSelect = (event, newValue) => {
     const id = newValue ? newValue.id : '';
@@ -794,7 +812,7 @@ export default function EditStore() {
 
   // Human-readable field labels for the change summary
   const FIELD_LABELS = {
-    cafeName: 'Café Name', cafeCode: 'Café Code', cafeModule: 'Café Module',
+    cafeName: 'Cafe Name', cafeCode: 'Cafe Code', cafeModule: 'Cafe Module',
     pricingVersion: 'Pricing Version',
     indoorSeatingCount: 'Indoor Seating Count', outdoorSeatingCount: 'Outdoor Seating Count',
     totalNoOfTables: 'Total No. of Tables', copyMenuFrom: 'Copy Menu From',
@@ -807,10 +825,10 @@ export default function EditStore() {
     inStoreClosedDate: 'In-Store Closed Date',
     deliveryClosedDate: 'Delivery Closed Date',
     gstNo: 'GST No.', gstCertificateLink: 'GST Certificate Link',
-    fssaiLicense: 'FSSAI License', fssaiNo: 'FSSAI No',
-    cafePhoneNumber: 'Café Phone Number', cafeMailId: 'Café Mail ID',
-    cafeManagerName: 'Café Manager Name', cafeManagerMailId: 'Café Manager Mail ID',
-    cafeManagerContactNo: 'Café Manager Contact No',
+    fssaiLicense: 'FSSAI License', fssaiNo: 'FSSAI Number', fssaiStartDate: 'FSSAI Issued On',
+    cafePhoneNumber: 'Cafe Phone Number', cafeMailId: 'Cafe Mail ID',
+    cafeManagerName: 'Cafe Manager Name', cafeManagerMailId: 'Cafe Manager Mail ID',
+    cafeManagerContactNo: 'Cafe Manager Contact No',
     areaManagerName: 'Area Manager Name', areaManagerEmail: 'Area Manager Mail ID',
     areaManagerPhone: 'Area Manager Contact No.',
     cityHeadName: 'City Head Name', cityHeadEmail: 'City Head Mail ID',
@@ -824,7 +842,7 @@ export default function EditStore() {
     platformType: 'Platform Type', tradingArea: 'Trading Area', launchStatus: 'Launch Status',
     smokingZone: 'Smoking Zone', parkingOption: 'Parking Option',
     wheelchairAccessibility: 'Wheelchair Accessibility',
-    fssaiExpiry: 'FSSAI Expiry', rentExpiry: 'Rent Expiry',
+    fssaiExpiry: 'FSSAI Valid Until', rentExpiry: 'Rent Expiry',
     storeType: 'Store Type',
     launchDate: 'Launch Date',
     petFriendly: 'Pet Friendly',
@@ -846,7 +864,7 @@ export default function EditStore() {
     const changes = [];
     const skipFields = [
       'id', 'createdAt', 'updatedAt', 'isLocked', 'areaManagerId', 'cityHeadId', 'cafeManagerId',
-      'cafeLaunchYear', 'expectedSalesVal', 'expectedSalesUnit'
+      'cafeLaunchYear', 'expectedSalesVal'
     ];
     for (const key of Object.keys(data)) {
       if (skipFields.includes(key)) continue;
@@ -923,10 +941,8 @@ export default function EditStore() {
 
       // Special comparison for expectedSales
       if (key === 'expectedSales') {
-        const oldSalesVal = store.expectedSales || '';
-        const newSalesVal = data.expectedSalesVal
-          ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
-          : '';
+        const oldSalesVal = store.expectedSales ? Number(store.expectedSales.toString().replace(/[^0-9.]/g, '')) : 0;
+        const newSalesVal = data.expectedSalesVal ? Number(data.expectedSalesVal) : 0;
         if (oldSalesVal !== newSalesVal) {
           changes.push({
             field: 'Expected Sale',
@@ -964,11 +980,8 @@ export default function EditStore() {
     if (norm === 'UNDER_CONSTRUCTION' || norm === 'UNDER CONSTRUCTION' || norm === 'UNDER CONSTRUCTION') {
       return ['Under Construction'];
     }
-    if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL PENDING' || norm === 'APPROVAL_PENDING') {
-      return ['Pending Approval', 'Approval Pending', 'PENDING_APPROVAL'];
-    }
     if (norm === 'PENDING_APPROVAL' || norm === 'APPROVAL_PENDING' || norm === 'APPROVAL PENDING' || norm === 'SENT TO NSO TEAM FOR APPROVAL') {
-      return ['Sent to NSO Team for Approval', 'Approval Pending', 'PENDING_APPROVAL'];
+      return ['Sent to NSO Team for Approval', 'Pending Approval', 'Approval Pending', 'PENDING_APPROVAL'];
     }
     if (norm === 'APPROVED' || norm === 'NSO_APPROVED') {
       return ['Approved', 'APPROVED', 'NSO_APPROVED'];
@@ -1017,7 +1030,8 @@ export default function EditStore() {
       .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
       .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
       .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
-      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '');
+      .replace(/{pincode}|\[Pincode\]|\[Pin Code\]/gi, store.pinCode || '')
+      .replace(/<br\s*[\/]?>/gi, '\n');
   };
 
   const handleSendEmail = async () => {
@@ -1044,14 +1058,11 @@ export default function EditStore() {
         areaManagerId: data.areaManagerId || null,
         cityHeadId: data.cityHeadId || null,
         cafeManagerId: data.cafeManagerId || null,
-        expectedSales: data.expectedSalesVal
-          ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
-          : null,
+        expectedSales: data.expectedSalesVal ? Number(data.expectedSalesVal) : null,
         ...(data.status === 'REJECTED' ? { mailStatus: '' } : {})
       };
       delete payload.cafeLaunchYear;
       delete payload.expectedSalesVal;
-      delete payload.expectedSalesUnit;
       
       await axios.put(`/api/stores/${id}`, payload);
       isSavedRef.current = true;
@@ -1107,6 +1118,19 @@ export default function EditStore() {
       if (missingNso.length > 0) {
         const missingLabels = missingNso.map(f => FIELD_LABELS[f] || f);
         setErrorMsg(`These mandatory fields must be filled before submitting for NSO Approval: ${missingLabels.join(', ')}.`);
+        return;
+      }
+    }
+
+    if (data.status === 'APPROVED') {
+      const fssaiFields = ['fssaiNo', 'fssaiStartDate', 'fssaiExpiry'];
+      const missingFssai = fssaiFields.filter(field => {
+        const val = data[field];
+        return val === null || val === undefined || String(val).trim() === '';
+      });
+      if (missingFssai.length > 0) {
+        const missingLabels = missingFssai.map(f => FIELD_LABELS[f] || f);
+        setErrorMsg(`Mandatory fields for Approved status: FSSAI Number, FSSAI Issued On, FSSAI Valid Until. Missing: ${missingLabels.join(', ')}.`);
         return;
       }
     }
@@ -1175,15 +1199,12 @@ export default function EditStore() {
         areaManagerId: data.areaManagerId || null,
         cityHeadId: data.cityHeadId || null,
         cafeManagerId: data.cafeManagerId || null,
-        expectedSales: data.expectedSalesVal
-          ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
-          : null,
+        expectedSales: data.expectedSalesVal ? Number(data.expectedSalesVal) : null,
         ...(data.status === 'REJECTED' ? { mailStatus: '' } : {}),
         ...(data.status === 'Under Construction' ? { isLocked: false, isLockedAutoApplied: false } : {})
       };
       delete payload.cafeLaunchYear;
       delete payload.expectedSalesVal;
-      delete payload.expectedSalesUnit;
       await axios.put(`/api/stores/${id}`, payload);
       isSavedRef.current = true;
       setIsSaved(true);
@@ -1217,19 +1238,16 @@ export default function EditStore() {
         areaManagerId: data.areaManagerId || null,
         cityHeadId: data.cityHeadId || null,
         cafeManagerId: data.cafeManagerId || null,
-        expectedSales: data.expectedSalesVal
-          ? `₹${data.expectedSalesVal} ${data.expectedSalesUnit || 'Lakhs'}`
-          : null,
+        expectedSales: data.expectedSalesVal ? Number(data.expectedSalesVal) : null,
         ...(data.status === 'REJECTED' ? { mailStatus: '' } : {}),
         ...(data.status === 'Under Construction' ? { isLocked: false, isLockedAutoApplied: false } : {})
       };
       delete payload.cafeLaunchYear;
       delete payload.expectedSalesVal;
-      delete payload.expectedSalesUnit;
       await axios.put(`/api/stores/${id}`, payload);
       isSavedRef.current = true;
       setIsSaved(true);
-      navigate('/approvals', { state: { successMessage: `${data.cafeName} Café has been approved successfully.` } });
+      navigate('/approvals', { state: { successMessage: `${data.cafeName} Cafe has been approved successfully.` } });
     } catch (err) {
       console.error(err);
       let finalError = err.response?.data?.message || err.response?.data?.error || err.message || JSON.stringify(err) || 'Failed to update store.';
@@ -1246,6 +1264,19 @@ export default function EditStore() {
   const handleCancelNsoSave = () => {
     setShowNsoConfirmDialog(false);
     pendingDataRef.current = null;
+  };
+
+  const handleSkipEmail = () => {
+    setDraftDialog({ open: false, status: '', to: '', cc: '', subject: '', body: '', isEditable: false });
+    const data = pendingDataRef.current;
+    if (!data) return;
+    
+    const isTransitioningToApproved = (store?.status === 'PENDING_APPROVAL') && data?.status === 'APPROVED';
+    if (isTransitioningToApproved) {
+      handleConfirmNsoSave();
+    } else {
+      handleConfirmSave();
+    }
   };
 
   const handleCancelSave = () => {
@@ -1366,7 +1397,7 @@ export default function EditStore() {
   }
 
   return (
-    <Box sx={{ maxWidth: 1600, mx: 'auto', py: 2, px: 1 }}>
+    <Box sx={{ width: '100%', py: 2, px: { xs: 1, md: 2 } }}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <Box sx={{
           position: 'sticky',
@@ -1383,10 +1414,10 @@ export default function EditStore() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
             <Box>
               <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-                {isViewOnly || isApprovedStatus ? `Store Details: ${store.cafeName}` : `Modify Existing Store: ${store.cafeName}`}
+                {isViewOnly || (isApprovedStatus && !isSuperAdmin) ? `Store Details: ${store.cafeName}` : `Modify Existing Store: ${store.cafeName}`}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {isApprovedStatus ? 'This store has been approved and is read-only.' : 'Update store information based on your access level.'}
+                {(isApprovedStatus && !isSuperAdmin) ? 'This store has been approved and is read-only.' : 'Update store information based on your access level.'}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -1760,7 +1791,7 @@ export default function EditStore() {
                 <CardContent sx={{ p: 4 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                      Café Basic Details
+                      Cafe Basic Details
                     </Typography>
                     {!canEditBasicDetails && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
                   </Box>
@@ -1769,7 +1800,7 @@ export default function EditStore() {
                     <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField 
                         fullWidth 
-                        label="Café Name **" 
+                        label="Cafe Name **" 
                         {...register('cafeName', { required: 'Required' })} 
                         error={!!errors.cafeName}
                         helperText={errors.cafeName?.message}
@@ -1779,7 +1810,7 @@ export default function EditStore() {
                     <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField 
                         fullWidth 
-                        label="Café Code **" 
+                        label="Cafe Code **" 
                         {...register('cafeCode', { required: 'Required' })} 
                         error={!!errors.cafeCode}
                         helperText={errors.cafeCode?.message}
@@ -1822,7 +1853,7 @@ export default function EditStore() {
                     <Grid size={12}>
                       <TextField 
                         fullWidth 
-                        label="Café Address **" 
+                        label="Cafe Address **" 
                         {...register('cafeAddress', { required: 'Required' })} 
                         error={!!errors.cafeAddress}
                         helperText={errors.cafeAddress?.message}
@@ -1834,7 +1865,7 @@ export default function EditStore() {
                     <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField 
                         fullWidth 
-                        label="Café Location Google Link **" 
+                        label="Cafe Location Google Link **" 
                         placeholder="e.g. https://maps.google.com/..." 
                         {...register('cafeLocationGoogleLink', { required: 'Required' })} 
                         error={!!errors.cafeLocationGoogleLink}
@@ -1899,7 +1930,7 @@ export default function EditStore() {
                         fullWidth 
                         type="time"
                         InputLabelProps={{ shrink: true }}
-                        label="Café Opening Time **" 
+                        label="Cafe Opening Time **" 
                         {...register('cafeOpenTiming', { required: 'Required' })} 
                         error={!!errors.cafeOpenTiming}
                         helperText={errors.cafeOpenTiming?.message}
@@ -1911,7 +1942,7 @@ export default function EditStore() {
                         fullWidth 
                         type="time"
                         InputLabelProps={{ shrink: true }}
-                        label="Café Closing Time **" 
+                        label="Cafe Closing Time **" 
                         {...register('cafeClosingTime', { required: 'Required' })} 
                         error={!!errors.cafeClosingTime}
                         helperText={errors.cafeClosingTime?.message}
@@ -1948,12 +1979,12 @@ export default function EditStore() {
                     {!canEditContacts && <Chip label="View Only" size="small" sx={{ ml: 2, bgcolor: 'rgba(255,255,255,0.1)' }} />}
                   </Box>
 
-                  {/* Row 1: Café Contact & Café Manager Details */}
+                  {/* Row 1: Cafe Contact & Cafe Manager Details */}
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, sm: 2 }}>
                       <TextField 
                         fullWidth 
-                        label="Café Phone Number" 
+                        label="Cafe Phone Number" 
                         {...register('cafePhoneNumber', {
                           pattern: {
                             value: /^\d{10}$/,
@@ -1968,7 +1999,7 @@ export default function EditStore() {
                     <Grid size={{ xs: 12, sm: 3 }}>
                       <TextField 
                         fullWidth 
-                        label="Café Mail ID" 
+                        label="Cafe Mail ID" 
                         type="email" 
                         {...register('cafeMailId', {
                           validate: value => {
@@ -2007,14 +2038,14 @@ export default function EditStore() {
                         onChange={handleCafeManagerSelect}
                         disabled={!canEditContacts}
                         renderInput={(params) => (
-                          <TextField {...params} label="Select Café Manager" />
+                          <TextField {...params} label="Select Cafe Manager" />
                         )}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 2 }}>
                       <TextField 
                         fullWidth 
-                        label="Café Manager Contact No." 
+                        label="Cafe Manager Contact No." 
                         {...register('cafeManagerContactNo')} 
                         InputLabelProps={{ shrink: true }} 
                         InputProps={{ readOnly: !isSuperAdmin && !isAdmin }}
@@ -2302,7 +2333,7 @@ export default function EditStore() {
                       <TextField 
                         fullWidth 
                         select 
-                        label="Café Module" 
+                        label="Cafe Module" 
                         {...register('cafeModule')} 
                         error={!!errors.cafeModule} 
                         helperText={errors.cafeModule?.message} 
@@ -2439,29 +2470,13 @@ export default function EditStore() {
                         label="Expected Sale"
                         type="number"
                         error={!!errors.expectedSalesVal}
-                        helperText={errors.expectedSalesVal?.message}
+                        helperText={errors.expectedSalesVal?.message || formatIndianCurrencyHint(watch('expectedSalesVal'))}
                         disabled={!canEditBasicDetails}
                         {...register('expectedSalesVal', {
-                          min: { value: 1, message: 'Value must be between 1 and 200' },
-                          max: { value: 200, message: 'Value must be between 1 and 200' }
+                          min: { value: 1, message: 'Value must be greater than 0' }
                         })}
                         InputProps={{
-                          startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <Select
-                                value={watch('expectedSalesUnit') || 'Lakhs'}
-                                onChange={(e) => setValue('expectedSalesUnit', e.target.value)}
-                                variant="standard"
-                                disableUnderline
-                                disabled={!canEditBasicDetails}
-                                sx={{ mr: 1, fontWeight: 600, cursor: 'pointer' }}
-                              >
-                                <MenuItem value="Lakhs">Lakhs</MenuItem>
-                                <MenuItem value="Crores">Cr.</MenuItem>
-                              </Select>
-                            </InputAdornment>
-                          )
+                          startAdornment: <InputAdornment position="start">₹</InputAdornment>
                         }}
                       />
                     </Grid>
@@ -2486,14 +2501,14 @@ export default function EditStore() {
             </Grid>
           )}
 
-          {/* Swiggy / Zomato Integration Status (Conditional on Brand) */}
-          {activeTab === 'Swiggy / Zomato Integration' && watch('brand') && (
+          {/* Partner Integration Hub Status (Conditional on Brand) */}
+          {activeTab === 'Partner Integration Hub' && watch('brand') && (
             <Grid size={12}>
               <Card sx={{ bgcolor: 'background.paper', opacity: canEditBasicDetails ? 1 : 0.8 }}>
                 <CardContent sx={{ p: 4 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-                      Swiggy / Zomato Integration Status
+                      Partner Integration Hub Status
                     </Typography>
                     <Chip label="Optional" size="small" sx={{
                       ml: 1, height: 18, fontSize: '0.65rem', fontWeight: 700,
@@ -2538,7 +2553,7 @@ export default function EditStore() {
           <Grid size={12}>
             <Card sx={{ bgcolor: 'background.paper', border: 'none' }}>
               <CardContent sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                {!isViewOnly && !isApprovedStatus && (
+                {!isViewOnly && (!isApprovedStatus || isSuperAdmin) && (
                   <Button 
                     variant="contained" 
                     size="large" 
@@ -2641,7 +2656,7 @@ export default function EditStore() {
         </DialogTitle>
         <DialogContent>
           <Typography variant="body1" sx={{ color: 'text.secondary', mt: 1 }}>
-            Do you want to send the email notification for this NSO-approved café?
+            Do you want to send the email notification for this NSO-approved cafe?
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
@@ -2741,7 +2756,7 @@ export default function EditStore() {
             </Alert>
           )}
           <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
-            Please configure the closure details for this café.
+            Please configure the closure details for this cafe.
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -2854,6 +2869,16 @@ export default function EditStore() {
               disabled={loading}
             >
               Cancel
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="primary"
+              onClick={handleSkipEmail}
+              sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
+              disabled={loading}
+            >
+              Skip Mail
             </Button>
             <Button
               size="small"

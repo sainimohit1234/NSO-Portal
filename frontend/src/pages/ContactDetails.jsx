@@ -1,17 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Button, Stack, TextField, MenuItem,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Alert, Chip, Grid
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Alert, Chip, Grid, Menu, CircularProgress, List, ListItem, ListItemText, Divider
 } from '@mui/material';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import axios, { normalizeListResponse } from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 
-const DESIGNATIONS = ['Café Manager', 'Area Manager', 'City Head'];
+const DESIGNATIONS = ['Cafe Manager', 'Area Manager', 'City Head'];
 
 export default function ContactDetails() {
   const { user: currentUser } = useAuth();
@@ -21,11 +24,17 @@ export default function ContactDetails() {
   const [filteredContacts, setFilteredContacts] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
-  const [form, setForm] = useState({ name: '', designation: 'Café Manager', email: '', phone: '' });
+  const [form, setForm] = useState({ name: '', designation: 'Cafe Manager', email: '', phone: '' });
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
+
+  // Bulk Action State
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
+  const fileInputRef = useRef(null);
   
   // Filters
   const [filters, setFilters] = useState({
@@ -58,7 +67,7 @@ export default function ContactDetails() {
 
   const openCreateDialog = () => {
     setEditingContact(null);
-    setForm({ name: '', designation: 'Café Manager', email: '', phone: '' });
+    setForm({ name: '', designation: 'Cafe Manager', email: '', phone: '' });
     setErrorMsg('');
     setEmailError('');
     setPhoneError('');
@@ -183,6 +192,53 @@ export default function ContactDetails() {
     setFilters({ ...filters, [e.target.name]: e.target.value });
   };
 
+  const handleBulkClick = (event) => setAnchorEl(event.currentTarget);
+  const handleBulkClose = () => setAnchorEl(null);
+
+  const handleExport = async () => {
+    handleBulkClose();
+    try {
+      const response = await axios.get('/api/contacts/bulk/download', { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'Contacts_Bulk_Template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      setErrorMsg('Failed to export template.');
+    }
+  };
+
+  const handleUploadClick = () => {
+    handleBulkClose();
+    if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    e.target.value = null; // Clear input
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setBulkUploading(true);
+    try {
+      const res = await axios.post('/api/contacts/bulk/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setSummaryData(res.data);
+      fetchContacts();
+    } catch (err) {
+      setErrorMsg(err.response?.data?.error || 'Bulk upload failed.');
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
   return (
     <Box sx={{ py: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
@@ -191,17 +247,41 @@ export default function ContactDetails() {
             Contact Details
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Master list for Area Managers, City Heads, and Café Managers.
+            Master list for Area Managers, City Heads, and Cafe Managers.
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<PersonAddIcon />}
-          onClick={openCreateDialog}
-          sx={{ borderRadius: '8px' }}
-        >
-          Add Contact
-        </Button>
+        <Stack direction="row" spacing={2}>
+          {isSuperAdmin && (
+            <>
+              <Button
+                variant="outlined"
+                endIcon={<ExpandMoreIcon />}
+                onClick={handleBulkClick}
+                sx={{ borderRadius: '8px', bgcolor: 'background.paper' }}
+                disabled={bulkUploading}
+              >
+                {bulkUploading ? <CircularProgress size={24} /> : 'Bulk Action'}
+              </Button>
+              <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleBulkClose}>
+                <MenuItem onClick={handleUploadClick}>
+                  <FileUploadIcon fontSize="small" sx={{ mr: 1 }} /> Upload
+                </MenuItem>
+                <MenuItem onClick={handleExport}>
+                  <FileDownloadIcon fontSize="small" sx={{ mr: 1 }} /> Export
+                </MenuItem>
+              </Menu>
+              <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".xlsx" onChange={handleFileChange} />
+            </>
+          )}
+          <Button
+            variant="contained"
+            startIcon={<PersonAddIcon />}
+            onClick={openCreateDialog}
+            sx={{ borderRadius: '8px' }}
+          >
+            Add Contact
+          </Button>
+        </Stack>
       </Box>
 
       {successMsg && (
@@ -218,9 +298,9 @@ export default function ContactDetails() {
       )}
 
       {/* Filters */}
-      <Card sx={{ mb: 3, bgcolor: 'background.paper' }}>
-        <CardContent>
-          <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 700 }}>Filter Contacts</Typography>
+      <Card sx={{ mb: 2, bgcolor: 'background.paper' }}>
+        <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700 }}>Filter Contacts</Typography>
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 3 }}>
               <TextField fullWidth size="small" label="Name" name="name" value={filters.name} onChange={handleFilterChange} />
@@ -349,6 +429,49 @@ export default function ContactDetails() {
           <Button variant="contained" onClick={handleSave} sx={{ borderRadius: '8px', px: 3 }}>
             {editingContact ? 'Save Changes' : 'Add Contact'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(summaryData)} onClose={() => setSummaryData(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Bulk Upload Summary
+          <IconButton onClick={() => setSummaryData(null)} sx={{ position: 'absolute', right: 8, top: 8 }}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {summaryData && (
+            <Box>
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid size={{ xs: 6 }}><Typography variant="subtitle2">Total Records:</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="body2">{summaryData.total}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="subtitle2" color="success.main">Created:</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="body2">{summaryData.created}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="subtitle2" color="info.main">Updated:</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="body2">{summaryData.updated}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="subtitle2" color="warning.main">Deleted:</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="body2">{summaryData.deleted}</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="subtitle2" color="error.main">Failed:</Typography></Grid>
+                <Grid size={{ xs: 6 }}><Typography variant="body2">{summaryData.failed}</Typography></Grid>
+              </Grid>
+              {summaryData.errors && summaryData.errors.length > 0 && (
+                <Box mt={2}>
+                  <Typography variant="subtitle1" color="error.main" sx={{ fontWeight: 'bold' }}>Validation Errors</Typography>
+                  <Divider sx={{ my: 1 }} />
+                  <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+                    {summaryData.errors.map((err, idx) => (
+                      <ListItem key={idx}>
+                        <ListItemText primary={`Row ${err.row}: ${err.error}`} primaryTypographyProps={{ color: 'error.main' }} />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSummaryData(null)} color="inherit">Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -91,8 +91,9 @@ const isExistingLegacyStore = (store) => {
   return isNaN(parsedDate) || parsedDate < INTEGRATION_FLOW_START;
 };
 
-const isMailSent = (store, statusValue) => {
+const isMailSent = (store, statusValue, isRista = false) => {
   if (statusValue === 'Sent' || statusValue === 'SENT') return true;
+  if (isRista) return false;
   return isExistingLegacyStore(store);
 };
 
@@ -106,6 +107,10 @@ const isMandatoryInfoMissing = (store) => {
 
 // ─── Integration status computation ──────────────────────────────────────────
 const computeIntegrationStatus = (store) => {
+  if (store.status === 'PENDING_APPROVAL' || store.status === 'Approval Pending') {
+    return { label: 'Approval Pending', color: '#b45309', bg: '#fef3c7', border: '#fde68a' };
+  }
+
   // Legacy stores (created before the flow start date) are already integrated.
   if (isExistingLegacyStore(store)) {
     return { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7', border: '#86efac' };
@@ -168,6 +173,7 @@ const computeIntegrationStatus = (store) => {
 // Collapse the granular status label into one of the four filter categories.
 const getStatusCategory = (store) => {
   const label = computeIntegrationStatus(store).label;
+  if (label === 'Approval Pending') return 'Approval Pending';
   if (label === 'Docs Pending') return 'Docs Pending';
   if (label.startsWith('Needs to Follow-up') || label.startsWith('Needs Follow-up')) return 'Needs to Follow-up with Swiggy / Zomato';
   if (label.startsWith('Mail Sent')) return 'Mail Sent';
@@ -241,14 +247,14 @@ export default function SwiggyZomatoIntegration() {
         const filtered = fetchedStores.filter(s =>
           s.isActive !== false &&
           s.isActive !== 'false' &&
-          ['APPROVED', 'NSO_APPROVED', 'COMPLIANCE_APPROVED', 'COMPLIANCE APPROVED', 'READY_TO_GO_LIVE', 'LIVE', 'CLOSED'].includes(s.status)
+          ['PENDING_APPROVAL', 'APPROVAL_PENDING', 'APPROVED', 'NSO_APPROVED', 'COMPLIANCE_APPROVED', 'COMPLIANCE APPROVED', 'READY_TO_GO_LIVE', 'LIVE', 'CLOSED'].includes(s.status)
         );
         filtered.sort((a, b) => (a.cafeName || '').localeCompare(b.cafeName || ''));
         setStores(filtered);
         setEmailMappings(mappingsRes.data || []);
       })
       .catch(err => {
-        console.error('Failed to load Swiggy/Zomato Integration data:', err);
+        console.error('Failed to load Partner Integration Hub data:', err);
         setSnackbar({ open: true, message: 'Failed to load store data.', severity: 'error' });
       })
       .finally(() => setLoading(false));
@@ -266,13 +272,14 @@ export default function SwiggyZomatoIntegration() {
       case 'swiggy_sab': return 'Draft a mail for SAB | Swiggy';
       case 'zomato_gottea': return 'Draft a mail for GT | Zomato';
       case 'swiggy_gottea': return 'Draft a mail for GT | Swiggy';
+      case 'rista_creation': return 'Draft Mail for Rista';
       default: return 'Draft a mail';
     }
   };
 
   // Count of stores in each status category (drives the filter chip badges).
   const statusCounts = useMemo(() => {
-    const counts = { 'Docs Pending': 0, 'Pending': 0, 'Mail Sent': 0, 'Needs to Follow-up with Swiggy / Zomato': 0, 'Integration Completed': 0 };
+    const counts = { 'Approval Pending': 0, 'Docs Pending': 0, 'Pending': 0, 'Mail Sent': 0, 'Needs to Follow-up with Swiggy / Zomato': 0, 'Integration Completed': 0 };
     stores.forEach(s => { counts[getStatusCategory(s)] = (counts[getStatusCategory(s)] || 0) + 1; });
     return counts;
   }, [stores]);
@@ -351,7 +358,7 @@ export default function SwiggyZomatoIntegration() {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em', mb: 0.5 }}>
-            Swiggy / Zomato Integration
+            Partner Integration Hub
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Manage onboarding triggers, platforms communications, and restaurant ID records for Approved cafes.
@@ -379,6 +386,7 @@ export default function SwiggyZomatoIntegration() {
       {/* Status Filters — click a chip to filter the table by that status */}
       <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }} alignItems="center">
         {[
+          { label: 'Approval Pending', color: '#b45309', bg: '#fef3c7' },
           { label: 'Docs Pending', color: '#b91c1c', bg: '#fee2e2' },
           { label: 'Pending', color: '#92400e', bg: '#fef3c7' },
           { label: 'Mail Sent', color: '#1e3a8a', bg: '#dbeafe' },
@@ -427,36 +435,33 @@ export default function SwiggyZomatoIntegration() {
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
           <TableContainer component={Paper} sx={{ maxHeight: '80vh', borderRadius: '16px', boxShadow: 'none', overflow: 'auto' }}>
-            <Table stickyHeader size="small" sx={{ minWidth: 3200 }}>
+            <Table stickyHeader size="small" sx={{ minWidth: 1500 }}>
               <TableHead>
                 <TableRow>
                   <TableCell sx={{ fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50, position: 'sticky', left: 0, zIndex: 12, bgcolor: 'background.paper' }}>S.No.</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 155, minWidth: 155, maxWidth: 155, position: 'sticky', left: 50, zIndex: 12, bgcolor: 'background.paper' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 155, minWidth: 155, maxWidth: 155, position: 'sticky', left: 205, zIndex: 12, bgcolor: 'background.paper' }}>Brand</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 105, minWidth: 105, maxWidth: 105, position: 'sticky', left: 360, zIndex: 12, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 220, minWidth: 220, maxWidth: 220, position: 'sticky', left: 465, zIndex: 12, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 280 }}>Address</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 120 }}>City</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 120 }}>State</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100 }}>Pin Code</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#f0fdf4' }}>Blue Tokai Zomato Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#f0fdf4' }}>Blue Tokai Swiggy Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#f0fdf4' }}>Suchali's Zomato Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#f0fdf4' }}>Suchali's Swiggy Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#f0fdf4' }}>Got Tea Zomato Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#f0fdf4' }}>Got Tea Swiggy Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#eff6ff' }}>Blue Tokai Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#eff6ff' }}>Blue Tokai Swiggy RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#eff6ff' }}>Suchali's Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#eff6ff' }}>Suchali's Swiggy RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#eff6ff' }}>Got Tea Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 180, bgcolor: '#eff6ff' }}>Got Tea Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 130, minWidth: 130, maxWidth: 130, position: 'sticky', left: 50, zIndex: 12, bgcolor: 'background.paper' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 130, minWidth: 130, maxWidth: 130, position: 'sticky', left: 180, zIndex: 12, bgcolor: 'background.paper' }}>Brand</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, maxWidth: 100, position: 'sticky', left: 310, zIndex: 12, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 160, minWidth: 160, maxWidth: 160, position: 'sticky', left: 410, zIndex: 12, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#fef2f2' }}>Rista Store Creation Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Blue Tokai Zomato Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Blue Tokai Swiggy Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Suchali's Zomato Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Suchali's Swiggy Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Got Tea Zomato Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Got Tea Swiggy Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Blue Tokai Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Blue Tokai Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Suchali's Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Suchali's Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Got Tea Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Got Tea Swiggy RID</TableCell>
                   {canModify && <TableCell sx={{ fontWeight: 800, width: 90, position: 'sticky', right: 0, zIndex: 12, bgcolor: '#f8fafc', borderLeft: '2px solid', borderColor: 'divider' }} align="center">Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading && stores.length === 0 ? (
-                  <TableRow><TableCell colSpan={22} align="center" sx={{ py: 4, borderBottom: 'none' }}>
+                  <TableRow><TableCell colSpan={19} align="center" sx={{ py: 4, borderBottom: 'none' }}>
                       <FullScreenLoader messages={[
                         'Warming up the espresso machine…',
                         'Grinding the freshest beans…',
@@ -467,7 +472,7 @@ export default function SwiggyZomatoIntegration() {
                       ]} />
                   </TableCell></TableRow>
                 ) : filteredStores.length === 0 ? (
-                  <TableRow><TableCell colSpan={22} align="center" sx={{ py: 8, color: 'text.secondary', fontStyle: 'italic', borderBottom: 'none' }}>
+                  <TableRow><TableCell colSpan={19} align="center" sx={{ py: 8, color: 'text.secondary', fontStyle: 'italic', borderBottom: 'none' }}>
                     <Box sx={{ position: 'sticky', left: '50%', transform: 'translateX(-50%)', display: 'inline-block' }}>
                       {searchQuery || statusFilter
                         ? 'No stores match the current search / filter.'
@@ -479,9 +484,10 @@ export default function SwiggyZomatoIntegration() {
                   const isGotTea = brandType === 'gotTea';
 
                   // Field disable logic
-                  const btDisabled = isGotTea;
-                  const suchaliDisabled = isGotTea;
-                  const gotTeaDisabled = !isGotTea;
+                  const isPendingApproval = store.status === 'PENDING_APPROVAL' || store.status === 'Approval Pending';
+                  const btDisabled = isPendingApproval || isGotTea;
+                  const suchaliDisabled = isPendingApproval || isGotTea;
+                  const gotTeaDisabled = isPendingApproval || !isGotTea;
 
                   const integStatus = computeIntegrationStatus(store);
 
@@ -506,10 +512,10 @@ export default function SwiggyZomatoIntegration() {
                     const placeholderMap = {
                       // Basic cafe info
                       '[Cafe Name]': storeData.cafeName || '',
-                      '[Café Name]': storeData.cafeName || '',
+                      '[Cafe Name]': storeData.cafeName || '',
                       '[Display Name]': storeData.cafeName || '',
                       '[Cafe Code]': storeData.cafeCode || '',
-                      '[Café Code]': storeData.cafeCode || '',
+                      '[Cafe Code]': storeData.cafeCode || '',
 
                       // Location
                       '[City]': storeData.city || '',
@@ -519,7 +525,7 @@ export default function SwiggyZomatoIntegration() {
                       '[Pincode]': storeData.pinCode || '',
                       '[Address]': completeAddress || '',
                       '[Cafe Address]': completeAddress || '',
-                      '[Café Address]': completeAddress || '',
+                      '[Cafe Address]': completeAddress || '',
                       '[Complete Address]': completeAddress || '',
                       '[New Outlet City]': storeData.city || '',
                       '[New Outlet City*]': storeData.city || '',
@@ -535,10 +541,10 @@ export default function SwiggyZomatoIntegration() {
                       '[Lat & long]': latLng,
 
                       // Timings
-                      '[Café Opening Time]': openingTime,
+                      '[Cafe Opening Time]': openingTime,
                       '[Cafe Opening Time]': openingTime,
                       '[Opening Time]': openingTime,
-                      '[Café Closing Time]': closingTime,
+                      '[Cafe Closing Time]': closingTime,
                       '[Cafe Closing Time]': closingTime,
                       '[Closing Time]': closingTime,
                       '[Restaurant Timings]': openingTime && closingTime ? `${openingTime} - ${closingTime}` : openingTime || closingTime || '',
@@ -546,28 +552,28 @@ export default function SwiggyZomatoIntegration() {
                       // Contact
                       '[Phone]': storeData.cafePhoneNumber || storeData.phone || '',
                       '[Cafe Phone]': storeData.cafePhoneNumber || storeData.phone || '',
-                      '[Café Phone]': storeData.cafePhoneNumber || storeData.phone || '',
-                      '[Café Phone Number]': storeData.cafePhoneNumber || storeData.phone || '',
+                      '[Cafe Phone]': storeData.cafePhoneNumber || storeData.phone || '',
+                      '[Cafe Phone Number]': storeData.cafePhoneNumber || storeData.phone || '',
                       '[Cafe Phone Number]': storeData.cafePhoneNumber || storeData.phone || '',
                       '[Owner Phone Number]': storeData.cafePhoneNumber || storeData.phone || '',
                       '[Email]': storeData.cafeMailId || storeData.email || '',
                       '[Cafe Email]': storeData.cafeMailId || storeData.email || '',
-                      '[Café Email]': storeData.cafeMailId || storeData.email || '',
-                      '[Café Mail ID]': storeData.cafeMailId || storeData.email || '',
+                      '[Cafe Email]': storeData.cafeMailId || storeData.email || '',
+                      '[Cafe Mail ID]': storeData.cafeMailId || storeData.email || '',
                       '[Cafe Mail ID]': storeData.cafeMailId || storeData.email || '',
                       '[Order Notification Email ID]': storeData.cafeMailId || storeData.email || '',
-                      '[Café Mail Id]': storeData.cafeMailId || storeData.email || '',
+                      '[Cafe Mail Id]': storeData.cafeMailId || storeData.email || '',
                       '[Order Manager Number]': storeData.cafePhoneNumber || storeData.cafeManagerContactNo || storeData.phone || '',
 
                       // Manager details
                       '[Cafe Manager]': storeData.cafeManagerName || '',
-                      '[Café Manager]': storeData.cafeManagerName || '',
+                      '[Cafe Manager]': storeData.cafeManagerName || '',
                       '[Cafe Manager Name]': storeData.cafeManagerName || '',
-                      '[Café Manager Name]': storeData.cafeManagerName || '',
+                      '[Cafe Manager Name]': storeData.cafeManagerName || '',
                       '[Cafe Manager Email]': storeData.cafeManagerMailId || '',
-                      '[Café Manager Email]': storeData.cafeManagerMailId || '',
+                      '[Cafe Manager Email]': storeData.cafeManagerMailId || '',
                       '[Cafe Manager Phone]': storeData.cafeManagerContactNo || '',
-                      '[Café Manager Phone]': storeData.cafeManagerContactNo || '',
+                      '[Cafe Manager Phone]': storeData.cafeManagerContactNo || '',
 
                       // GST / FSSAI
                       '[Brand]': storeData.brand || '',
@@ -580,7 +586,7 @@ export default function SwiggyZomatoIntegration() {
                       '[FSSAI License]': storeData.fssaiLicense || storeData.fssaiNo || '',
 
                       // Google/Map link
-                      '[Café Location Google Link]': storeData.cafeLocationGoogleLink || '',
+                      '[Cafe Location Google Link]': storeData.cafeLocationGoogleLink || '',
                       '[Cafe Location Google Link]': storeData.cafeLocationGoogleLink || '',
                       '[Google Link]': storeData.cafeLocationGoogleLink || '',
                       '[Map Link]': storeData.cafeLocationGoogleLink || '',
@@ -590,9 +596,9 @@ export default function SwiggyZomatoIntegration() {
                       '[City Type]': storeData.storeType || storeData.platformType || storeData.tradingArea || '',
                       '[Store Type]': storeData.storeType || '',
                       '[Cafe Type]': storeData.storeType || '',
-                      '[Café Type]': storeData.storeType || '',
+                      '[Cafe Type]': storeData.storeType || '',
                       '[Cafe Model]': storeData.cafeModel || '',
-                      '[Café Model]': storeData.cafeModel || '',
+                      '[Cafe Model]': storeData.cafeModel || '',
 
                       // Swiggy / Zomato IDs
                       '[Swiggy ID]': storeData.swiggyId || storeData.blueTokaiSwiggyRID || '',
@@ -614,7 +620,7 @@ export default function SwiggyZomatoIntegration() {
                       const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                       result = result.replace(new RegExp(escaped, 'gi'), value);
                     }
-                    return result;
+                    return result.replace(/<br\s*[\/]?>/gi, '\n');
                   };
 
                   const handleOpenDraftDialog = async (currentStore, brandKey, { isResend = false } = {}) => {
@@ -624,7 +630,7 @@ export default function SwiggyZomatoIntegration() {
                           .sort((a, b) => new Date(b.uploadedAt || 0) - new Date(a.uploadedAt || 0))[0]
                       : null;
 
-                    if (!fssaiDoc) {
+                    if (!isResend && !fssaiDoc && brandKey !== 'rista_creation') {
                       setSnackbar({
                         open: true,
                         message: 'FSSAI License is not available for this cafe. Please upload the FSSAI License in the Legal Documents section before drafting or sending the email.',
@@ -635,7 +641,7 @@ export default function SwiggyZomatoIntegration() {
 
                     try {
                       setLoading(true);
-                      const subCategoryKey = getDraftLabel(brandKey);
+                      const subCategoryKey = brandKey === 'rista_creation' ? 'Draft Mail for Rista Creation' : getDraftLabel(brandKey);
                       const [templatesRes, mappingsRes] = await Promise.all([
                         axios.get('/api/system/email-templates'),
                         axios.get('/api/system/email-mappings'),
@@ -651,7 +657,7 @@ export default function SwiggyZomatoIntegration() {
                       const rawBody = template.body || '';
 
                       const subject = replacePlaceholders(rawSubject, currentStore);
-                      const body = replacePlaceholders(rawBody, currentStore);
+                      const body = replacePlaceholders(rawBody, currentStore).replace(/\\n/g, '<br/>');
 
                       const toList = (mapping?.to || []).join(', ');
                       const ccList = (mapping?.cc || []).join(', ');
@@ -696,17 +702,17 @@ export default function SwiggyZomatoIntegration() {
 
                       // Merge all, deduplicate by doc id
                       const seenIds = new Set();
-                      const autoAttachments = [
+                      const autoAttachments = brandKey === 'rista_creation' ? [] : [
                         ...statusCategoryAttachments,
                         ...generalAttachments,
                         ...(gstAttachment ? [gstAttachment] : []),
-                        {
+                        ...(fssaiDoc ? [{
                           id: fssaiDoc.id || 'fssai-license-attachment',
                           fileName: fssaiDoc.fileName || 'FSSAI License',
                           fileUrl: fssaiDoc.url || fssaiDoc.fileUrl,
                           url: fssaiDoc.url || fssaiDoc.fileUrl,
                           _isFSSAI: true
-                        }
+                        }] : [])
                       ].filter(doc => {
                         if (seenIds.has(doc.id)) return false;
                         seenIds.add(doc.id);
@@ -741,10 +747,7 @@ export default function SwiggyZomatoIntegration() {
 
                   const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled) => {
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
-                    let isSent = isMailSent(store, statusVal);
-                    if (brandKey === 'zomato_btc') {
-                      isSent = false; // Force Pending for testing purposes as requested
-                    }
+                    const isSent = isMailSent(store, statusVal, brandKey === 'rista_creation');
                     if (isSent) {
                       const sentChip = (
                         <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />
@@ -767,7 +770,7 @@ export default function SwiggyZomatoIntegration() {
                       );
                     }
                     
-                    if (isMandatoryInfoMissing(store)) {
+                    if (isMandatoryInfoMissing(store) && brandKey !== 'rista_creation') {
                       return (
                         <Chip 
                           label="Docs Pending" 
@@ -824,10 +827,10 @@ export default function SwiggyZomatoIntegration() {
                   return (
                     <TableRow key={store.id} hover sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}>
                       {/* S.No. */}
-                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, bgcolor: 'background.paper', fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50 }}>{index + 1}</TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50 }}>{index + 1}</TableCell>
 
                       {/* Status */}
-                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 2, bgcolor: 'background.paper', width: 155, minWidth: 155, maxWidth: 155 }}>
+                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 1, bgcolor: 'background.paper', width: 130, minWidth: 130, maxWidth: 130 }}>
                         <Chip label={integStatus.label} size="small" sx={{
                           bgcolor: integStatus.bg, color: integStatus.color,
                           border: `1px solid ${integStatus.border}`,
@@ -837,27 +840,20 @@ export default function SwiggyZomatoIntegration() {
                       </TableCell>
 
                       {/* Brand */}
-                      <TableCell sx={{ position: 'sticky', left: 205, zIndex: 2, bgcolor: 'background.paper', fontWeight: 600, fontSize: '0.8rem', width: 155, minWidth: 155, maxWidth: 155 }}>
+                      <TableCell sx={{ position: 'sticky', left: 180, zIndex: 1, bgcolor: 'background.paper', fontWeight: 600, fontSize: '0.8rem', width: 130, minWidth: 130, maxWidth: 130 }}>
                         {getBrandLabel(store.brand)}
                       </TableCell>
 
                       {/* Cafe Code */}
-                      <TableCell sx={{ position: 'sticky', left: 360, zIndex: 2, bgcolor: 'background.paper', fontWeight: 700, width: 105, minWidth: 105, maxWidth: 105 }}>
+                      <TableCell sx={{ position: 'sticky', left: 310, zIndex: 1, bgcolor: 'background.paper', fontWeight: 700, width: 100, minWidth: 100, maxWidth: 100 }}>
                         {store.cafeCode || 'N/A'}
                       </TableCell>
 
                       {/* Cafe Name */}
-                      <TableCell sx={{ position: 'sticky', left: 465, zIndex: 2, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', fontWeight: 800, width: 220, minWidth: 220, maxWidth: 220 }}>
+                      <TableCell sx={{ position: 'sticky', left: 410, zIndex: 1, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', fontWeight: 800, width: 160, minWidth: 160, maxWidth: 160 }}>
                         {store.cafeName || 'N/A'}
                       </TableCell>
-
-                      {/* Address */}
-                      <TableCell sx={{ color: 'text.secondary', maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {store.cafeAddress || store.address || 'N/A'}
-                      </TableCell>
-                      <TableCell>{store.city || 'N/A'}</TableCell>
-                      <TableCell>{store.state || 'N/A'}</TableCell>
-                      <TableCell>{store.pinCode || 'N/A'}</TableCell>
+                      <TableCell sx={MAIL_CELL_STYLE}>{renderMail(store.ristaMailStatus, 'rista_creation', 'Rista Store Creation', 'rista_creation', false)}</TableCell>
 
                       {/* Mail cells */}
                       <TableCell sx={btDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.btZomatoMailStatus, 'zomato_btc', 'Blue Tokai Zomato', 'zomato_btc', btDisabled)}</TableCell>
@@ -877,7 +873,7 @@ export default function SwiggyZomatoIntegration() {
 
                       {/* Actions */}
                       {canModify && (
-                        <TableCell sx={{ position: 'sticky', right: 0, zIndex: 2, bgcolor: 'background.paper', borderLeft: '2px solid', borderColor: 'divider' }} align="center">
+                        <TableCell sx={{ position: 'sticky', right: 0, zIndex: 1, bgcolor: 'background.paper', borderLeft: '2px solid', borderColor: 'divider' }} align="center">
                           <Tooltip title="Save RID changes">
                             <IconButton color="primary" onClick={() => handleSaveRow(store)} size="small">
                               <SaveIcon sx={{ fontSize: '18px' }} />

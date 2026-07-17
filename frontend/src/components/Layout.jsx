@@ -199,7 +199,7 @@ export default function Layout() {
     { text: 'All Upcoming Stores', icon: <CalendarTodayIcon />, path: '/upcoming-stores', color: '#f59e0b', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
     { text: 'NSO Approval', icon: <AssignmentTurnedIn />, path: '/approvals', color: '#06b6d4', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
 
-    { text: 'Swiggy / Zomato Integration', icon: <SyncIcon />, path: '/swiggy-zomato', color: '#f43f5e', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
+    { text: 'Partner Integration Hub', icon: <SyncIcon />, path: '/swiggy-zomato', color: '#f43f5e', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
     { text: 'Email Directory', icon: <MailOutlineIcon />, path: '/aggregator-mail', color: '#14b8a6', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
     { text: 'Bulk Action', icon: <LayersIcon />, path: '/bulk-action', color: '#6366f1', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] },
     { text: 'Settings', icon: <Settings />, path: '/settings', color: '#64748b', roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'FINANCE'] },
@@ -216,7 +216,7 @@ export default function Layout() {
     'All Stores': 'all_stores',
     'Expansion Pipeline': 'expansion_pipeline',
     'NSO Approval': 'nso_approval',
-    'Swiggy / Zomato Integration': 'swiggy_zomato',
+    'Partner Integration Hub': 'swiggy_zomato',
     'Email Directory': 'email_directory',
     'Store Contact & Email Management': 'store_contact_email',
     'Store Control Center': 'store_control_center',
@@ -252,9 +252,9 @@ export default function Layout() {
         flexDirection: 'column', 
         alignItems: 'center', 
         px: 2, 
-        pt: 3.5, 
-        pb: 5.75, 
-        gap: 1.25,
+        pt: 1.5, 
+        pb: 1.5, 
+        gap: 0.75,
         background: 'linear-gradient(135deg, #0A314D 0%, #051622 100%)',
         position: 'relative',
         overflow: 'hidden',
@@ -289,8 +289,8 @@ export default function Layout() {
           {/* Blue Tokai Logo */}
           <Box sx={{
             position: 'relative',
-            width: 58,
-            height: 58,
+            width: 48,
+            height: 48,
             borderRadius: '50%',
             background: '#000000',
             display: 'flex',
@@ -323,8 +323,8 @@ export default function Layout() {
           {/* Suchali's Logo */}
           <Box sx={{
             position: 'relative',
-            width: 58,
-            height: 58,
+            width: 48,
+            height: 48,
             borderRadius: '50%',
             background: '#000000',
             display: 'flex',
@@ -357,8 +357,8 @@ export default function Layout() {
           {/* Got Tea Logo */}
           <Box sx={{
             position: 'relative',
-            width: 58,
-            height: 58,
+            width: 48,
+            height: 48,
             borderRadius: '50%',
             background: '#e2f8fc',
             display: 'flex',
@@ -403,15 +403,15 @@ export default function Layout() {
             zIndex: 1,
             display: 'block',
             lineHeight: 1.3,
-            py: 0.25,
-            mb: 0.5
+            py: 0.15,
+            mb: 0.25
           }}
         >
           NSO PORTAL
         </Typography>
 
         {/* Decorative Gold & Blue Split Line */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '90%', my: 0.25, position: 'relative', zIndex: 1, mb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '90%', my: 0.25, position: 'relative', zIndex: 1, mb: 0.5 }}>
           <Box sx={{ flex: 1, height: '1.5px', background: 'linear-gradient(90deg, transparent, #00f2ff)' }} />
           <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: '#f59e0b', boxShadow: '0 0 8px #f59e0b' }} />
           <Box sx={{ flex: 1, height: '1.5px', background: 'linear-gradient(90deg, #f59e0b, transparent)' }} />
@@ -785,7 +785,7 @@ export default function Layout() {
           zIndex: 0
         }} />
 
-        <Box sx={{ width: '100%', maxWidth: 1640, mx: 'auto', position: 'relative', zIndex: 1 }}>
+        <Box sx={{ width: '100%', position: 'relative', zIndex: 1 }}>
           <Outlet />
         </Box>
       </Box>

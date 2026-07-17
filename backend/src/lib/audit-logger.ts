@@ -14,6 +14,7 @@ export async function logAudit(moduleName: string, activity: string, oldData: an
     module: moduleName,
     activity: activity,
     userName: user.name || user.email || 'Unknown User',
+    userEmail: user.email || '',
     userId: user.id,
     timestamp: new Date().toISOString(),
     oldValue: oldData ? JSON.stringify(oldData) : null,

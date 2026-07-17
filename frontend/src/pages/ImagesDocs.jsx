@@ -609,7 +609,7 @@ export default function ImagesDocs() {
   };
 
   return (
-    <Box sx={{ maxWidth: 1600, mx: 'auto', p: 1 }}>
+    <Box sx={{ width: '100%', py: 1, px: { xs: 1, md: 2 } }}>
       <Typography variant="h5" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em', mb: 2.5 }}>
         Images and Other Docs
       </Typography>
@@ -897,6 +897,63 @@ export default function ImagesDocs() {
                     </Box>
                   </Box>
 
+                  {/* GST Number field for State GST documents */}
+                  {activeCategory === 'State GST' && selectedDoc && (
+                    <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(111, 205, 220, 0.05)', borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
+                        GST Number for {selectedDoc.fileName}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          size="small"
+                          placeholder="Enter GST Number"
+                          value={gstNumber}
+                          onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
+                          sx={{ flexGrow: 1, '& .MuiOutlinedInput-root': { borderRadius: '8px' }, '& .MuiOutlinedInput-input': { fontSize: '0.82rem', py: 0.8 } }}
+                        />
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<SaveIcon />}
+                          onClick={handleSaveGstNumber}
+                          disabled={savingGstNo}
+                          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.72rem', py: 0.7 }}
+                        >
+                          {savingGstNo ? 'Saving…' : 'Save'}
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+
+                  {/* FSSAI Number field for FSSAI documents */}
+                  {selectedDoc && (selectedDoc.fileName?.toLowerCase().includes('fssai') || selectedDoc.category?.toLowerCase().includes('fssai')) && (
+                    <Box sx={{ mb: 2, p: 2, bgcolor: 'rgba(245, 158, 11, 0.05)', borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
+                        FSSAI Number for {selectedDoc.fileName}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          size="small"
+                          placeholder="Enter FSSAI Number"
+                          value={fssaiNumber}
+                          onChange={(e) => setFssaiNumber(e.target.value)}
+                          sx={{ flexGrow: 1, '& .MuiOutlinedInput-root': { borderRadius: '8px' }, '& .MuiOutlinedInput-input': { fontSize: '0.82rem', py: 0.8 } }}
+                        />
+                        <Button
+                          variant="contained"
+                          color="warning"
+                          size="small"
+                          startIcon={<SaveIcon />}
+                          onClick={handleSaveFssaiNumber}
+                          disabled={savingFssaiNo}
+                          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.72rem', py: 0.7, bgcolor: '#f59e0b', '&:hover': { bgcolor: '#d97706' } }}
+                        >
+                          {savingFssaiNo ? 'Saving…' : 'Save'}
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+
                   {/* Document Preview Content */}
                   <Paper variant="outlined" sx={{ flexGrow: 1, minHeight: 380, display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', p: 1, bgcolor: '#0f172a', borderRadius: '10px', position: 'relative' }}>
                     {(() => {
@@ -956,63 +1013,6 @@ export default function ImagesDocs() {
                       );
                     })()}
                   </Paper>
-
-                  {/* GST Number field for State GST documents */}
-                  {activeCategory === 'State GST' && selectedDoc && (
-                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(111, 205, 220, 0.05)', borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
-                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
-                        GST Number for {selectedDoc.fileName}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <TextField
-                          size="small"
-                          placeholder="Enter GST Number"
-                          value={gstNumber}
-                          onChange={(e) => setGstNumber(e.target.value.toUpperCase())}
-                          sx={{ flexGrow: 1, '& .MuiOutlinedInput-root': { borderRadius: '8px' }, '& .MuiOutlinedInput-input': { fontSize: '0.82rem', py: 0.8 } }}
-                        />
-                        <Button
-                          variant="contained"
-                          size="small"
-                          startIcon={<SaveIcon />}
-                          onClick={handleSaveGstNumber}
-                          disabled={savingGstNo}
-                          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.72rem', py: 0.7 }}
-                        >
-                          {savingGstNo ? 'Saving…' : 'Save'}
-                        </Button>
-                      </Box>
-                    </Box>
-                  )}
-
-                  {/* FSSAI Number field for FSSAI documents */}
-                  {selectedDoc && (selectedDoc.fileName?.toLowerCase().includes('fssai') || selectedDoc.category?.toLowerCase().includes('fssai')) && (
-                    <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(245, 158, 11, 0.05)', borderRadius: '10px', border: '1px solid', borderColor: 'divider' }}>
-                      <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', mb: 1, color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: '0.05em' }}>
-                        FSSAI Number for {selectedDoc.fileName}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <TextField
-                          size="small"
-                          placeholder="Enter FSSAI Number"
-                          value={fssaiNumber}
-                          onChange={(e) => setFssaiNumber(e.target.value)}
-                          sx={{ flexGrow: 1, '& .MuiOutlinedInput-root': { borderRadius: '8px' }, '& .MuiOutlinedInput-input': { fontSize: '0.82rem', py: 0.8 } }}
-                        />
-                        <Button
-                          variant="contained"
-                          color="warning"
-                          size="small"
-                          startIcon={<SaveIcon />}
-                          onClick={handleSaveFssaiNumber}
-                          disabled={savingFssaiNo}
-                          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600, fontSize: '0.72rem', py: 0.7, bgcolor: '#f59e0b', '&:hover': { bgcolor: '#d97706' } }}
-                        >
-                          {savingFssaiNo ? 'Saving…' : 'Save'}
-                        </Button>
-                      </Box>
-                    </Box>
-                  )}
                 </Box>
               )}
               </Box>

@@ -259,6 +259,7 @@ class MockDelegate {
       module: this.modelName,
       activity: activity,
       userName: user.name || user.email || 'Unknown User',
+      userEmail: user.email || '',
       userId: user.id,
       timestamp: new Date().toISOString(),
       oldValue: oldData ? JSON.stringify(oldData) : null,

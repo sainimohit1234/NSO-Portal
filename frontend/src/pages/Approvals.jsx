@@ -166,7 +166,8 @@ export default function Approvals() {
       .replace(/{address}|\[Address\]/gi, store.cafeAddress || store.address || '')
       .replace(/{model}|\[Model\]|\[Cafe Model\]/gi, store.cafeModule || store.cafeModel || '')
       .replace(/{cafeCode}|\[Store Code\]|\[Cafe Code\]/gi, store.cafeCode || '')
-      .replace(/{pincode}|\[Pin Code\]|\[Pin Code\]/gi, store.pinCode || '');
+      .replace(/{pincode}|\[Pin Code\]|\[Pin Code\]/gi, store.pinCode || '')
+      .replace(/<br\s*[\/]?>/gi, '\n');
   };
 
   const handleSendEmail = async () => {
@@ -463,18 +464,18 @@ export default function Approvals() {
         </Alert>
       )}
 
-      <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden', backdropFilter: 'blur(12px)' }}>
+      <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden' }}>
         <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider', width: 50 }}>S.No.</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Code</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>City</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Sent to NSO Team By</TableCell>
-                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', backdropFilter: 'blur(8px)', borderBottom: '2px solid', borderColor: 'divider' }}>Approved By</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', borderBottom: '2px solid', borderColor: 'divider', width: 50 }}>S.No.</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Code</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', borderBottom: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', borderBottom: '2px solid', borderColor: 'divider' }}>City</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', borderBottom: '2px solid', borderColor: 'divider' }}>Status</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', borderBottom: '2px solid', borderColor: 'divider' }}>Sent to NSO Team By</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'text.primary', bgcolor: 'rgba(15, 23, 42, 0.8)', borderBottom: '2px solid', borderColor: 'divider' }}>Approved By</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

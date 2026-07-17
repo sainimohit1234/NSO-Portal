@@ -27,15 +27,22 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Portal
+  Portal,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 import FullScreenLoader from '../components/FullScreenLoader';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import FileUploadIcon from '@mui/icons-material/FileUpload';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { useAuth } from '../context/AuthContext';
 import axios from '../utils/api';
 
 const fieldsGuide = [
+  { field: 'brand', status: 'Editable' },
   { field: 'cafeName', status: 'Not Editable' },
   { field: 'cafeCode', status: 'Not Editable' },
   { field: 'cafeModule', status: 'Not Editable' },
@@ -88,15 +95,24 @@ const fieldsGuide = [
 ];
 
 export default function BulkAction() {
-  const [tabValue, setTabValue] = useState(0); // 0 = Create, 1 = Modify
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+
+  const [tabValue, setTabValue] = useState(isSuperAdmin ? 0 : 1); // 0 = Create, 1 = Modify
   const [brand, setBrand] = useState('');
-  // Separate loading states so Download and Upload spinners are independent
+  
   const [downloadLoading, setDownloadLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
   
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
+
   const fileInputRef = useRef(null);
 
   const handleTabChange = (event, newValue) => {
@@ -109,7 +125,7 @@ export default function BulkAction() {
   const currentAction = tabValue === 0 ? 'create' : 'modify';
 
   const handleDownload = async () => {
-    if (!brand) {
+    if (currentAction === 'modify' && !brand) {
       setErrors([{ message: 'Please select a brand before downloading.' }]);
       return;
     }
@@ -119,15 +135,19 @@ export default function BulkAction() {
     setSuccessMsg('');
     
     try {
+      const targetBrand = currentAction === 'create' ? 'ALL_BRANDS' : brand;
       const response = await axios.get('/api/stores/bulk/download', {
-        params: { action: currentAction, brand },
+        params: { action: currentAction, brand: targetBrand },
         responseType: 'blob',
       });
       
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      const brandLabel = brand === 'ALL_BRANDS' ? 'all_brands' : brand.toLowerCase();
+      let brandLabel = 'all_brands';
+      if (currentAction === 'modify') {
+        brandLabel = brand === 'ALL_BRANDS' ? 'all_brands' : brand.toLowerCase();
+      }
       link.setAttribute('download', `${currentAction}_stores_${brandLabel}.csv`);
       document.body.appendChild(link);
       link.click();
@@ -135,8 +155,6 @@ export default function BulkAction() {
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error(err);
-      // When responseType is 'blob', error responses come back as blobs too.
-      // Parse the blob to extract the real error message.
       try {
         if (err.response?.data instanceof Blob) {
           const text = await err.response.data.text();
@@ -156,11 +174,11 @@ export default function BulkAction() {
   };
 
   const handleUploadClick = () => {
-    if (!brand) {
+    if (currentAction === 'modify' && !brand) {
       setErrors([{ message: 'Please select a brand before uploading.' }]);
       return;
     }
-    if (brand === 'ALL_BRANDS') {
+    if (currentAction === 'modify' && brand === 'ALL_BRANDS') {
       setErrors([{ message: 'Please select a specific brand for uploading. "All Brands" is only available for download.' }]);
       return;
     }
@@ -169,12 +187,18 @@ export default function BulkAction() {
     }
   };
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Reset input
-    e.target.value = null;
+    setSelectedFile(file);
+    e.target.value = null; // Reset input
+    setConfirmDialogOpen(true);
+  };
+
+  const processUpload = async () => {
+    setConfirmDialogOpen(false);
+    if (!selectedFile) return;
 
     setUploadLoading(true);
     setUploadProgress(0);
@@ -182,9 +206,9 @@ export default function BulkAction() {
     setSuccessMsg('');
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', selectedFile);
     formData.append('action', currentAction);
-    if (brand) {
+    if (currentAction === 'modify' && brand) {
       formData.append('brand', brand);
     }
 
@@ -201,7 +225,16 @@ export default function BulkAction() {
         }
       });
       
-      setSuccessMsg(response.data.message || 'Stores successfully processed!');
+      if (currentAction === 'create') {
+        setSummaryData(response.data);
+        setSummaryDialogOpen(true);
+      } else {
+        if (response.data.errors && response.data.errors.length > 0) {
+          setErrors(response.data.errors);
+        } else {
+          setSuccessMsg(response.data.message || 'Stores successfully processed!');
+        }
+      }
     } catch (err) {
       console.error(err);
       if (err.response?.data?.errors) {
@@ -229,13 +262,34 @@ export default function BulkAction() {
       }
     } finally {
       setUploadLoading(false);
+      setSelectedFile(null);
     }
   };
 
-  const isAllBrands = brand === 'ALL_BRANDS';
+  const downloadErrorReport = () => {
+    if (!summaryData || !summaryData.errors || summaryData.errors.length === 0) return;
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + "Row,Error Message\n"
+      + summaryData.errors.map(e => `"${e.message.replace(/"/g, '""')}"`).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "bulk_create_error_report.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleCloseSummary = () => {
+    setSummaryDialogOpen(false);
+    setSummaryData(null);
+  };
+
+  const isAllBrands = currentAction === 'modify' && brand === 'ALL_BRANDS';
 
   return (
-    <Box sx={{ maxWidth: 1600, mx: 'auto', py: 2, px: 1 }}>
+    <Box sx={{ width: '100%', py: 2, px: { xs: 1, md: 2 } }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
           Bulk Actions
@@ -248,7 +302,9 @@ export default function BulkAction() {
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '12px' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={handleTabChange} aria-label="bulk action tabs">
-            <Tab label="Create store in bulk" sx={{ fontWeight: 700 }} />
+            {isSuperAdmin && (
+              <Tab label="Create store in bulk" sx={{ fontWeight: 700 }} />
+            )}
             <Tab label="Modification in existing stores" sx={{ fontWeight: 700 }} />
           </Tabs>
         </Box>
@@ -275,16 +331,16 @@ export default function BulkAction() {
 
           <Grid container spacing={3} alignItems="flex-end">
             <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                select
-                fullWidth
-                label="Select Brand"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
-                variant="outlined"
-                helperText="Required"
-              >
-                {tabValue === 1 && (
+              {currentAction === 'modify' && (
+                <TextField
+                  select
+                  fullWidth
+                  label="Select Brand"
+                  value={brand}
+                  onChange={(e) => setBrand(e.target.value)}
+                  variant="outlined"
+                  helperText="Required"
+                >
                   <MenuItem value="ALL_BRANDS">
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Box
@@ -296,14 +352,14 @@ export default function BulkAction() {
                       All Brands (Download Only)
                     </Box>
                   </MenuItem>
-                )}
-                <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's Artisan Bakehouse</MenuItem>
-                <MenuItem value="GOT_TEA">Got Tea</MenuItem>
-              </TextField>
+                  <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's Artisan Bakehouse</MenuItem>
+                  <MenuItem value="GOT_TEA">Got Tea</MenuItem>
+                </TextField>
+              )}
             </Grid>
           </Grid>
 
-          <Divider sx={{ my: 4 }} />
+          {currentAction === 'modify' && <Divider sx={{ my: 4 }} />}
 
           <Grid container spacing={3}>
             <Grid size={{ xs: 12, sm: 6 }}>
@@ -311,10 +367,10 @@ export default function BulkAction() {
                 <CardContent sx={{ textAlign: 'center', p: 3 }}>
                   <FileDownloadIcon sx={{ fontSize: 48, color: 'primary.main', mb: 2 }} />
                   <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                    1. Download {tabValue === 0 ? 'Template' : 'Existing Data'}
+                    1. Download {currentAction === 'create' ? 'Template' : 'Existing Data'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                    {tabValue === 0
+                    {currentAction === 'create'
                       ? 'Download the CSV template with the correct headers required for store creation.'
                       : isAllBrands
                         ? 'Download a CSV file containing all stores across every brand.'
@@ -324,7 +380,7 @@ export default function BulkAction() {
                     variant="outlined" 
                     fullWidth 
                     onClick={handleDownload}
-                    disabled={downloadLoading || !brand}
+                    disabled={downloadLoading || (currentAction === 'modify' && !brand)}
                     startIcon={downloadLoading ? <CircularProgress size={18} color="inherit" /> : <FileDownloadIcon />}
                   >
                     {downloadLoading ? 'Downloading...' : 'Download CSV'}
@@ -355,7 +411,7 @@ export default function BulkAction() {
                     color="success"
                     fullWidth 
                     onClick={handleUploadClick}
-                    disabled={uploadLoading || !brand || isAllBrands}
+                    disabled={uploadLoading || (currentAction === 'modify' && (!brand || isAllBrands))}
                     startIcon={uploadLoading ? <CircularProgress size={18} color="inherit" /> : <FileUploadIcon />}
                     title={isAllBrands ? '"All Brands" is not available for upload. Please select a specific brand.' : ''}
                   >
@@ -371,7 +427,7 @@ export default function BulkAction() {
             </Grid>
           </Grid>
 
-          {tabValue === 1 && (
+          {currentAction === 'modify' && (
             <Box sx={{ mt: 4 }}>
               <Accordion variant="outlined" sx={{ borderRadius: '8px', '&:before': { display: 'none' } }}>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: 'action.hover', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
@@ -413,6 +469,58 @@ export default function BulkAction() {
 
         </CardContent>
       </Card>
+
+      <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
+        <DialogTitle>Confirm Upload</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to upload this file?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialogOpen(false)} color="inherit">
+            No
+          </Button>
+          <Button onClick={processUpload} variant="contained" color="primary" autoFocus>
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={summaryDialogOpen} onClose={handleCloseSummary} maxWidth="sm" fullWidth>
+        <DialogTitle>Upload Summary</DialogTitle>
+        <DialogContent>
+          {summaryData && (
+            <Box sx={{ pt: 1 }}>
+              <Typography variant="body1" gutterBottom>
+                <strong>Total Records Uploaded:</strong> {summaryData.totalCount}
+              </Typography>
+              <Typography variant="body1" gutterBottom sx={{ color: 'success.main' }}>
+                <strong>Successfully Created Stores:</strong> {summaryData.successCount}
+              </Typography>
+              <Typography variant="body1" gutterBottom sx={{ color: summaryData.failedCount > 0 ? 'error.main' : 'text.primary' }}>
+                <strong>Failed Records:</strong> {summaryData.failedCount}
+              </Typography>
+
+              {summaryData.failedCount > 0 && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  Some records failed validation. You can download the error report to see the reasons.
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {summaryData && summaryData.failedCount > 0 && (
+            <Button onClick={downloadErrorReport} color="error" variant="outlined" startIcon={<FileDownloadIcon />}>
+              Download Error Report
+            </Button>
+          )}
+          <Button onClick={handleCloseSummary} variant="contained" color="primary">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Portal>
         {uploadLoading && <FullScreenLoader messages={[
