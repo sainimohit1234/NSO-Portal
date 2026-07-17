@@ -15,7 +15,7 @@ export default function StoreContactEmailManagement() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [updating, setUpdating] = useState(false);
+  const [updatingId, setUpdatingId] = useState(null);
   const { user } = useAuth();
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
@@ -71,16 +71,49 @@ export default function StoreContactEmailManagement() {
   });
 
   const handleStatusChange = async (storeId, newStatus) => {
+    const previousStores = stores;
     try {
-      setUpdating(true);
-      await axios.put(`/api/stores/${storeId}`, { itEmailStatus: newStatus });
+      setUpdatingId(storeId);
       setStores(prev => prev.map(s => s.id === storeId ? { ...s, itEmailStatus: newStatus } : s));
+      await axios.put(`/api/stores/${storeId}`, { itEmailStatus: newStatus });
     } catch (error) {
       console.error('Failed to update status:', error);
       alert('Failed to update status. Please try again.');
+      setStores(previousStores);
     } finally {
-      setUpdating(false);
+      setUpdatingId(null);
     }
+  };
+
+  const handleEmailUpdate = async (storeId, field, newValue) => {
+    const previousStores = stores;
+    try {
+      setUpdatingId(storeId);
+      setStores(prev => prev.map(s => s.id === storeId ? { ...s, [field]: newValue } : s));
+      await axios.put(`/api/stores/${storeId}`, { [field]: newValue });
+    } catch (error) {
+      console.error(`Failed to update ${field}:`, error);
+      alert('Failed to save email. Please try again.');
+      setStores(previousStores);
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const generateSuggestedCafeMail = (cafeName, brand) => {
+    if (!cafeName) return '';
+    const cleanName = cafeName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (brand === 'GOT_TEA') {
+      return `${cleanName}@gottea.in`;
+    }
+    return `${cleanName}@bluetokaicoffee.com`;
+  };
+
+  const getDisplayValue = (store, field, isCm = false) => {
+    if (store[field]) return store[field];
+    const suggested = generateSuggestedCafeMail(store.cafeName, store.brand);
+    if (!suggested) return '';
+    return isCm ? `cm.${suggested}` : suggested;
   };
 
   return (
@@ -167,8 +200,8 @@ export default function StoreContactEmailManagement() {
                   <TableCell sx={{ color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap' }}>Cafe Code</TableCell>
                   <TableCell sx={{ color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap' }}>Cafe Name</TableCell>
                   <TableCell sx={{ color: '#ffffff', fontWeight: 600, minWidth: 200 }}>Complete Address</TableCell>
-                  <TableCell sx={{ color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap' }}>Cafe mail ID</TableCell>
-                  <TableCell sx={{ color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap' }}>CM Mail id</TableCell>
+                  <TableCell sx={{ color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap' }}>Suggested Cafe Mail ID</TableCell>
+                  <TableCell sx={{ color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap' }}>Suggested CM Mail ID</TableCell>
                   <TableCell sx={{ color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap' }}>Cafe Contact Number</TableCell>
                   <TableCell sx={{ color: '#ffffff', fontWeight: 600, whiteSpace: 'nowrap' }}>Status</TableCell>
                 </TableRow>
@@ -201,16 +234,42 @@ export default function StoreContactEmailManagement() {
                       <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>{store.cafeCode || '-'}</TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>{store.cafeName || '-'}</TableCell>
                       <TableCell sx={{ color: 'text.secondary', maxWidth: 300 }}>{store.cafeAddress || store.address || '-'}</TableCell>
-                      <TableCell>{store.itCafeMailId || '-'}</TableCell>
-                      <TableCell>{store.itCmMailId || '-'}</TableCell>
+                      <TableCell>
+                        <TextField
+                          defaultValue={getDisplayValue(store, 'itCafeMailId', false)}
+                          disabled={!isSuperAdmin && (!canEdit || (store.itEmailStatus === 'Done'))}
+                          onBlur={(e) => {
+                            if (e.target.value !== store.itCafeMailId) {
+                              handleEmailUpdate(store.id, 'itCafeMailId', e.target.value);
+                            }
+                          }}
+                          size="small"
+                          sx={{ minWidth: 200 }}
+                          InputProps={{ sx: { fontSize: '0.875rem' } }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          defaultValue={getDisplayValue(store, 'itCmMailId', true)}
+                          disabled={!isSuperAdmin && (!canEdit || (store.itEmailStatus === 'Done'))}
+                          onBlur={(e) => {
+                            if (e.target.value !== store.itCmMailId) {
+                              handleEmailUpdate(store.id, 'itCmMailId', e.target.value);
+                            }
+                          }}
+                          size="small"
+                          sx={{ minWidth: 200 }}
+                          InputProps={{ sx: { fontSize: '0.875rem' } }}
+                        />
+                      </TableCell>
                       <TableCell>{store.cafePhoneNumber || '-'}</TableCell>
                       <TableCell>
-                        {canEdit ? (
+                        {(canEdit && (isSuperAdmin || store.itEmailStatus !== 'Done')) ? (
                           <Select
                             value={store.itEmailStatus || 'Pending'}
                             onChange={(e) => handleStatusChange(store.id, e.target.value)}
                             size="small"
-                            disabled={updating}
+                            disabled={updatingId === store.id}
                             sx={{
                               minWidth: 120,
                               height: 32,

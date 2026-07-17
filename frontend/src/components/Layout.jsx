@@ -57,6 +57,7 @@ import blueTokaiLogo from '../assets/blue_tokai_logo.png';
 import suchaliLogo from '../assets/suchali_logo.png';
 import gotTeaLogo from '../assets/got_tea_logo.png';
 import loginBack from '../assets/loginback.png';
+import floralSidebarBg from '../assets/floral_sidebar_bg.png';
 
 const drawerWidth = 260;
 
@@ -82,8 +83,10 @@ export default function Layout() {
         ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(244, 246, 248, 0.65) 100%)'
         : 'linear-gradient(180deg, rgba(15, 23, 42, 0.78) 0%, rgba(10, 15, 29, 0.72) 100%)'
       : isLight 
-        ? 'linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(244, 246, 248, 0.88) 100%)'
+        ? `linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 250, 245, 0.93) 100%), url(${floralSidebarBg})`
         : 'linear-gradient(180deg, rgba(18, 24, 36, 0.82) 0%, rgba(11, 15, 25, 0.68) 100%)',
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
     backdropFilter: 'blur(24px)',
     WebkitBackdropFilter: 'blur(24px)',
     borderRight: isLight 
@@ -492,7 +495,7 @@ export default function Layout() {
                   alignItems: 'center',
                   borderRadius: '14px',
                   bgcolor: isActive ? alpha(item.color, 0.12) : 'transparent',
-                  color: isActive ? 'text.primary' : (isLight ? '#1e293b' : '#cbd5e1'),
+                  color: isActive ? (isLight ? '#0f172a' : '#ffffff') : (isLight ? '#111827' : '#cbd5e1'),
                   py: 0.75,
                   px: 1.15,
                   border: '1px solid',
