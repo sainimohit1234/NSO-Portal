@@ -1313,7 +1313,19 @@ export default function EditStore() {
     if (errorMsg) {
       return (
         <Box sx={{ p: 4 }}>
-          <Alert severity="error" sx={{ mb: 2, borderRadius: '12px', '& .MuiAlert-message': { fontWeight: 700 } }}>
+          <Alert 
+            severity="error" 
+            sx={{ 
+              mb: 2, 
+              borderRadius: '12px', 
+              color: '#000000',
+              fontWeight: 800,
+              backgroundColor: '#ffebee',
+              border: '1px solid #ffcdd2',
+              '& .MuiAlert-icon': { color: '#d32f2f' },
+              '& .MuiAlert-message': { fontWeight: 800 } 
+            }}
+          >
             {errorMsg}
           </Alert>
           <Button variant="outlined" onClick={() => navigate(fromPath)} sx={{ borderRadius: '8px' }}>
@@ -1617,7 +1629,12 @@ export default function EditStore() {
             sx={{ 
               mb: 4, 
               borderRadius: '12px',
-              '& .MuiAlert-message': { fontWeight: 700 }
+              color: '#000000',
+              fontWeight: 800,
+              backgroundColor: '#ffebee',
+              border: '1px solid #ffcdd2',
+              '& .MuiAlert-icon': { color: '#d32f2f' },
+              '& .MuiAlert-message': { fontWeight: 800 }
             }}
           >
             {errorMsg}
