@@ -172,6 +172,18 @@ export default function AggregatorMail() {
     }
   };
 
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const html = e.clipboardData.getData('text/html');
+    const text = e.clipboardData.getData('text/plain');
+    
+    if (html) {
+      document.execCommand('insertHTML', false, html);
+    } else {
+      document.execCommand('insertText', false, text);
+    }
+  };
+
   const validateEmails = (emailStr) => {
     if (!emailStr.trim()) return [];
     const emails = emailStr.split(',').map(e => e.trim()).filter(Boolean);
@@ -780,6 +792,7 @@ export default function AggregatorMail() {
                               <div 
                                 contentEditable
                                 suppressContentEditableWarning
+                                onPaste={handlePaste}
                                 onBlur={(e) => setTemplateBody(e.currentTarget.innerHTML)}
                                 dangerouslySetInnerHTML={{ __html: templateBody }}
                                 style={{ outline: 'none', minHeight: '100%', cursor: 'text', fontSize: '0.875rem' }}
