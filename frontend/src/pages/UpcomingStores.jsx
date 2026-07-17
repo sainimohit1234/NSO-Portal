@@ -894,7 +894,19 @@ export default function UpcomingStores() {
                 </Typography>
                 {isDraftEditing && <Typography variant="caption" color="primary">Editing Mode Active</Typography>}
               </Box>
-              <Box sx={{ p: 2 }}>
+              <Box sx={{ 
+                p: 2,
+                '& table': {
+                  width: 'fit-content !important',
+                  maxWidth: '100%',
+                  margin: '0',
+                  tableLayout: 'auto !important'
+                },
+                '& th, & td': {
+                  width: 'auto !important',
+                  padding: '6px 12px !important'
+                }
+              }}>
                 <div 
                   ref={bodyRef}
                   contentEditable={isDraftEditing}
