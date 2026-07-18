@@ -1,5 +1,6 @@
 import { firebaseAdmin } from './firebase-admin';
 import { auditContext } from './audit-context';
+import { logAudit } from './audit-logger';
 
 const db = firebaseAdmin.firestore();
 
@@ -251,25 +252,7 @@ class MockDelegate {
   }
 
   private async logAudit(activity: string, oldData: any, newData: any) {
-    if (this.modelName === 'auditLog') return;
-    const context = auditContext.getStore();
-    if (!context || !context.user) return; // Only log user-initiated actions
-    const user = context.user;
-    const logData = {
-      module: this.modelName,
-      activity: activity,
-      userName: user.name || user.email || 'Unknown User',
-      userEmail: user.email || '',
-      userId: user.id,
-      timestamp: new Date().toISOString(),
-      oldValue: oldData ? JSON.stringify(oldData) : null,
-      newValue: newData ? JSON.stringify(newData) : null,
-    };
-    try {
-      await db.collection('auditLogs').add(logData);
-    } catch (e) {
-      console.error('Failed to write audit log:', e);
-    }
+    await logAudit(this.modelName, activity, oldData, newData);
   }
 
   private async updateMetadataIfStore() {

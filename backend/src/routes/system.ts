@@ -285,8 +285,63 @@ router.get('/audit-logs', authorizeRoles('SUPER_ADMIN', 'ADMIN'), async (req, re
       .limit(2000)
       .get();
       
-    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    res.json(logs);
+    const logs = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
+
+    const groupedLogs: Record<string, any> = {};
+
+    for (const log of logs) {
+      if (log.activities) {
+        // It's a new grouped log
+        if (!groupedLogs[log.id]) {
+          groupedLogs[log.id] = log;
+        } else {
+          groupedLogs[log.id].activities.push(...log.activities);
+        }
+      } else {
+        // Legacy log
+        const dateStr = log.timestamp ? log.timestamp.split('T')[0] : 'UnknownDate';
+        const userId = log.userId || 'unknown';
+        const groupId = `audit_${userId}_${dateStr}`;
+        
+        let actionStr = log.activity;
+        if (log.module === 'store') {
+          try {
+            const newVal = JSON.parse(log.newValue || '{}');
+            if (newVal.cafeName) actionStr += ` (${newVal.cafeName})`;
+          } catch(e) {}
+        }
+        
+        const activity = {
+          time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
+          timestamp: log.timestamp || '',
+          module: log.module,
+          action: actionStr
+        };
+
+        if (!groupedLogs[groupId]) {
+          groupedLogs[groupId] = {
+            id: groupId,
+            userId: log.userId,
+            userName: log.userName || log.userEmail || 'Unknown User',
+            userEmail: log.userEmail || '',
+            date: dateStr,
+            timestamp: dateStr,
+            activities: [activity]
+          };
+        } else {
+          groupedLogs[groupId].activities.push(activity);
+        }
+      }
+    }
+
+    const finalLogs = Object.values(groupedLogs).map((group: any) => {
+      group.activities.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      return group;
+    });
+
+    finalLogs.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    res.json(finalLogs);
   } catch (error) {
     console.error('Error fetching audit logs:', error);
     res.status(500).json({ error: 'Failed to fetch audit logs' });
