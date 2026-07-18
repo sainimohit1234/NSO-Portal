@@ -304,6 +304,31 @@ router.get('/audit-logs', authorizeRoles('SUPER_ADMIN', 'ADMIN'), async (req, re
         const groupId = `audit_${userId}_${dateStr}`;
         
         let actionStr = log.activity;
+        if (!actionStr) continue; // skip if literally empty activity
+
+        let hasChanges = false;
+        try {
+          const oldVal = JSON.parse(log.oldValue || '{}');
+          const newVal = JSON.parse(log.newValue || '{}');
+          const allKeys = Array.from(new Set([...Object.keys(oldVal), ...Object.keys(newVal)]));
+          for (const key of allKeys) {
+            if (['id', 'createdAt', 'updatedAt', 'lastActiveAt', 'lastLoginAt'].includes(key)) continue;
+            if (JSON.stringify(oldVal[key]) !== JSON.stringify(newVal[key])) {
+              hasChanges = true;
+              break;
+            }
+          }
+        } catch(e) {
+          hasChanges = !!log.oldValue || !!log.newValue; 
+        }
+
+        const actLower = actionStr.toLowerCase();
+        if (actLower.includes('delete') || actLower.includes('create') || actLower.includes('remove')) {
+          hasChanges = true;
+        }
+
+        if (!hasChanges) continue; // Skip legacy logs with no actual changes
+
         if (log.module === 'store') {
           try {
             const newVal = JSON.parse(log.newValue || '{}');
@@ -334,7 +359,7 @@ router.get('/audit-logs', authorizeRoles('SUPER_ADMIN', 'ADMIN'), async (req, re
       }
     }
 
-    const finalLogs = Object.values(groupedLogs).map((group: any) => {
+    const finalLogs = Object.values(groupedLogs).filter((group: any) => group.activities && group.activities.length > 0).map((group: any) => {
       group.activities.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
       return group;
     });
