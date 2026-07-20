@@ -316,7 +316,7 @@ export default function Stores() {
                 Manage, search, and view all registered cafes and kitchen locations.
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1.5, mt: -1 }}>
               <Button
                 variant="contained"
                 onClick={() => setIsJourneyModalOpen(true)}
@@ -325,6 +325,7 @@ export default function Stores() {
                   color: '#0f2942',
                   px: 3,
                   py: 0.75,
+                  width: '150px',
                   borderRadius: '999px',
                   textTransform: 'none',
                   fontWeight: 700,
@@ -334,32 +335,25 @@ export default function Stores() {
               >
                 Cafe Journey
               </Button>
+              <TextField
+                placeholder="Search stores..."
+                variant="outlined"
+                size="small"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
+                  sx: { borderRadius: '999px', bgcolor: '#ffffff', height: '40px', '& fieldset': { border: 'none' } }
+                }}
+                sx={{ width: '300px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              />
             </Box>
           </Box>
         </CardContent>
       </Card>
 
-            {/* Search and Status Tiles */}
+      {/* Status Tiles */}
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, mb: 3 }}>
-        {/* Search Bar */}
-        <Card sx={{ bgcolor: '#ffffff', borderRadius: '16px', flexShrink: 0, width: { xs: '100%', lg: '300px' }, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-          <CardContent sx={{ p: '16px !important', height: '100%', display: 'flex', alignItems: 'center' }}>
-            <TextField
-              fullWidth
-              placeholder="Search stores..."
-              variant="outlined"
-              size="small"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
-                sx: { borderRadius: '12px', bgcolor: '#f8fafc', '& fieldset': { border: 'none' } }
-              }}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Status Tiles */}
         <Box sx={{ flexGrow: 1, overflowX: 'auto', pb: 0.5, '&::-webkit-scrollbar': { height: 6 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.1)', borderRadius: 3 } }}>
           <Box sx={{ display: 'flex', gap: 1.5, minWidth: 'max-content' }}>
             {[
