@@ -12,6 +12,7 @@ import ConstructionIcon from '@mui/icons-material/Construction';
 import PauseCircleIcon from '@mui/icons-material/PauseCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useNavigate } from 'react-router-dom';
@@ -105,8 +106,13 @@ export default function Stores() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState(null);
 
-  const statusCounts = useMemo(() => {
-    const counts = { 'LIVE': 0, 'APPROVED / NSO APPROVED': 0, 'READY TO GO LIVE': 0, 'PENDING APPROVAL': 0, 'ON HOLD': 0, 'UPCOMING': 0, 'CLOSED': 0 };
+    const statusCounts = useMemo(() => {
+    const counts = { 'LIVE': 0, 'NEWLY LAUNCHED': 0, 'APPROVED / NSO APPROVED': 0, 'READY TO GO LIVE': 0, 'PENDING APPROVAL': 0, 'ON HOLD': 0, 'UPCOMING': 0, 'CLOSED': 0 };
+    
+    const now = new Date();
+    const currentMonthNum = String(now.getMonth() + 1).padStart(2, '0');
+    const currentYearStr = String(now.getFullYear());
+    
     stores.forEach(s => {
       let st = s.status ? s.status.toUpperCase() : '';
       if (st === 'NSO_APPROVED' || st === 'APPROVED') counts['APPROVED / NSO APPROVED'] = (counts['APPROVED / NSO APPROVED'] || 0) + 1;
@@ -114,6 +120,30 @@ export default function Stores() {
       else if (st === 'PENDING_APPROVAL') counts['PENDING APPROVAL'] = (counts['PENDING APPROVAL'] || 0) + 1;
       else if (st === 'ON_HOLD') counts['ON HOLD'] = (counts['ON HOLD'] || 0) + 1;
       else if (st === 'LIVE' || st === 'UPCOMING' || st === 'CLOSED') counts[st] = (counts[st] || 0) + 1;
+
+      // Check for newly launched
+      if (st === 'LIVE') {
+        let isNewlyLaunched = false;
+        if (s.launchDate) {
+          const d = typeof s.launchDate === 'object' && s.launchDate.seconds ? new Date(s.launchDate.seconds * 1000) : new Date(s.launchDate);
+          if (d && !isNaN(d.getTime())) {
+            if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+              isNewlyLaunched = true;
+            }
+          }
+        }
+        if (!isNewlyLaunched && s.cafeLaunchMonth) {
+          const launchStr = s.cafeLaunchMonth.toLowerCase();
+          const matchesMonth = launchStr.includes(now.toLocaleString('default', { month: 'long' }).toLowerCase()) || 
+                               launchStr.includes(now.toLocaleString('default', { month: 'short' }).toLowerCase()) || 
+                               launchStr.includes(currentMonthNum);
+          const matchesYear = launchStr.includes(currentYearStr);
+          if (matchesMonth && matchesYear) isNewlyLaunched = true;
+        }
+        if (isNewlyLaunched) {
+          counts['NEWLY LAUNCHED'] = (counts['NEWLY LAUNCHED'] || 0) + 1;
+        }
+      }
     });
     return counts;
   }, [stores]);
@@ -180,8 +210,33 @@ export default function Stores() {
 
     // Status Filter (from Tiles)
     if (statusFilter) {
+      const now = new Date();
+      const currentMonthNum = String(now.getMonth() + 1).padStart(2, '0');
+      const currentYearStr = String(now.getFullYear());
+
       result = result.filter(s => {
         let st = s.status ? s.status.toUpperCase() : '';
+        if (statusFilter === 'NEWLY LAUNCHED') {
+          if (st !== 'LIVE') return false;
+          let isNewlyLaunched = false;
+          if (s.launchDate) {
+            const d = typeof s.launchDate === 'object' && s.launchDate.seconds ? new Date(s.launchDate.seconds * 1000) : new Date(s.launchDate);
+            if (d && !isNaN(d.getTime())) {
+              if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+                isNewlyLaunched = true;
+              }
+            }
+          }
+          if (!isNewlyLaunched && s.cafeLaunchMonth) {
+            const launchStr = s.cafeLaunchMonth.toLowerCase();
+            const matchesMonth = launchStr.includes(now.toLocaleString('default', { month: 'long' }).toLowerCase()) || 
+                                 launchStr.includes(now.toLocaleString('default', { month: 'short' }).toLowerCase()) || 
+                                 launchStr.includes(currentMonthNum);
+            const matchesYear = launchStr.includes(currentYearStr);
+            if (matchesMonth && matchesYear) isNewlyLaunched = true;
+          }
+          return isNewlyLaunched;
+        }
         if (statusFilter === 'APPROVED / NSO APPROVED') return st === 'APPROVED' || st === 'NSO_APPROVED';
         if (statusFilter === 'READY TO GO LIVE') return st === 'READY_TO_GO_LIVE';
         if (statusFilter === 'PENDING APPROVAL') return st === 'PENDING_APPROVAL';
@@ -309,6 +364,7 @@ export default function Stores() {
           <Box sx={{ display: 'flex', gap: 1.5, minWidth: 'max-content' }}>
             {[
               { label: 'LIVE', color: '#10b981', icon: <StorefrontIcon /> },
+              { label: 'NEWLY LAUNCHED', color: '#ec4899', icon: <RocketLaunchIcon /> },
               { label: 'UPCOMING', color: '#0ea5e9', icon: <ConstructionIcon /> },
               { label: 'APPROVED / NSO APPROVED', color: '#f59e0b', icon: <ThumbUpIcon /> },
               { label: 'READY TO GO LIVE', color: '#f97316', icon: <CheckCircleIcon /> },
@@ -322,7 +378,7 @@ export default function Stores() {
                   key={s.label}
                   onClick={() => setStatusFilter(isActive ? null : s.label)}
                   sx={{
-                    width: 190,
+                    width: 250,
                     flexShrink: 0,
                     background: isActive ? s.color : `linear-gradient(135deg, #ffffff, ${s.color}15)`,
                     color: isActive ? '#ffffff' : 'inherit',
