@@ -116,8 +116,6 @@ const DEFAULT_FORM_VALUES = {
   suchaliZomatoRID: '',
   gotTeaSwiggyRID: '',
   gotTeaZomatoRID: '',
-  newPricingCategory: '',
-  newPricingSubCategory: '',
   cluster: '',
   cafeLaunchMonth: '',
   cafeLaunchYear: '',
@@ -249,9 +247,9 @@ const NewStore = () => {
       'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
     ],
     'Others': [
-      'cafeModule', 'pricingVersion', 'indoorSeatingCount', 'outdoorSeatingCount', 'totalNoOfTables', 'copyMenuFrom',
+      'cafeModule', 'pricingVersion', 'priceBookRista', 'copyMenuFrom', 'cluster', 'indoorSeatingCount', 'outdoorSeatingCount', 'totalNoOfTables',
       'latitude', 'long', 'areaManagerEmail', 'areaManagerPhone', 'cityHeadEmail', 'cityHeadPhone',
-      'newPricingCategory', 'newPricingSubCategory', 'cluster', 'cafeOpeningHr',
+      'cafeOpeningHr',
       'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'wheelchairAccessibility',
       'petFriendly', 'expectedSalesVal', 'nearbyCafes', 'highlights'
     ],
@@ -436,6 +434,20 @@ const NewStore = () => {
       }
     }
   }, [launchDateValue, setValue]);
+
+  // Auto-generate Price Book (Rista)
+  const watchCafeCode = watch('cafeCode');
+  const watchPricingVersion = watch('pricingVersion');
+  const isPriceBookRistaDirty = formState.dirtyFields?.priceBookRista;
+
+  useEffect(() => {
+    if (!isPriceBookRistaDirty) {
+      if (watchCafeCode || watchPricingVersion) {
+        const generated = [watchCafeCode, watchPricingVersion].filter(Boolean).join(', ');
+        setValue('priceBookRista', generated, { shouldValidate: true });
+      }
+    }
+  }, [watchCafeCode, watchPricingVersion, isPriceBookRistaDirty, setValue]);
 
   // Warn user about unsaved changes on browser back / refresh
   useEffect(() => {
@@ -1361,8 +1373,6 @@ const NewStore = () => {
             </Grid>
           )}
 
-          {/* ─── CARD 4: Others (Mixed Required/Optional) ─── */}
-          <Grid size={12}>
           {/* ─── CARD 4: Operations Details ─── */}
           {activeTab === 'Operations Details' && (
             <Grid size={12}>
@@ -1464,15 +1474,6 @@ const NewStore = () => {
 
                   <Grid container spacing={2.5}>
                     <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField fullWidth label="New Pricing Category" {...register('newPricingCategory')} />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField fullWidth label="New Pricing Sub Category" {...register('newPricingSubCategory')} />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
                         fullWidth 
                         select 
@@ -1487,17 +1488,54 @@ const NewStore = () => {
                       </TextField>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={MENU_OPTIONS}
+                        value={watch('pricingVersion') || null}
+                        onChange={(event, newValue) => {
+                          setValue('pricingVersion', newValue || '', { shouldDirty: true });
+                        }}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Pricing Module" placeholder="Search pricing module..." />
+                        )}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={allStoresList}
+                        getOptionLabel={(option) => {
+                          if (typeof option === 'string') return option;
+                          return `${option.cafeName || ''} (${option.cafeCode || ''})`;
+                        }}
+                        value={allStoresList.find(s => String(s.id) === String(watch('copyMenuFrom'))) || null}
+                        onChange={(event, newValue) => {
+                          setValue('copyMenuFrom', newValue ? String(newValue.id) : '', { shouldDirty: true });
+                        }}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Copy Menu From" placeholder="Search by name or code..." />
+                        )}
+                        filterOptions={(options, state) => {
+                          const query = (state.inputValue || '').toLowerCase().trim();
+                          return options.filter(option => 
+                            String(option.cafeName).toLowerCase().includes(query) ||
+                            String(option.cafeCode).toLowerCase().includes(query)
+                          );
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
                         fullWidth 
-                        select 
-                        label="Pricing Version" 
-                        {...register('pricingVersion')} 
-                        value={watch('pricingVersion') || ''}
-                        SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
-                      >
-                        <MenuItem value="">— Clear Selection —</MenuItem>
-                        {MENU_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                      </TextField>
+                        label="Price Book (Rista)" 
+                        {...register('priceBookRista')} 
+                        InputProps={{ readOnly: !isSuperAdmin }}
+                        disabled={!isSuperAdmin}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: !isSuperAdmin ? 'action.hover' : 'inherit' } }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
@@ -1531,30 +1569,6 @@ const NewStore = () => {
                         value={watch('totalNoOfTables') || ''}
                         InputProps={{ readOnly: true }}
                         sx={{ bgcolor: 'background.paper' }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        fullWidth
-                        options={allStoresList}
-                        getOptionLabel={(option) => {
-                          if (typeof option === 'string') return option;
-                          return `${option.cafeName || ''} (${option.cafeCode || ''})`;
-                        }}
-                        value={allStoresList.find(s => String(s.id) === String(watch('copyMenuFrom'))) || null}
-                        onChange={(event, newValue) => {
-                          setValue('copyMenuFrom', newValue ? String(newValue.id) : '');
-                        }}
-                        renderInput={(params) => (
-                          <TextField {...params} label="Copy Menu From" placeholder="Search by name or code..." />
-                        )}
-                        filterOptions={(options, state) => {
-                          const query = (state.inputValue || '').toLowerCase().trim();
-                          return options.filter(option => 
-                            String(option.cafeName).toLowerCase().includes(query) ||
-                            String(option.cafeCode).toLowerCase().includes(query)
-                          );
-                        }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>

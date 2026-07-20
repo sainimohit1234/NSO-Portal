@@ -134,9 +134,9 @@ export default function EditStore() {
       'projectStartDate', 'projectHandoverDate', 'tentativeDryLaunchDate', 'launchDate'
     ],
     'Others': [
-      'cafeModule', 'pricingVersion', 'indoorSeatingCount', 'outdoorSeatingCount', 'totalNoOfTables', 'copyMenuFrom',
+      'cafeModule', 'pricingVersion', 'copyMenuFrom', 'priceBookRista', 'cluster', 'indoorSeatingCount', 'outdoorSeatingCount', 'totalNoOfTables',
       'latitude', 'long', 'areaManagerEmail', 'areaManagerPhone', 'cityHeadEmail', 'cityHeadPhone',
-      'newPricingCategory', 'newPricingSubCategory', 'cluster', 'cafeOpeningHr',
+      'cafeOpeningHr',
       'platformType', 'tradingArea', 'smokingZone', 'parkingOption', 'wheelchairAccessibility',
       'petFriendly', 'expectedSalesVal', 'nearbyCafes', 'highlights'
     ],
@@ -605,6 +605,20 @@ export default function EditStore() {
     }
   }, [launchDateValue, isLaunchDateDirty, setValue]);
 
+  // Auto-generate Price Book (Rista)
+  const watchCafeCode = watch('cafeCode');
+  const watchPricingVersion = watch('pricingVersion');
+  const isPriceBookRistaDirty = formState.dirtyFields?.priceBookRista;
+
+  useEffect(() => {
+    if (!isPriceBookRistaDirty) {
+      if (watchCafeCode || watchPricingVersion) {
+        const generated = [watchCafeCode, watchPricingVersion].filter(Boolean).join(', ');
+        setValue('priceBookRista', generated, { shouldValidate: true });
+      }
+    }
+  }, [watchCafeCode, watchPricingVersion, isPriceBookRistaDirty, setValue]);
+
   // Unique contacts by designation
   const areaManagers = contacts.filter(c => c.designation === 'Area Manager');
   const cityHeads = contacts.filter(c => c.designation === 'City Head');
@@ -813,7 +827,7 @@ export default function EditStore() {
   // Human-readable field labels for the change summary
   const FIELD_LABELS = {
     cafeName: 'Cafe Name', cafeCode: 'Cafe Code', cafeModule: 'Cafe Module',
-    pricingVersion: 'Pricing Version',
+    pricingVersion: 'Pricing Module', priceBookRista: 'Pricing Version',
     indoorSeatingCount: 'Indoor Seating Count', outdoorSeatingCount: 'Outdoor Seating Count',
     totalNoOfTables: 'Total No. of Tables', copyMenuFrom: 'Copy Menu From',
     cafeAddress: 'Address', city: 'City', state: 'State', pinCode: 'Pin Code',
@@ -2338,15 +2352,6 @@ export default function EditStore() {
 
                   <Grid container spacing={2.5}>
                     <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField fullWidth label="New Pricing Category" {...register('newPricingCategory')} disabled={!canEditBasicDetails} />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField fullWidth label="New Pricing Sub Category" {...register('newPricingSubCategory')} disabled={!canEditBasicDetails} />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} disabled={!canEditBasicDetails} />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
                         fullWidth 
                         select 
@@ -2362,18 +2367,56 @@ export default function EditStore() {
                       </TextField>
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={MENU_OPTIONS}
+                        disabled={!canEditBasicDetails}
+                        value={watch('pricingVersion') || null}
+                        onChange={(event, newValue) => {
+                          setValue('pricingVersion', newValue || '', { shouldDirty: true });
+                        }}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Pricing Module" placeholder="Search pricing module..." />
+                        )}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <Autocomplete
+                        fullWidth
+                        options={allStoresList}
+                        getOptionLabel={(option) => {
+                          if (typeof option === 'string') return option;
+                          return `${option.cafeName || ''} (${option.cafeCode || ''})`;
+                        }}
+                        disabled={!canEditBasicDetails}
+                        value={allStoresList.find(s => String(s.id) === String(watch('copyMenuFrom'))) || null}
+                        onChange={(event, newValue) => {
+                          setValue('copyMenuFrom', newValue ? String(newValue.id) : '', { shouldDirty: true });
+                        }}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Copy Menu From" placeholder="Search by name or code..." />
+                        )}
+                        filterOptions={(options, state) => {
+                          const query = (state.inputValue || '').toLowerCase().trim();
+                          return options.filter(option => 
+                            String(option.cafeName).toLowerCase().includes(query) ||
+                            String(option.cafeCode).toLowerCase().includes(query)
+                          );
+                        }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
                         fullWidth 
-                        select 
-                        label="Pricing Version" 
-                        {...register('pricingVersion')} 
-                        disabled={!canEditBasicDetails}
-                        value={watch('pricingVersion') || ''}
-                        SelectProps={{ MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } }}
-                      >
-                        <MenuItem value="">— Clear Selection —</MenuItem>
-                        {MENU_OPTIONS.map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                      </TextField>
+                        label="Price Book (Rista)" 
+                        {...register('priceBookRista')} 
+                        InputProps={{ readOnly: !isSuperAdmin }}
+                        disabled={!isSuperAdmin}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: !isSuperAdmin ? 'action.hover' : 'inherit' } }}
+                      />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 4 }}>
+                      <TextField fullWidth label="Cluster" placeholder="e.g. South Delhi" {...register('cluster')} disabled={!canEditBasicDetails} />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField 
@@ -2410,31 +2453,6 @@ export default function EditStore() {
                         value={watch('totalNoOfTables') || ''}
                         InputProps={{ readOnly: true }}
                         sx={{ bgcolor: 'background.paper' }}
-                      />
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 4 }}>
-                      <Autocomplete
-                        fullWidth
-                        options={allStoresList}
-                        getOptionLabel={(option) => {
-                          if (typeof option === 'string') return option;
-                          return `${option.cafeName || ''} (${option.cafeCode || ''})`;
-                        }}
-                        disabled={!canEditBasicDetails}
-                        value={allStoresList.find(s => String(s.id) === String(watch('copyMenuFrom'))) || null}
-                        onChange={(event, newValue) => {
-                          setValue('copyMenuFrom', newValue ? String(newValue.id) : '', { shouldDirty: true });
-                        }}
-                        renderInput={(params) => (
-                          <TextField {...params} label="Copy Menu From" placeholder="Search by name or code..." />
-                        )}
-                        filterOptions={(options, state) => {
-                          const query = (state.inputValue || '').toLowerCase().trim();
-                          return options.filter(option => 
-                            String(option.cafeName).toLowerCase().includes(query) ||
-                            String(option.cafeCode).toLowerCase().includes(query)
-                          );
-                        }}
                       />
                     </Grid>
                     <Grid size={{ xs: 12, sm: 4 }}>
