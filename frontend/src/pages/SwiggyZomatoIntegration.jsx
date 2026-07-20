@@ -806,12 +806,19 @@ export default function SwiggyZomatoIntegration() {
                     placeholderMap['[Copy Menu From]'] = copyMenuFromName;
 
                     let result = text;
-                    // If the template was pasted from Excel, placeholders might be broken by internal span tags.
-                    // e.g. [<span>Brand Name</span>]. This breaks the regex.
-                    // We can't trivially remove all spans, but we can clean up zero-width spaces or tags inside brackets if we wanted.
-                    // However, an easier fix is to just strip tags inside brackets if they exist.
-                    result = result.replace(/\[(.*?)\]/g, (match) => {
-                      return '[' + match.slice(1, -1).replace(/<[^>]*>/g, '') + ']';
+                    // If the template was pasted from Excel, placeholders might be broken by internal span tags,
+                    // non-breaking spaces, or html entities for brackets.
+                    
+                    // 1. Normalize HTML entities for brackets
+                    result = result.replace(/&#91;/gi, '[').replace(/&#93;/gi, ']');
+                    
+                    // 2. Strip HTML tags specifically inside brackets, and normalize spaces
+                    result = result.replace(/\[([\s\S]*?)\]/g, (match) => {
+                      let inner = match.slice(1, -1);
+                      inner = inner.replace(/<[^>]*>/g, ''); // strip HTML tags
+                      inner = inner.replace(/&nbsp;/gi, ' ').replace(/&#160;/gi, ' ').replace(/\u200B/g, ' '); // remove zero-width/nbsp
+                      inner = inner.replace(/\s+/g, ' ').trim(); // collapse multiple spaces and trim padding
+                      return '[' + inner + ']';
                     });
 
                     for (const [token, value] of Object.entries(placeholderMap)) {
