@@ -175,10 +175,67 @@ export default function AggregatorMail() {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const html = e.clipboardData.getData('text/html');
+    let html = e.clipboardData.getData('text/html');
     const text = e.clipboardData.getData('text/plain');
     
     if (html) {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      
+      // Extract style blocks and apply them as inline styles
+      const styleTags = tempDiv.querySelectorAll('style');
+      styleTags.forEach(styleTag => {
+        let cssText = styleTag.innerHTML;
+        // Clean up HTML comments that Excel sometimes wraps CSS in
+        cssText = cssText.replace(/<!--/g, '').replace(/-->/g, '');
+        
+        // Match CSS blocks: selector { rules }
+        const regex = /([^{]+)\{([^}]+)\}/g;
+        let match;
+        while ((match = regex.exec(cssText)) !== null) {
+          let selectors = match[1].split(',');
+          let rules = match[2].trim();
+          
+          selectors.forEach(selector => {
+            selector = selector.trim();
+            // Remove pseudo-classes/elements as they can't be queried directly
+            selector = selector.split(':')[0];
+            if (!selector) return;
+            
+            try {
+              const elements = tempDiv.querySelectorAll(selector);
+              elements.forEach(el => {
+                el.style.cssText += ';' + rules;
+              });
+            } catch (err) {
+              // Ignore invalid selectors (like @page)
+            }
+          });
+        }
+        // Remove the style tag so it doesn't leak into the global scope
+        styleTag.remove();
+      });
+      
+      // Ensure basic table presentation if it's a table paste
+      tempDiv.querySelectorAll('table').forEach(table => {
+        table.style.borderCollapse = 'collapse';
+        if (!table.getAttribute('width') && !table.style.width) {
+            table.style.width = '100%';
+        }
+      });
+      
+      // Add default padding and border if not specified by Excel styles
+      tempDiv.querySelectorAll('th, td').forEach(cell => {
+        if (!cell.style.border && !cell.style.borderTop && !cell.style.borderBottom && !cell.style.borderLeft && !cell.style.borderRight) {
+            cell.style.border = '1px solid #d1d5db';
+        }
+        if (!cell.style.padding) {
+            cell.style.padding = '8px';
+        }
+      });
+      
+      // Extract the processed HTML
+      html = tempDiv.innerHTML;
       document.execCommand('insertHTML', false, html);
     } else {
       document.execCommand('insertText', false, text);
