@@ -3122,6 +3122,13 @@ function buildOnboardingReplacements(store: any, brandName: string): Record<stri
     '[Location]': val(store.location) || fullAddress,
     '[Launch Date]': store.launchDate ? new Date(store.launchDate).toLocaleDateString('en-IN') : '',
     '[Launch Month]': val(store.cafeLaunchMonth),
+
+    '[Café Module]': val(store.cafeModule),
+    '[Cafe Module]': val(store.cafeModule),
+    '[Actual Closing Time]': val(store.actualClosingTime),
+    '[Price Book Name]': val(store.priceBookRista) || val(store.pricingVersion),
+    '[Price Book (Rista)]': val(store.priceBookRista) || val(store.pricingVersion),
+    '[Copy Menu From]': val(store.copyMenuFrom), // Note: ID resolving is best done in frontend, backend falls back to raw value
   };
 }
 

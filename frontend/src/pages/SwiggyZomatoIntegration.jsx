@@ -613,7 +613,24 @@ export default function SwiggyZomatoIntegration() {
                       // Launch / other
                       '[Launch Date]': storeData.launchDate ? new Date(storeData.launchDate).toLocaleDateString('en-IN') : '',
                       '[Launch Month]': storeData.cafeLaunchMonth || '',
+
+                      // New fields
+                      '[Café Module]': storeData.cafeModule || '',
+                      '[Cafe Module]': storeData.cafeModule || '',
+                      '[Actual Closing Time]': storeData.actualClosingTime || '',
+                      '[Price Book Name]': storeData.priceBookRista || storeData.pricingVersion || '',
+                      '[Price Book (Rista)]': storeData.priceBookRista || storeData.pricingVersion || '',
                     };
+
+                    // Resolve Copy Menu From
+                    let copyMenuFromName = storeData.copyMenuFrom || '';
+                    if (copyMenuFromName && typeof stores !== 'undefined' && Array.isArray(stores)) {
+                      const copyStore = stores.find(s => s.id === copyMenuFromName || s.cafeCode === copyMenuFromName);
+                      if (copyStore) {
+                        copyMenuFromName = copyStore.cafeCode || copyStore.cafeName || copyMenuFromName;
+                      }
+                    }
+                    placeholderMap['[Copy Menu From]'] = copyMenuFromName;
 
                     let result = text;
                     for (const [token, value] of Object.entries(placeholderMap)) {
