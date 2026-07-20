@@ -356,9 +356,9 @@ export default function EditStore() {
   // Block in-app navigation when form is dirty
   const blocker = useBlocker(
     useCallback(() => {
-      if (isSavedRef.current || isViewOnly || (isApprovedStatus && !isSuperAdmin)) return false;
+      if (isSavedRef.current || isViewOnly || (isApprovedStatus && !isSuperAdmin && !(isManager && currentStatusVal !== 'LIVE'))) return false;
       return hasDirtyFields;
-    }, [hasDirtyFields, isViewOnly, isApprovedStatus])
+    }, [hasDirtyFields, isViewOnly, isApprovedStatus, isSuperAdmin, isManager, currentStatusVal])
   );
 
   useEffect(() => {
@@ -737,6 +737,12 @@ export default function EditStore() {
       canEditBasicDetails = false;
       canEditContacts = false;
       canEditFinance = false;
+    }
+
+    if (isManager && currentStatusVal !== 'LIVE') {
+      canEditBasicDetails = true;
+      canEditContacts = true;
+      canEditFinance = true;
     }
   }
 
@@ -1440,10 +1446,10 @@ export default function EditStore() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
             <Box>
               <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
-                {isViewOnly || (isApprovedStatus && !isSuperAdmin) ? `Store Details: ${store.cafeName}` : `Modify Existing Store: ${store.cafeName}`}
+                {isViewOnly || (isApprovedStatus && !isSuperAdmin && !(isManager && currentStatusVal !== 'LIVE')) ? `Store Details: ${store.cafeName}` : `Modify Existing Store: ${store.cafeName}`}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {(isApprovedStatus && !isSuperAdmin) ? 'This store has been approved and is read-only.' : 'Update store information based on your access level.'}
+                {(isApprovedStatus && !isSuperAdmin && !(isManager && currentStatusVal !== 'LIVE')) ? 'This store has been approved and is read-only.' : 'Update store information based on your access level.'}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -2588,7 +2594,7 @@ export default function EditStore() {
           <Grid size={12}>
             <Card sx={{ bgcolor: 'background.paper', border: 'none' }}>
               <CardContent sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-                {!isViewOnly && (!isApprovedStatus || isSuperAdmin) && (
+                {!isViewOnly && (!isApprovedStatus || isSuperAdmin || (isManager && currentStatusVal !== 'LIVE')) && (
                   <Button 
                     variant="contained" 
                     size="large" 

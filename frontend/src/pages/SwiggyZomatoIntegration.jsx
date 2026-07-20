@@ -627,7 +627,9 @@ export default function SwiggyZomatoIntegration() {
                     if (copyMenuFromName && typeof stores !== 'undefined' && Array.isArray(stores)) {
                       const copyStore = stores.find(s => s.id === copyMenuFromName || s.cafeCode === copyMenuFromName);
                       if (copyStore) {
-                        copyMenuFromName = copyStore.cafeCode || copyStore.cafeName || copyMenuFromName;
+                        const namePart = copyStore.cafeName || '';
+                        const codePart = copyStore.cafeCode ? `(${copyStore.cafeCode})` : '';
+                        copyMenuFromName = [namePart, codePart].filter(Boolean).join(' ');
                       }
                     }
                     placeholderMap['[Copy Menu From]'] = copyMenuFromName;
