@@ -318,11 +318,11 @@ export default function Stores() {
             ].map(s => {
               const isActive = statusFilter === s.label;
               return (
-                <Card 
+                  <Card 
                   key={s.label}
                   onClick={() => setStatusFilter(isActive ? null : s.label)}
                   sx={{
-                    width: 160,
+                    width: 190,
                     flexShrink: 0,
                     background: isActive ? s.color : `linear-gradient(135deg, #ffffff, ${s.color}15)`,
                     color: isActive ? '#ffffff' : 'inherit',
@@ -392,8 +392,7 @@ export default function Stores() {
                 <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Live Date</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Closure Date</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Day Count</TableCell>
-                {filters.expiryType === 'fssai' && <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>FSSAI Expiry</TableCell>}
-                {filters.expiryType === 'rent' && <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Rent Expiry</TableCell>}
+
                 <TableCell sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Integration Status</TableCell>
                 <TableCell align="center" sx={{ whiteSpace: 'nowrap', px: 1, py: 1, fontSize: '0.75rem' }}>Locked</TableCell>
               </TableRow>
@@ -401,7 +400,7 @@ export default function Stores() {
             <TableBody>
               {filteredStores.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10 + (filters.expiryType ? 1 : 0) + (isSuperAdmin ? 1 : 0)} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  <TableCell colSpan={10 + (isSuperAdmin ? 1 : 0)} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                     No stores found. Create a new store to get started!
                   </TableCell>
                 </TableRow>
@@ -687,16 +686,6 @@ export default function Stores() {
                           </Box>
                         </Box>
                       </TableCell>
-                      {filters.expiryType === 'fssai' && (
-                        <TableCell sx={{ fontWeight: 800, color: 'error.main', fontSize: '0.75rem', px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
-                          {formatDateString(store.fssaiExpiry)}
-                        </TableCell>
-                      )}
-                      {filters.expiryType === 'rent' && (
-                        <TableCell sx={{ fontWeight: 800, color: 'error.main', fontSize: '0.75rem', px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
-                          {formatDateString(store.rentExpiry)}
-                        </TableCell>
-                      )}
                       <TableCell sx={{ px: 1, py: 0.75, whiteSpace: 'nowrap' }}>
                         <Chip 
                           label={intStatus.label} 
