@@ -107,7 +107,7 @@ export default function Stores() {
   const [statusFilter, setStatusFilter] = useState(null);
 
     const statusCounts = useMemo(() => {
-    const counts = { 'LIVE': 0, 'NEWLY LAUNCHED': 0, 'APPROVED / NSO APPROVED': 0, 'READY TO GO LIVE': 0, 'PENDING APPROVAL': 0, 'ON HOLD': 0, 'UPCOMING': 0, 'CLOSED': 0 };
+    const counts = { 'LIVE': 0, 'NEWLY LAUNCHED': 0, 'READY TO GO LIVE': 0, 'PENDING APPROVAL': 0, 'ON HOLD': 0, 'UPCOMING': 0, 'CLOSED': 0 };
     
     const now = new Date();
     const currentMonthNum = String(now.getMonth() + 1).padStart(2, '0');
@@ -115,8 +115,7 @@ export default function Stores() {
     
     stores.forEach(s => {
       let st = s.status ? s.status.toUpperCase() : '';
-      if (st === 'NSO_APPROVED' || st === 'APPROVED') counts['APPROVED / NSO APPROVED'] = (counts['APPROVED / NSO APPROVED'] || 0) + 1;
-      else if (st === 'READY_TO_GO_LIVE') counts['READY TO GO LIVE'] = (counts['READY TO GO LIVE'] || 0) + 1;
+      if (st === 'READY_TO_GO_LIVE' || st === 'READY TO GO LIVE') counts['READY TO GO LIVE'] = (counts['READY TO GO LIVE'] || 0) + 1;
       else if (st === 'PENDING_APPROVAL') counts['PENDING APPROVAL'] = (counts['PENDING APPROVAL'] || 0) + 1;
       else if (st === 'ON_HOLD') counts['ON HOLD'] = (counts['ON HOLD'] || 0) + 1;
       else if (st === 'LIVE' || st === 'UPCOMING' || st === 'CLOSED') counts[st] = (counts[st] || 0) + 1;
@@ -237,8 +236,7 @@ export default function Stores() {
           }
           return isNewlyLaunched;
         }
-        if (statusFilter === 'APPROVED / NSO APPROVED') return st === 'APPROVED' || st === 'NSO_APPROVED';
-        if (statusFilter === 'READY TO GO LIVE') return st === 'READY_TO_GO_LIVE';
+        if (statusFilter === 'READY TO GO LIVE') return st === 'READY_TO_GO_LIVE' || st === 'READY TO GO LIVE';
         if (statusFilter === 'PENDING APPROVAL') return st === 'PENDING_APPROVAL';
         if (statusFilter === 'ON HOLD') return st === 'ON_HOLD';
         return st === statusFilter;
@@ -360,7 +358,6 @@ export default function Stores() {
               { label: 'LIVE', color: '#10b981', icon: <StorefrontIcon /> },
               { label: 'NEWLY LAUNCHED', color: '#ec4899', icon: <RocketLaunchIcon /> },
               { label: 'UPCOMING', color: '#0ea5e9', icon: <ConstructionIcon /> },
-              { label: 'APPROVED / NSO APPROVED', color: '#f59e0b', icon: <ThumbUpIcon /> },
               { label: 'READY TO GO LIVE', color: '#f97316', icon: <CheckCircleIcon /> },
               { label: 'PENDING APPROVAL', color: '#8b5cf6', icon: <HourglassEmptyIcon /> },
               { label: 'ON HOLD', color: '#ef4444', icon: <PauseCircleIcon /> },
@@ -372,7 +369,9 @@ export default function Stores() {
                   key={s.label}
                   onClick={() => setStatusFilter(isActive ? null : s.label)}
                   sx={{
-                    width: 250,
+                    flex: '1 1 0',
+                    minWidth: 150,
+                    maxWidth: 220,
                     flexShrink: 0,
                     background: isActive ? s.color : `linear-gradient(135deg, #ffffff, ${s.color}15)`,
                     color: isActive ? '#ffffff' : 'inherit',
