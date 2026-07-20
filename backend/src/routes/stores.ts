@@ -3512,7 +3512,7 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
     const alreadySent = MAIL_STATUS_FIELD_BY_BRAND[normalizedBrand]
       ? (store as any)[MAIL_STATUS_FIELD_BY_BRAND[normalizedBrand]] === 'Sent'
       : false;
-    if (alreadySent && !['SUPER_ADMIN', 'ADMIN'].includes(req.user?.role)) {
+    if (alreadySent && !['SUPER_ADMIN', 'ADMIN'].includes(req.user?.role) && !req.body.followUpStage) {
       return res.status(403).json({
         error: 'This onboarding mail has already been sent. Only an admin can send it again.',
       });
@@ -3719,10 +3719,26 @@ router.post('/:id/send-swiggy-onboarding-email', authenticateToken, async (req: 
       }
     });
 
-    // Update mailStatus and the specific platform status to 'Sent' in database
-    const updateData: any = { mailStatus: 'Sent' };
+    // Update mailStatus and the specific platform status in database
+    const updateData: any = {};
     const statusField = MAIL_STATUS_FIELD_BY_BRAND[normalizedBrand];
-    if (statusField) updateData[statusField] = 'Sent';
+    
+    if (req.body.isIntegrationPending) {
+      if (statusField) {
+        updateData[statusField] = 'Integration Raised';
+        updateData[`${statusField}RaisedAt`] = new Date().toISOString();
+      }
+    } else if (req.body.followUpStage) {
+      updateData.mailStatus = 'Sent';
+      if (statusField) {
+        updateData[statusField] = 'Sent';
+        updateData[`${statusField}FollowUpCount`] = Number(req.body.followUpStage);
+        updateData[`${statusField}LastFollowUpAt`] = new Date().toISOString();
+      }
+    } else {
+      updateData.mailStatus = 'Sent';
+      if (statusField) updateData[statusField] = 'Sent';
+    }
 
     await prisma.store.update({
       where: { id: storeId },

@@ -371,7 +371,8 @@ export default function SwiggyZomatoIntegration() {
         body: currentBody, 
         draftLabel, 
         attachmentUrls,
-        isIntegrationPending: draftDialog.isIntegrationPending 
+        isIntegrationPending: draftDialog.isIntegrationPending,
+        followUpStage: draftDialog.followUpStage
       });
       const failed = resp.data?.failedAttachments || [];
       if (failed.length > 0) {
@@ -868,7 +869,12 @@ export default function SwiggyZomatoIntegration() {
                       
                       let body = '';
                       if (options?.isFollowUp) {
-                        body = `Dear Team,<br/><br/>I hope you are doing well.<br/><br/>This is a gentle follow-up regarding the email shared ${options.daysSinceSent} days ago. We are awaiting your response and would appreciate it if you could provide an update on the current status.<br/><br/>Kindly let us know if any additional information or documents are required from our end to move this forward.<br/><br/>Looking forward to your response.<br/><br/>Thanks & Regards,`;
+                        if (options.followUpStage >= 2) {
+                           const stageName = options.followUpStage === 2 ? '2nd' : options.followUpStage === 3 ? '3rd' : `${options.followUpStage}th`;
+                           body = `Dear Team,<br/><br/>I hope you are doing well.<br/><br/>This is our ${stageName} follow-up regarding the email shared ${options.daysSinceSent} days ago. We are urgently awaiting your response and would appreciate it if you could provide an update on the current status as soon as possible.<br/><br/>Kindly let us know if any additional information or documents are required from our end to move this forward.<br/><br/>Looking forward to your response.<br/><br/>Thanks & Regards,`;
+                        } else {
+                           body = `Dear Team,<br/><br/>I hope you are doing well.<br/><br/>This is a gentle follow-up regarding the email shared ${options.daysSinceSent} days ago. We are awaiting your response and would appreciate it if you could provide an update on the current status.<br/><br/>Kindly let us know if any additional information or documents are required from our end to move this forward.<br/><br/>Looking forward to your response.<br/><br/>Thanks & Regards,`;
+                        }
                       } else {
                         body = replacePlaceholders(rawBody, currentStore, brandKey, options?.isIntegrationPending).replace(/\\n/g, '<br/>');
                         // Enforce single-row styling for the Attribute column (first column) to be sent in the email HTML
@@ -996,6 +1002,7 @@ export default function SwiggyZomatoIntegration() {
                         gstMissing,
                         isResend,
                         isIntegrationPending: options?.isIntegrationPending || false,
+                        followUpStage: options?.followUpStage || 1,
                       });
                     } catch (err) {
                       console.error(err);
@@ -1082,6 +1089,9 @@ export default function SwiggyZomatoIntegration() {
                       let isFollowUp = false;
                       let daysSinceSent = 0;
                       let isIntegrationPending = false;
+                      let followUpStage = 1;
+                      let followUpLabel = '';
+                      let followUpClickable = true;
 
                       if (brandKey !== 'rista_creation' && ridFieldName) {
                         const ridValue = store[ridFieldName];
@@ -1094,6 +1104,34 @@ export default function SwiggyZomatoIntegration() {
                           daysSinceSent = Math.floor((Date.now() - mailSentAt.getTime()) / (1000 * 60 * 60 * 24));
                           if (daysSinceSent >= 4) {
                             isFollowUp = true;
+                            
+                            const statusField = getMailStatusFieldName(brandKey);
+                            const currentCount = store[`${statusField}FollowUpCount`] || 0;
+                            const lastFollowUpAt = store[`${statusField}LastFollowUpAt`];
+                            
+                            if (currentCount >= 1 && lastFollowUpAt) {
+                               const hoursSinceLast = (Date.now() - new Date(lastFollowUpAt).getTime()) / (1000 * 60 * 60);
+                               if (hoursSinceLast < 36) {
+                                  followUpClickable = false;
+                                  let timeString = '';
+                                  if (hoursSinceLast < 1) {
+                                    const mins = Math.floor(hoursSinceLast * 60);
+                                    timeString = `${mins} min${mins !== 1 ? 's' : ''} ago`;
+                                  } else {
+                                    const hrs = Math.floor(hoursSinceLast);
+                                    timeString = `${hrs} hour${hrs !== 1 ? 's' : ''} ago`;
+                                  }
+                                  followUpLabel = `Follow-up mail Done ${timeString}`;
+                               } else {
+                                  followUpStage = currentCount + 1;
+                                  followUpLabel = `${followUpStage === 2 ? '2nd' : followUpStage === 3 ? '3rd' : followUpStage + 'th'} Follow-up mail`;
+                                  followUpClickable = true;
+                               }
+                            } else {
+                               followUpStage = 1;
+                               followUpLabel = 'Follow-up Mail';
+                               followUpClickable = true;
+                            }
                           }
                         }
                       }
@@ -1110,11 +1148,20 @@ export default function SwiggyZomatoIntegration() {
                       }
 
                       if (isFollowUp) {
+                        if (!followUpClickable) {
+                          return (
+                            <Chip 
+                              label={followUpLabel} 
+                              size="small" 
+                              sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, borderRadius: '6px', border: '1px solid #cbd5e1' }} 
+                            />
+                          );
+                        }
                         return (
                           <Chip 
-                            label="Follow-up Mail" 
+                            label={followUpLabel} 
                             size="small" 
-                            onClick={() => handleOpenDraftDialog(store, brandKey, { isFollowUp: true, daysSinceSent })}
+                            onClick={() => handleOpenDraftDialog(store, brandKey, { isFollowUp: true, daysSinceSent, followUpStage })}
                             sx={{ bgcolor: '#fee2e2', color: '#b91c1c', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', '&:hover': { bgcolor: '#fecaca' } }} 
                           />
                         );
