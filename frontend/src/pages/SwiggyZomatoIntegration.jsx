@@ -832,7 +832,7 @@ export default function SwiggyZomatoIntegration() {
 
                       // Merge all, deduplicate by doc id
                       const seenIds = new Set();
-                      const autoAttachments = brandKey === 'rista_creation' ? [] : [
+                      const autoAttachments = (brandKey === 'rista_creation' || options?.isFollowUp) ? [] : [
                         ...statusCategoryAttachments,
                         ...generalAttachments,
                         ...(gstAttachment ? [gstAttachment] : []),
