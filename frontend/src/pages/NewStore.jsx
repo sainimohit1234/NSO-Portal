@@ -1373,6 +1373,8 @@ const NewStore = () => {
             </Grid>
           )}
 
+          {/* ─── CARD 4: Others (Mixed Required/Optional) ─── */}
+          <Grid size={12}>
           {/* ─── CARD 4: Operations Details ─── */}
           {activeTab === 'Operations Details' && (
             <Grid size={12}>
@@ -1634,7 +1636,7 @@ const NewStore = () => {
                       <TextField fullWidth label="Nearby Cafe" placeholder="Enter nearby cafe details..." {...register('nearbyCafes')} />
                     </Grid>
 
-                    <Grid size={{ xs: 12, sm: 12 }}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField
                         fullWidth
                         multiline

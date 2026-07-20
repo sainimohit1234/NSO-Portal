@@ -2519,7 +2519,7 @@ export default function EditStore() {
                       <TextField fullWidth label="Nearby Cafe" placeholder="Enter nearby cafe details..." {...register('nearbyCafes')} disabled={!canEditBasicDetails} />
                     </Grid>
 
-                    <Grid size={{ xs: 12, sm: 12 }}>
+                    <Grid size={{ xs: 12, sm: 4 }}>
                       <TextField
                         fullWidth
                         multiline
