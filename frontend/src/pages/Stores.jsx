@@ -115,7 +115,7 @@ export default function Stores() {
     
     stores.forEach(s => {
       let st = s.status ? s.status.toUpperCase() : '';
-      if (st === 'READY_TO_GO_LIVE' || st === 'READY TO GO LIVE') counts['READY TO GO LIVE'] = (counts['READY TO GO LIVE'] || 0) + 1;
+      if (st === 'READY_TO_GO_LIVE' || st === 'READY TO GO LIVE' || st === 'APPROVED' || st === 'NSO_APPROVED') counts['READY TO GO LIVE'] = (counts['READY TO GO LIVE'] || 0) + 1;
       else if (st === 'PENDING_APPROVAL') counts['PENDING APPROVAL'] = (counts['PENDING APPROVAL'] || 0) + 1;
       else if (st === 'ON_HOLD') counts['ON HOLD'] = (counts['ON HOLD'] || 0) + 1;
       else if (st === 'LIVE' || st === 'UPCOMING' || st === 'CLOSED') counts[st] = (counts[st] || 0) + 1;
@@ -236,7 +236,7 @@ export default function Stores() {
           }
           return isNewlyLaunched;
         }
-        if (statusFilter === 'READY TO GO LIVE') return st === 'READY_TO_GO_LIVE' || st === 'READY TO GO LIVE';
+        if (statusFilter === 'READY TO GO LIVE') return st === 'READY_TO_GO_LIVE' || st === 'READY TO GO LIVE' || st === 'APPROVED' || st === 'NSO_APPROVED';
         if (statusFilter === 'PENDING APPROVAL') return st === 'PENDING_APPROVAL';
         if (statusFilter === 'ON HOLD') return st === 'ON_HOLD';
         return st === statusFilter;
