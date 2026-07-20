@@ -1027,7 +1027,19 @@ export default function SwiggyZomatoIntegration() {
                 </Typography>
                 {isDraftEditing && <Typography variant="caption" color="primary">Editing Mode Active</Typography>}
               </Box>
-              <Box sx={{ p: 2 }}>
+              <Box 
+                sx={{ 
+                  p: 2,
+                  '& table': {
+                    width: '100%',
+                    tableLayout: 'auto'
+                  },
+                  '& table th:first-of-type, & table td:first-of-type': {
+                    whiteSpace: 'nowrap',
+                    width: '1%'
+                  }
+                }}
+              >
                 <div 
                   ref={bodyRef}
                   contentEditable={isDraftEditing}
