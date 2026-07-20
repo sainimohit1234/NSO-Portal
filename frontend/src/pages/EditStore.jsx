@@ -89,7 +89,7 @@ export default function EditStore() {
   const fromPath = location.state?.from || '/stores';
   const { register, handleSubmit, setValue, reset, watch, getValues, formState, formState: { errors } } = useForm();
   const { user } = useAuth();
-  
+  const currentStatusVal = watch('status');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -651,7 +651,6 @@ export default function EditStore() {
   // Determine what is editable
   // Determine what is editable
   // Once the store is locked, no one can make changes to the branch fields.
-  const currentStatusVal = watch('status');
   // Unlock locally if the user is transitioning it to Under Construction
   const isLocked = store?.isLocked && currentStatusVal !== 'Under Construction';
   
