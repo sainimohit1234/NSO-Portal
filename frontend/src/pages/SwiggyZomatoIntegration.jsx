@@ -284,7 +284,7 @@ export default function SwiggyZomatoIntegration() {
     const counts = { 'Approval Pending': 0, 'Docs Pending': 0, 'Pending': 0, 'Dotpe Pending': 0, 'Mail Sent': 0, 'Needs to Follow-up with Swiggy / Zomato': 0, 'Integration Completed': 0 };
     stores.forEach(s => { 
       counts[getStatusCategory(s)] = (counts[getStatusCategory(s)] || 0) + 1; 
-      if (s.ristaMailStatus === 'Pending') {
+      if (!isMailSent(s, s.ristaMailStatus, true)) {
         counts['Dotpe Pending'] = (counts['Dotpe Pending'] || 0) + 1;
       }
     });
@@ -299,7 +299,7 @@ export default function SwiggyZomatoIntegration() {
         (s.cafeCode || '').toLowerCase().includes(q) ||
         (s.city || '').toLowerCase().includes(q)
       );
-      const matchesStatus = !statusFilter || (statusFilter === 'Dotpe Pending' ? s.ristaMailStatus === 'Pending' : getStatusCategory(s) === statusFilter);
+      const matchesStatus = !statusFilter || (statusFilter === 'Dotpe Pending' ? !isMailSent(s, s.ristaMailStatus, true) : getStatusCategory(s) === statusFilter);
       return matchesSearch && matchesStatus;
     }),
     [stores, searchQuery, statusFilter]
