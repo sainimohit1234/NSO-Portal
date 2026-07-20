@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { 
   Box, Typography, Card, CardContent, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, Paper, Chip, TextField, Grid, 
@@ -6,6 +6,14 @@ import {
   DialogContent, DialogActions, FormControlLabel
 } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
+import SearchIcon from '@mui/icons-material/Search';
+import StorefrontIcon from '@mui/icons-material/Storefront';
+import ConstructionIcon from '@mui/icons-material/Construction';
+import PauseCircleIcon from '@mui/icons-material/PauseCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -92,27 +100,24 @@ export default function Stores() {
     return `${diffDays} Day${diffDays === 1 ? '' : 's'}`;
   };
 
-  const [stores, setStores] = useState([]);
+    const [stores, setStores] = useState([]);
   const [filteredStores, setFilteredStores] = useState([]);
-  const [filters, setFilters] = useState({ 
-    brand: '',
-    searchType: 'name',
-    searchQuery: '',
-    expiryType: '', 
-    expiryMonth: getCurrentMonthValue(), 
-    mailStatus: '',
-    launchStatusType: '',
-    launchMonthYear: ''
-  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState(null);
 
-  const hasActiveFilters = !!(
-    filters.brand ||
-    (filters.searchQuery || '').trim() ||
-    filters.expiryType ||
-    filters.mailStatus ||
-    filters.launchStatusType ||
-    filters.launchMonthYear
-  );
+  const statusCounts = useMemo(() => {
+    const counts = { 'LIVE': 0, 'APPROVED / NSO APPROVED': 0, 'READY TO GO LIVE': 0, 'PENDING APPROVAL': 0, 'ON HOLD': 0, 'UPCOMING': 0, 'CLOSED': 0 };
+    stores.forEach(s => {
+      let st = s.status ? s.status.toUpperCase() : '';
+      if (st === 'NSO_APPROVED' || st === 'APPROVED') counts['APPROVED / NSO APPROVED'] = (counts['APPROVED / NSO APPROVED'] || 0) + 1;
+      else if (st === 'READY_TO_GO_LIVE') counts['READY TO GO LIVE'] = (counts['READY TO GO LIVE'] || 0) + 1;
+      else if (st === 'PENDING_APPROVAL') counts['PENDING APPROVAL'] = (counts['PENDING APPROVAL'] || 0) + 1;
+      else if (st === 'ON_HOLD') counts['ON HOLD'] = (counts['ON HOLD'] || 0) + 1;
+      else if (st === 'LIVE' || st === 'UPCOMING' || st === 'CLOSED') counts[st] = (counts[st] || 0) + 1;
+    });
+    return counts;
+  }, [stores]);
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
@@ -159,159 +164,39 @@ export default function Stores() {
     }
   };
 
-  useEffect(() => {
+    useEffect(() => {
     let result = stores;
 
-    // Filter out inactive stores (isActive is false)
-    // Removed to show all stores
-
-    // Brand Filter
-    if (filters.brand) {
-      result = result.filter(s => {
-        if (filters.brand === 'BLUE_TOKAI_SUCHALI') {
-          // include legacy records with null/empty brand
-          return !s.brand || s.brand === 'BLUE_TOKAI_SUCHALI';
-        }
-        return s.brand === filters.brand;
-      });
-    }
-    
-    // Search Filter (Global)
-    if (filters.searchQuery) {
-      const query = filters.searchQuery.toLowerCase();
+    // Search Filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       result = result.filter(s => 
-        s.cafeName?.toLowerCase().includes(query) ||
-        s.cafeCode?.toLowerCase().includes(query) ||
-        s.address?.toLowerCase().includes(query) ||
-        s.city?.toLowerCase().includes(query)
+        (s.cafeName && s.cafeName.toLowerCase().includes(query)) ||
+        (s.cafeCode && s.cafeCode.toLowerCase().includes(query)) ||
+        (s.address && s.address.toLowerCase().includes(query)) ||
+        (s.city && s.city.toLowerCase().includes(query))
       );
     }
 
-    // Expiry Month Filter
-    if (filters.expiryType && filters.expiryMonth) {
-      if (filters.expiryType === 'fssai') {
-        result = result.filter(s => {
-          if (!s.fssaiExpiry) return false;
-          const fssaiStr = typeof s.fssaiExpiry === 'string' ? s.fssaiExpiry : (s.fssaiExpiry?.seconds ? new Date(s.fssaiExpiry.seconds * 1000).toISOString().split('T')[0] : '');
-          if (!fssaiStr) return false;
-          const parts = fssaiStr.split('-');
-          return parts.length >= 2 && parts[1] === filters.expiryMonth;
-        });
-      } else if (filters.expiryType === 'rent') {
-        result = result.filter(s => {
-          if (!s.rentExpiry) return false;
-          const rentStr = typeof s.rentExpiry === 'string' ? s.rentExpiry : (s.rentExpiry?.seconds ? new Date(s.rentExpiry.seconds * 1000).toISOString().split('T')[0] : '');
-          if (!rentStr) return false;
-          const parts = rentStr.split('-');
-          return parts.length >= 2 && parts[1] === filters.expiryMonth;
-        });
-      }
-    }
-
-    // Launch & Status Filter
-    if (filters.launchStatusType) {
-      if (filters.launchStatusType === 'newly_launched') {
-        const now = new Date();
-        const currentMonthName = now.toLocaleString('default', { month: 'long' }).toLowerCase();
-        const currentMonthShort = now.toLocaleString('default', { month: 'short' }).toLowerCase();
-        const currentMonthNum = String(now.getMonth() + 1).padStart(2, '0');
-        const currentYearStr = String(now.getFullYear());
-
-        result = result.filter(s => {
-          if (s.status !== 'LIVE') return false;
-          if (s.launchDate) {
-            const launchDateObj = parseDate(s.launchDate);
-            if (launchDateObj && !isNaN(launchDateObj.getTime())) {
-              return launchDateObj.getMonth() === now.getMonth() && 
-                     launchDateObj.getFullYear() === now.getFullYear();
-            }
-          }
-          if (s.cafeLaunchMonth) {
-            const launchStr = s.cafeLaunchMonth.toLowerCase();
-            const matchesMonth = launchStr.includes(currentMonthName) || 
-                                 launchStr.includes(currentMonthShort) || 
-                                 launchStr.includes(currentMonthNum);
-            const matchesYear = launchStr.includes(currentYearStr);
-            return matchesMonth && matchesYear;
-          }
-          return false;
-        });
-      } else {
-        if (filters.launchStatusType === 'live') {
-          result = result.filter(s => s.status === 'LIVE');
-        } else if (filters.launchStatusType === 'upcoming') {
-          result = result.filter(s => s.status === 'UPCOMING' || s.status === 'Upcoming');
-        } else if (filters.launchStatusType === 'closed') {
-          result = result.filter(s => s.status === 'CLOSED' || s.status === 'Closed');
-        } else if (filters.launchStatusType === 'approved') {
-          result = result.filter(s => s.status === 'APPROVED' || s.status === 'NSO_APPROVED');
-        } else if (filters.launchStatusType === 'pending_approval') {
-          result = result.filter(s => s.status === 'PENDING_APPROVAL');
-        } else if (filters.launchStatusType === 'on_hold') {
-          result = result.filter(s => s.status === 'ON_HOLD');
-        }
-
-        // Apply Range Month & Year filter if set
-        if (filters.launchMonthYear) {
-          const [year, month] = filters.launchMonthYear.split('-');
-          const monthNum = parseInt(month, 10);
-          const monthNames = [
-            'january', 'february', 'march', 'april', 'may', 'june', 
-            'july', 'august', 'september', 'october', 'november', 'december'
-          ];
-          const monthLabel = monthNames[monthNum - 1];
-          const monthLabelShort = monthLabel.substring(0, 3);
-
-          result = result.filter(s => {
-            if (s.launchDate) {
-              const d = parseDate(s.launchDate);
-              if (d && !isNaN(d.getTime())) {
-                return d.getFullYear() === parseInt(year, 10) && (d.getMonth() + 1) === monthNum;
-              }
-            }
-            if (!s.cafeLaunchMonth) return false;
-            const launchStr = s.cafeLaunchMonth.toLowerCase();
-            const matchesMonth = launchStr.includes(monthLabel) || 
-                                 launchStr.includes(monthLabelShort) || 
-                                 launchStr.includes(month);
-            const matchesYear = launchStr.includes(year);
-            return matchesMonth && matchesYear;
-          });
-        }
-      }
-    }
-
-    // Integration Status Filter
-    if (filters.integrationStatus) {
+    // Status Filter (from Tiles)
+    if (statusFilter) {
       result = result.filter(s => {
-        const intStatus = computeIntegrationStatus(s);
-        if (filters.integrationStatus === 'Integration Completed') return intStatus.label === 'Integration Completed';
-        if (filters.integrationStatus === 'Pending') return intStatus.label === 'Pending';
-        if (filters.integrationStatus === 'Mail Sent') return intStatus.label.startsWith('Mail Sent') || intStatus.label.startsWith('Follow-up');
-        if (filters.integrationStatus === 'Needs Follow-up') return intStatus.label.startsWith('Needs Follow-up');
-        return true;
+        let st = s.status ? s.status.toUpperCase() : '';
+        if (statusFilter === 'APPROVED / NSO APPROVED') return st === 'APPROVED' || st === 'NSO_APPROVED';
+        if (statusFilter === 'READY TO GO LIVE') return st === 'READY_TO_GO_LIVE';
+        if (statusFilter === 'PENDING APPROVAL') return st === 'PENDING_APPROVAL';
+        if (statusFilter === 'ON HOLD') return st === 'ON_HOLD';
+        return st === statusFilter;
       });
     }
+
     const sortedResult = sortStoresByCurrentStatus(result);
     setFilteredStores(sortedResult);
-  }, [filters, stores]);
+  }, [searchQuery, statusFilter, stores]);
 
-  const handleFilterChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
+  
 
-  const handleClearFilters = () => {
-    setFilters({
-      brand: '',
-      searchType: 'name',
-      searchQuery: '',
-      expiryType: '', 
-      expiryMonth: getCurrentMonthValue(), 
-      integrationStatus: '',
-      launchStatusType: '',
-      launchMonthYear: ''
-    });
-  };
+  
 
   const getStatusChipStyle = (status) => {
     switch(status) {
@@ -399,117 +284,99 @@ export default function Stores() {
         </CardContent>
       </Card>
 
-      <Card sx={{ mb: 3, bgcolor: '#0f2942' }}>
-        <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#ffffff' }}>Filter Stores</Typography>
-          <Box sx={{ 
-            display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center',
-            '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7) !important' },
-            '& .MuiInputLabel-root.Mui-focused': { color: '#ffffff !important' },
-            '& .MuiInputLabel-root.Mui-disabled': { color: 'rgba(255,255,255,0.4) !important' },
-            '& .MuiOutlinedInput-root': { 
-              color: '#fff',
-              bgcolor: 'rgba(255,255,255,0.06) !important',
-              '& fieldset': { borderColor: 'rgba(255,255,255,0.2) !important' },
-              '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4) !important' },
-              '&.Mui-focused fieldset': { borderColor: '#6fccdc !important' },
-              '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.03) !important', color: 'rgba(255,255,255,0.4) !important' }
-            },
-            '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.7) !important' }
-          }}>
-            {/* Brand Filter */}
+            {/* Search and Status Tiles */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, mb: 3 }}>
+        {/* Search Bar */}
+        <Card sx={{ bgcolor: '#ffffff', borderRadius: '16px', flexShrink: 0, width: { xs: '100%', lg: '300px' }, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+          <CardContent sx={{ p: '16px !important', height: '100%', display: 'flex', alignItems: 'center' }}>
             <TextField
-              select
+              fullWidth
+              placeholder="Search stores..."
+              variant="outlined"
               size="small"
-              label="Brand"
-              name="brand"
-              value={filters.brand}
-              onChange={handleFilterChange}
-              sx={{ flex: 1, minWidth: 160 }}
-            >
-              <MenuItem value="">All Brands</MenuItem>
-              <MenuItem value="BLUE_TOKAI_SUCHALI">Blue Tokai / Suchali's</MenuItem>
-              <MenuItem value="GOT_TEA">Got Tea</MenuItem>
-            </TextField>
-
-            {/* Search Bar */}
-            <TextField
-              size="small"
-              label="Search Bar"
-              placeholder="Search anything..."
-              name="searchQuery"
-              value={filters.searchQuery}
-              onChange={handleFilterChange}
-              sx={{ flex: 1, minWidth: 200 }}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
+                sx: { borderRadius: '12px', bgcolor: '#f8fafc', '& fieldset': { border: 'none' } }
+              }}
             />
+          </CardContent>
+        </Card>
 
-            {/* Filter Expiries */}
-            <TextField
-              select
-              size="small"
-              label="Filter Expiries"
-              name="expiryType"
-              value={filters.expiryType}
-              onChange={handleFilterChange}
-              sx={{ flex: 1, minWidth: 160 }}
-            >
-              <MenuItem value="">None (All Data)</MenuItem>
-              <MenuItem value="fssai">FSSAI Expiry</MenuItem>
-              <MenuItem value="rent">Rent Expiry</MenuItem>
-            </TextField>
-
-            {/* Expiry Month */}
-            <TextField
-              select
-              size="small"
-              label="Expiry Month"
-              name="expiryMonth"
-              value={filters.expiryMonth}
-              onChange={handleFilterChange}
-              disabled={!filters.expiryType}
-              sx={{ flex: 1, minWidth: 150 }}
-            >
-              {MONTHS.map(m => (
-                <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
-              ))}
-            </TextField>
-
-            {/* Store Status */}
-            <TextField
-              select
-              size="small"
-              label="Store Status"
-              name="launchStatusType"
-              value={filters.launchStatusType}
-              onChange={handleFilterChange}
-              sx={{ flex: 1, minWidth: 180 }}
-            >
-              <MenuItem value="">None (All Data)</MenuItem>
-              <MenuItem value="newly_launched">Newly Launch Stores</MenuItem>
-              <MenuItem value="live">Live Stores</MenuItem>
-              <MenuItem value="approved">Approved Stores</MenuItem>
-              <MenuItem value="pending_approval">Sent to NSO Team for Approval</MenuItem>
-
-              <MenuItem value="on_hold">On Hold Stores</MenuItem>
-              <MenuItem value="upcoming">Upcoming Stores</MenuItem>
-              <MenuItem value="closed">Closed Stores</MenuItem>
-            </TextField>
-
-            {/* Clear Filters Button */}
-            {hasActiveFilters && (
-              <Button
-                variant="outlined"
-                color="secondary"
-                onClick={handleClearFilters}
-                sx={{ height: 40, borderRadius: '8px', fontWeight: 700, minWidth: 90 }}
-              >
-                Clear
-              </Button>
-            )}
+        {/* Status Tiles */}
+        <Box sx={{ flexGrow: 1, overflowX: 'auto', pb: 0.5, '&::-webkit-scrollbar': { height: 6 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.1)', borderRadius: 3 } }}>
+          <Box sx={{ display: 'flex', gap: 1.5, minWidth: 'max-content' }}>
+            {[
+              { label: 'LIVE', color: '#10b981', icon: <StorefrontIcon /> },
+              { label: 'UPCOMING', color: '#0ea5e9', icon: <ConstructionIcon /> },
+              { label: 'APPROVED / NSO APPROVED', color: '#f59e0b', icon: <ThumbUpIcon /> },
+              { label: 'READY TO GO LIVE', color: '#f97316', icon: <CheckCircleIcon /> },
+              { label: 'PENDING APPROVAL', color: '#8b5cf6', icon: <HourglassEmptyIcon /> },
+              { label: 'ON HOLD', color: '#ef4444', icon: <PauseCircleIcon /> },
+              { label: 'CLOSED', color: '#64748b', icon: <CancelIcon /> }
+            ].map(s => {
+              const isActive = statusFilter === s.label;
+              return (
+                <Card 
+                  key={s.label}
+                  onClick={() => setStatusFilter(isActive ? null : s.label)}
+                  sx={{
+                    width: 160,
+                    flexShrink: 0,
+                    background: isActive ? s.color : `linear-gradient(135deg, #ffffff, ${s.color}15)`,
+                    color: isActive ? '#ffffff' : 'inherit',
+                    borderRadius: '16px',
+                    border: isActive ? 'none' : '1px solid',
+                    borderColor: isActive ? 'transparent' : `${s.color}40`,
+                    boxShadow: isActive 
+                      ? `0 6px 16px ${s.color}60`
+                      : '0 2px 8px rgba(0,0,0,0.05)',
+                    transition: 'all 0.2s ease-in-out',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    opacity: statusFilter !== null && !isActive ? 0.5 : 1,
+                    transform: isActive ? 'scale(1.02)' : 'none',
+                    '&:hover': {
+                      transform: isActive ? 'scale(1.02) translateY(-2px)' : 'translateY(-3px)',
+                      boxShadow: isActive 
+                        ? `0 10px 20px ${s.color}70`
+                        : `0 6px 12px ${s.color}30`,
+                      background: isActive ? s.color : `linear-gradient(135deg, #ffffff, ${s.color}25)`,
+                      borderColor: isActive ? 'transparent' : s.color,
+                    }
+                  }}
+                >
+                  <CardContent sx={{ p: '12px !important' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Box 
+                        sx={{ 
+                          p: 0.8, 
+                          borderRadius: '10px', 
+                          bgcolor: isActive ? 'rgba(255, 255, 255, 0.2)' : `${s.color}12`,
+                          color: isActive ? '#ffffff' : s.color,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        {s.icon}
+                      </Box>
+                      <Typography variant="h5" sx={{ fontWeight: 800, color: isActive ? '#ffffff' : 'text.primary' }}>
+                        {statusCounts[s.label] || 0}
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: isActive ? 'rgba(255, 255, 255, 0.9)' : 'text.secondary', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {s.label}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </Box>
-
-        </CardContent>
-      </Card>
+        </Box>
+      </Box>
 
       <Card sx={{ bgcolor: 'background.paper', overflow: 'hidden' }}>
         <TableContainer component={Paper} elevation={0} sx={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
