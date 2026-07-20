@@ -465,6 +465,7 @@ export default function EditStore() {
         if (fssaiDoc) {
           if (fssaiDoc.url) formattedStore.fssaiLicense = fssaiDoc.url;
           if (fssaiDoc.metadata?.fssaiNumber) formattedStore.fssaiNo = fssaiDoc.metadata.fssaiNumber;
+          if (fssaiDoc.metadata?.issuedOn) formattedStore.fssaiStartDate = safeGetDateString(fssaiDoc.metadata.issuedOn);
           if (fssaiDoc.metadata?.validUntil) formattedStore.fssaiExpiry = safeGetDateString(fssaiDoc.metadata.validUntil);
         }
 
