@@ -78,7 +78,7 @@ const getBrandLabel = (brand) => {
 // stores that are already integrated — they always show as "Integration
 // Completed". Stores created on/after 8 Jul 2026 follow the standard onboarding
 // flow (Pending → Mail Sent → Needs Follow-up → Integration Completed).
-const INTEGRATION_FLOW_START = new Date('2026-07-08T00:00:00+05:30').getTime();
+const INTEGRATION_FLOW_START = new Date('2026-07-11T00:00:00+05:30').getTime();
 
 const isExistingLegacyStore = (store) => {
   // Existing cafes are synced from Redshift and have NO createdAt (only a recent
@@ -94,7 +94,7 @@ const isExistingLegacyStore = (store) => {
 };
 
 const isMailSent = (store, statusValue, isRista = false) => {
-  if (statusValue === 'Sent' || statusValue === 'SENT') return true;
+  if (statusValue === 'Sent' || statusValue === 'SENT' || statusValue === 'Integration Raised' || statusValue === 'Done') return true;
   if (isRista) return false;
   return isExistingLegacyStore(store);
 };
@@ -105,6 +105,29 @@ const isMandatoryInfoMissing = (store) => {
   const phone = store?.cafePhoneNumber || store?.phone || '';
   const email = store?.cafeMailId || store?.email || '';
   return !gst.trim() || !fssai.trim() || !phone.trim() || !email.trim();
+};
+
+const hasAnyIntegrationPending = (store) => {
+  if (isExistingLegacyStore(store)) return false;
+  const brandType = getBrandType(store.brand);
+  const platforms = [];
+  if (brandType === 'gotTea') {
+    platforms.push({ mail: 'gotTeaZomatoMailStatus', rid: 'gotTeaZomatoRID' });
+    platforms.push({ mail: 'gotTeaSwiggyMailStatus', rid: 'gotTeaSwiggyRID' });
+  } else if (brandType === 'suchali') {
+    platforms.push({ mail: 'suchaliZomatoMailStatus', rid: 'suchaliZomatoRID' });
+    platforms.push({ mail: 'suchaliSwiggyMailStatus', rid: 'suchaliSwiggyRID' });
+  } else {
+    platforms.push({ mail: 'btZomatoMailStatus', rid: 'blueTokaiZomatoRID' });
+    platforms.push({ mail: 'btSwiggyMailStatus', rid: 'blueTokaiSwiggyRID' });
+  }
+  
+  return platforms.some(p => {
+    const isSent = isMailSent(store, store[p.mail], false);
+    const ridValue = store[p.rid];
+    const isRidBlank = !ridValue || String(ridValue).trim() === '';
+    return isSent && store[p.mail] !== 'Integration Raised' && store[p.mail] !== 'Done' && !isRidBlank;
+  });
 };
 
 // ─── Integration status computation ──────────────────────────────────────────
@@ -176,6 +199,7 @@ const computeIntegrationStatus = (store) => {
 const getStatusCategory = (store) => {
   const label = computeIntegrationStatus(store).label;
   if (label === 'Approval Pending') return 'Approval Pending';
+  if (hasAnyIntegrationPending(store)) return 'Integration Pending';
   if (label === 'Docs Pending') return 'Docs Pending';
   if (label.startsWith('Needs to Follow-up') || label.startsWith('Needs Follow-up')) return 'Needs to Follow-up with Swiggy / Zomato';
   if (label.startsWith('Mail Sent')) return 'Mail Sent';
@@ -281,7 +305,7 @@ export default function SwiggyZomatoIntegration() {
 
   // Count of stores in each status category (drives the filter chip badges).
   const statusCounts = useMemo(() => {
-    const counts = { 'Approval Pending': 0, 'Docs Pending': 0, 'Pending': 0, 'Dotpe Pending': 0, 'Mail Sent': 0, 'Needs to Follow-up with Swiggy / Zomato': 0, 'Integration Completed': 0 };
+    const counts = { 'Approval Pending': 0, 'Docs Pending': 0, 'Pending': 0, 'Dotpe Pending': 0, 'Mail Sent': 0, 'Needs to Follow-up with Swiggy / Zomato': 0, 'Integration Pending': 0, 'Integration Completed': 0 };
     stores.forEach(s => { 
       counts[getStatusCategory(s)] = (counts[getStatusCategory(s)] || 0) + 1; 
       if (!isMailSent(s, s.ristaMailStatus, true)) {
@@ -339,7 +363,16 @@ export default function SwiggyZomatoIntegration() {
     const attachmentUrls = (attachments || []).map(a => ({ fileName: a.fileName, fileUrl: a.fileUrl || a.url, isGST: !!a._isGST, isFSSAI: !!a._isFSSAI }));
     try {
       setLoading(true);
-      const resp = await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { brand: brandKey, to, cc, subject, body: currentBody, draftLabel, attachmentUrls });
+      const resp = await axios.post(`/api/stores/${store.id}/send-swiggy-onboarding-email`, { 
+        brand: brandKey, 
+        to, 
+        cc, 
+        subject, 
+        body: currentBody, 
+        draftLabel, 
+        attachmentUrls,
+        isIntegrationPending: draftDialog.isIntegrationPending 
+      });
       const failed = resp.data?.failedAttachments || [];
       if (failed.length > 0) {
         setSnackbar({ open: true, message: resp.data?.message || `Email sent, but ${failed.length} attachment(s) failed.`, severity: 'warning' });
@@ -362,21 +395,61 @@ export default function SwiggyZomatoIntegration() {
   return (
     <Box sx={{ width: '100%', px: 0, py: 1 }}>
       {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Box>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em', mb: 0.5 }}>
-            Partner Integration Hub
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage onboarding triggers, platforms communications, and restaurant ID records for Approved cafes.
-          </Typography>
-        </Box>
-        <Button variant="outlined" disabled={loading}
-          startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SyncIcon />} onClick={loadData}
-          sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}>
-          {loading ? 'Refreshing…' : 'Refresh Data'}
-        </Button>
-      </Stack>
+      <Card sx={{ mb: 3, overflow: 'hidden', bgcolor: '#0f2942' }}>
+        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -72,
+              right: -24,
+              width: { xs: 180, md: 240 },
+              height: { xs: 180, md: 240 },
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(111,205,220,0.15) 0%, rgba(111,205,220,0) 70%)'
+            }}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, position: 'relative' }}>
+            <Box sx={{ maxWidth: 760 }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase' }}>
+                STORE MANAGEMENT CONSOLE
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
+                <Typography variant="h4" sx={{ fontWeight: 800, color: '#ffffff', fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
+                  Partner Integration Hub
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ maxWidth: 680, fontSize: { xs: '0.8rem', md: '0.84rem' }, color: 'rgba(255,255,255,0.8)' }}>
+                Manage onboarding triggers, platforms communications, and restaurant ID records for Approved cafes.
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Button
+                variant="contained"
+                disabled={loading}
+                startIcon={loading ? <CircularProgress size={16} sx={{ color: '#0f2942' }} /> : <SyncIcon />}
+                onClick={loadData}
+                sx={{
+                  bgcolor: '#6fccdc',
+                  color: '#0f2942',
+                  px: 3,
+                  py: 0.75,
+                  borderRadius: '999px',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  boxShadow: '0 4px 14px 0 rgba(111,205,220,0.3)',
+                  '&:hover': { bgcolor: '#5ebbc9', boxShadow: '0 6px 20px 0 rgba(111,205,220,0.4)' },
+                  '&.Mui-disabled': {
+                    bgcolor: 'rgba(111,205,220,0.5)',
+                    color: 'rgba(15,41,66,0.5)'
+                  }
+                }}
+              >
+                {loading ? 'Refreshing…' : 'Refresh Data'}
+              </Button>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Slim progress bar during any load/refresh, even when rows are already shown */}
       {loading && <LinearProgress sx={{ mb: 2, borderRadius: 999, height: 4 }} />}
@@ -397,20 +470,22 @@ export default function SwiggyZomatoIntegration() {
           gridTemplateColumns: {
             xs: 'repeat(2, minmax(0, 1fr))',
             sm: 'repeat(4, minmax(0, 1fr))',
-            md: 'repeat(7, minmax(0, 1fr))'
+            md: 'repeat(4, minmax(0, 1fr))',
+            lg: 'repeat(8, minmax(0, 1fr))'
           },
           gap: 2,
           mb: 3.5
         }}
       >
         {[
-          { label: 'Approval Pending', color: '#f59e0b', icon: <HourglassEmptyIcon /> },
-          { label: 'Docs Pending', color: '#ef4444', icon: <DescriptionIcon /> },
-          { label: 'Pending', color: '#f59e0b', icon: <HourglassEmptyIcon /> },
-          { label: 'Dotpe Pending', color: '#8b5cf6', icon: <HourglassEmptyIcon /> },
-          { label: 'Mail Sent', color: '#3b82f6', icon: <SendIcon /> },
-          { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#ef4444', icon: <AssignmentIcon /> },
-          { label: 'Integration Completed', color: '#10b981', icon: <CheckCircleIcon /> }
+          { label: 'Approval Pending', color: '#f59e0b', icon: <HourglassEmptyIcon />, count: counts.approvalPending },
+          { label: 'Docs Pending', color: '#ef4444', icon: <DescriptionIcon />, count: counts.docsPending },
+          { label: 'Pending', color: '#d97706', icon: <HourglassEmptyIcon />, count: counts.pending },
+          { label: 'Dotpe Pending', color: '#8b5cf6', icon: <HourglassEmptyIcon />, count: counts.dotpePending },
+          { label: 'Mail Sent', color: '#3b82f6', icon: <SendIcon />, count: counts.mailSent },
+          { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#dc2626', icon: <AssignmentIcon />, count: counts.followUp },
+          { label: 'Integration Pending', color: '#a855f7', icon: <HourglassEmptyIcon />, count: counts.integrationPending },
+          { label: 'Integration Completed', color: '#10b981', icon: <CheckCircleIcon />, count: counts.completed }
         ].map(s => {
           const isActive = statusFilter === s.label;
           return (
@@ -418,32 +493,27 @@ export default function SwiggyZomatoIntegration() {
               key={s.label}
               onClick={() => setStatusFilter(isActive ? null : s.label)}
               sx={{
-                background: isActive 
-                  ? `linear-gradient(135deg, ${s.color}, ${s.color}e6)` 
-                  : `linear-gradient(135deg, #ffffff, ${s.color}15)`,
+                background: isActive ? s.color : `linear-gradient(135deg, #ffffff, ${s.color}15)`,
                 color: isActive ? '#ffffff' : 'inherit',
                 borderRadius: '16px',
-                border: '1px solid',
-                borderColor: isActive ? 'transparent' : `${s.color}30`,
+                border: isActive ? 'none' : '1px solid',
+                borderColor: isActive ? 'transparent' : `${s.color}40`,
                 boxShadow: isActive 
-                  ? `0 12px 24px ${s.color}40, inset 0 2px 0 rgba(255,255,255,0.2)`
-                  : '0 4px 12px rgba(0,0,0,0.04)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  ? `0 6px 16px ${s.color}60`
+                  : '0 2px 8px rgba(0,0,0,0.05)',
+                transition: 'all 0.2s ease-in-out',
                 cursor: 'pointer',
                 position: 'relative',
                 overflow: 'hidden',
-                opacity: statusFilter !== null && !isActive ? 0.65 : 1,
+                opacity: statusFilter !== null && !isActive ? 0.5 : 1,
                 transform: isActive ? 'scale(1.02)' : 'none',
                 '&:hover': {
                   transform: isActive ? 'scale(1.02) translateY(-2px)' : 'translateY(-3px)',
                   boxShadow: isActive 
-                    ? `0 16px 32px ${s.color}50`
-                    : `0 8px 16px ${s.color}20`,
-                  opacity: 1,
-                  borderColor: isActive ? 'transparent' : `${s.color}50`,
-                  background: isActive 
-                    ? `linear-gradient(135deg, ${s.color}, ${s.color}f2)`
-                    : `linear-gradient(135deg, #ffffff, ${s.color}25)`,
+                    ? `0 10px 20px ${s.color}70`
+                    : `0 6px 12px ${s.color}30`,
+                  background: isActive ? s.color : `linear-gradient(135deg, #ffffff, ${s.color}25)`,
+                  borderColor: isActive ? 'transparent' : s.color,
                 },
                 '&::after': isActive ? {
                   content: '""',
@@ -452,7 +522,7 @@ export default function SwiggyZomatoIntegration() {
                   left: '-100%',
                   width: '50%',
                   height: '100%',
-                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 100%)',
+                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%)',
                   transform: 'skewX(-20deg)',
                   animation: 'shimmerEffect 2.5s infinite',
                   pointerEvents: 'none',
@@ -473,7 +543,7 @@ export default function SwiggyZomatoIntegration() {
                   height: 100,
                   borderRadius: '50%',
                   background: isActive 
-                    ? `radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)`
+                    ? `radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%)`
                     : `radial-gradient(circle, ${s.color}20 0%, ${s.color}00 70%)`
                 }}
               />
@@ -516,24 +586,24 @@ export default function SwiggyZomatoIntegration() {
             <Table stickyHeader size="small" sx={{ minWidth: 1500 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50, position: 'sticky', left: 0, zIndex: 12, bgcolor: 'background.paper' }}>S.No.</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 130, minWidth: 130, maxWidth: 130, position: 'sticky', left: 50, zIndex: 12, bgcolor: 'background.paper' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 130, minWidth: 130, maxWidth: 130, position: 'sticky', left: 180, zIndex: 12, bgcolor: 'background.paper' }}>Brand</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, maxWidth: 100, position: 'sticky', left: 310, zIndex: 12, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 160, minWidth: 160, maxWidth: 160, position: 'sticky', left: 410, zIndex: 12, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#fef2f2' }}>Rista Store Creation Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Blue Tokai Zomato Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Blue Tokai Swiggy Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Suchali's Zomato Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Suchali's Swiggy Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Got Tea Zomato Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Got Tea Swiggy Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Blue Tokai Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Blue Tokai Swiggy RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Suchali's Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Suchali's Swiggy RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Got Tea Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Got Tea Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 60, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 12, bgcolor: 'background.paper' }}>S.No.</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 150, whiteSpace: 'nowrap', position: 'sticky', left: 60, zIndex: 12, bgcolor: 'background.paper' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 160, whiteSpace: 'nowrap', position: 'sticky', left: 210, zIndex: 12, bgcolor: 'background.paper' }}>Brand</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 120, whiteSpace: 'nowrap', position: 'sticky', left: 370, zIndex: 12, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 220, whiteSpace: 'nowrap', position: 'sticky', left: 490, zIndex: 12, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#fef2f2' }}>Rista Store Creation Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#f0fdf4' }}>Blue Tokai Zomato Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#f0fdf4' }}>Blue Tokai Swiggy Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#f0fdf4' }}>Suchali's Zomato Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#f0fdf4' }}>Suchali's Swiggy Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#f0fdf4' }}>Got Tea Zomato Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#f0fdf4' }}>Got Tea Swiggy Mail</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 180, whiteSpace: 'nowrap', bgcolor: '#eff6ff' }}>Blue Tokai Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 180, whiteSpace: 'nowrap', bgcolor: '#eff6ff' }}>Blue Tokai Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 180, whiteSpace: 'nowrap', bgcolor: '#eff6ff' }}>Suchali's Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 180, whiteSpace: 'nowrap', bgcolor: '#eff6ff' }}>Suchali's Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 180, whiteSpace: 'nowrap', bgcolor: '#eff6ff' }}>Got Tea Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 180, whiteSpace: 'nowrap', bgcolor: '#eff6ff' }}>Got Tea Swiggy RID</TableCell>
                   {canModify && <TableCell sx={{ fontWeight: 800, width: 90, position: 'sticky', right: 0, zIndex: 12, bgcolor: '#f8fafc', borderLeft: '2px solid', borderColor: 'divider' }} align="center">Actions</TableCell>}
                 </TableRow>
               </TableHead>
@@ -738,7 +808,9 @@ export default function SwiggyZomatoIntegration() {
 
                     try {
                       setLoading(true);
-                      const subCategoryKey = brandKey === 'rista_creation' ? 'Draft Mail for Rista Creation' : getDraftLabel(brandKey);
+                      const subCategoryKey = options?.isIntegrationPending 
+                        ? 'Integration Pending' 
+                        : (brandKey === 'rista_creation' ? 'Draft Mail for Rista Creation' : getDraftLabel(brandKey));
                       const [templatesRes, mappingsRes] = await Promise.all([
                         axios.get('/api/system/email-templates'),
                         axios.get('/api/system/email-mappings'),
@@ -830,7 +902,7 @@ export default function SwiggyZomatoIntegration() {
 
                       // Merge all, deduplicate by doc id
                       const seenIds = new Set();
-                      const autoAttachments = (brandKey === 'rista_creation' || options?.isFollowUp) ? [] : [
+                      const autoAttachments = (brandKey === 'rista_creation' || options?.isFollowUp || options?.isIntegrationPending) ? [] : [
                         ...statusCategoryAttachments,
                         ...generalAttachments,
                         ...(gstAttachment ? [gstAttachment] : []),
@@ -868,6 +940,7 @@ export default function SwiggyZomatoIntegration() {
                         attachments: autoAttachments,
                         gstMissing,
                         isResend,
+                        isIntegrationPending: options?.isIntegrationPending || false,
                       });
                     } catch (err) {
                       console.error(err);
@@ -877,22 +950,108 @@ export default function SwiggyZomatoIntegration() {
                     }
                   };
 
-                  const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled, ridFieldName = null) => {
+                  const renderMail = (statusValRaw, brandKey, brandLabel, mappingId, disabled, ridFieldName = null) => {
+                    const isLegacy = isExistingLegacyStore(store);
+                    const statusVal = (isLegacy && brandKey !== 'rista_creation') ? 'Done' : statusValRaw;
+
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
+                    
+                    const getMailStatusFieldName = (bKey) => {
+                      switch(bKey) {
+                        case 'zomato_btc': return 'btZomatoMailStatus';
+                        case 'swiggy_btc': return 'btSwiggyMailStatus';
+                        case 'zomato_sab': return 'suchaliZomatoMailStatus';
+                        case 'swiggy_sab': return 'suchaliSwiggyMailStatus';
+                        case 'zomato_gottea': return 'gotTeaZomatoMailStatus';
+                        case 'swiggy_gottea': return 'gotTeaSwiggyMailStatus';
+                        default: return null;
+                      }
+                    };
+
+                    const updateStatusToDone = async () => {
+                      try {
+                        const statusField = getMailStatusFieldName(brandKey);
+                        if (!statusField) return;
+                        await axios.put(`/api/stores/${store.id}`, {
+                          [statusField]: 'Done'
+                        });
+                        setSnackbar({ open: true, message: 'Status updated to Done', severity: 'success' });
+                        loadData();
+                      } catch (err) {
+                        setSnackbar({ open: true, message: 'Failed to update status', severity: 'error' });
+                      }
+                    };
+
+                    if (statusVal === 'Done') {
+                      return <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Done" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />;
+                    }
+
+                    if (statusVal === 'Integration Raised') {
+                      let isRed = false;
+                      const statusField = getMailStatusFieldName(brandKey);
+                      if (statusField) {
+                         const raisedAt = store[`${statusField}RaisedAt`];
+                         if (raisedAt) {
+                            const hoursSinceRaised = (Date.now() - new Date(raisedAt).getTime()) / (1000 * 60 * 60);
+                            if (hoursSinceRaised >= 36) isRed = true;
+                         }
+                      }
+                      const color = isRed ? '#b91c1c' : '#b06000';
+                      const bgcolor = isRed ? '#fee2e2' : '#fef7e0';
+                      const border = isRed ? '#fecaca' : '#feebc8';
+
+                      return (
+                        <Select
+                          value="Integration Raised"
+                          size="small"
+                          onChange={(e) => {
+                            if (e.target.value === 'Done') {
+                              updateStatusToDone();
+                            }
+                          }}
+                          sx={{
+                            bgcolor, color, fontWeight: 700, borderRadius: '6px', fontSize: '0.7rem', height: '24px',
+                            '& .MuiSelect-select': { py: 0.5, px: 1 },
+                            '& .MuiOutlinedInput-notchedOutline': { border: `1px solid ${border}` },
+                            '& .MuiSvgIcon-root': { color }
+                          }}
+                        >
+                          <MenuItem value="Integration Raised" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>Integration Raised</MenuItem>
+                          <MenuItem value="Done" sx={{ fontSize: '0.75rem', fontWeight: 600 }}>Done</MenuItem>
+                        </Select>
+                      );
+                    }
+
                     const isSent = isMailSent(store, statusVal, brandKey === 'rista_creation');
                     if (isSent) {
                       let isFollowUp = false;
                       let daysSinceSent = 0;
+                      let isIntegrationPending = false;
+
                       if (brandKey !== 'rista_creation' && ridFieldName) {
                         const ridValue = store[ridFieldName];
                         const isRidBlank = !ridValue || String(ridValue).trim() === '';
                         const mailSentAt = store.integrationMailSentAt ? new Date(store.integrationMailSentAt) : null;
-                        if (isRidBlank && mailSentAt) {
+                        
+                        if (!isRidBlank) {
+                          isIntegrationPending = true;
+                        } else if (mailSentAt) {
                           daysSinceSent = Math.floor((Date.now() - mailSentAt.getTime()) / (1000 * 60 * 60 * 24));
                           if (daysSinceSent >= 4) {
                             isFollowUp = true;
                           }
                         }
+                      }
+
+                      if (isIntegrationPending) {
+                        return (
+                          <Chip 
+                            label="Integration Pending" 
+                            size="small" 
+                            onClick={() => handleOpenDraftDialog(store, brandKey, { isIntegrationPending: true })}
+                            sx={{ bgcolor: '#fef7e0', color: '#b06000', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', '&:hover': { bgcolor: '#fde68a' }, border: '1px solid #fcd34d' }} 
+                          />
+                        );
                       }
 
                       if (isFollowUp) {
@@ -984,10 +1143,10 @@ export default function SwiggyZomatoIntegration() {
                   return (
                     <TableRow key={store.id} hover sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}>
                       {/* S.No. */}
-                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', fontWeight: 800, width: 50, minWidth: 50, maxWidth: 50 }}>{index + 1}</TableCell>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', fontWeight: 800, minWidth: 50, whiteSpace: 'nowrap' }}>{index + 1}</TableCell>
 
                       {/* Status */}
-                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 1, bgcolor: 'background.paper', width: 130, minWidth: 130, maxWidth: 130 }}>
+                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 1, bgcolor: 'background.paper', minWidth: 130, whiteSpace: 'nowrap' }}>
                         <Chip label={integStatus.label} size="small" sx={{
                           bgcolor: integStatus.bg, color: integStatus.color,
                           border: `1px solid ${integStatus.border}`,
@@ -997,17 +1156,17 @@ export default function SwiggyZomatoIntegration() {
                       </TableCell>
 
                       {/* Brand */}
-                      <TableCell sx={{ position: 'sticky', left: 180, zIndex: 1, bgcolor: 'background.paper', fontWeight: 600, fontSize: '0.8rem', width: 130, minWidth: 130, maxWidth: 130 }}>
+                      <TableCell sx={{ position: 'sticky', left: 180, zIndex: 1, bgcolor: 'background.paper', fontWeight: 600, fontSize: '0.8rem', minWidth: 130, whiteSpace: 'nowrap' }}>
                         {getBrandLabel(store.brand)}
                       </TableCell>
 
                       {/* Cafe Code */}
-                      <TableCell sx={{ position: 'sticky', left: 310, zIndex: 1, bgcolor: 'background.paper', fontWeight: 700, width: 100, minWidth: 100, maxWidth: 100 }}>
+                      <TableCell sx={{ position: 'sticky', left: 310, zIndex: 1, bgcolor: 'background.paper', fontWeight: 700, minWidth: 100, whiteSpace: 'nowrap' }}>
                         {store.cafeCode || 'N/A'}
                       </TableCell>
 
                       {/* Cafe Name */}
-                      <TableCell sx={{ position: 'sticky', left: 410, zIndex: 1, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', fontWeight: 800, width: 160, minWidth: 160, maxWidth: 160 }}>
+                      <TableCell sx={{ position: 'sticky', left: 410, zIndex: 1, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', fontWeight: 800, minWidth: 160, whiteSpace: 'nowrap' }}>
                         {store.cafeName || 'N/A'}
                       </TableCell>
                       <TableCell sx={MAIL_CELL_STYLE}>{renderMail(store.ristaMailStatus, 'rista_creation', 'Rista Store Creation', 'rista_creation', false)}</TableCell>
