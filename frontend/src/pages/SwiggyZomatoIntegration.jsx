@@ -478,14 +478,14 @@ export default function SwiggyZomatoIntegration() {
         }}
       >
         {[
-          { label: 'Approval Pending', color: '#f59e0b', icon: <HourglassEmptyIcon />, count: counts.approvalPending },
-          { label: 'Docs Pending', color: '#ef4444', icon: <DescriptionIcon />, count: counts.docsPending },
-          { label: 'Pending', color: '#d97706', icon: <HourglassEmptyIcon />, count: counts.pending },
-          { label: 'Dotpe Pending', color: '#8b5cf6', icon: <HourglassEmptyIcon />, count: counts.dotpePending },
-          { label: 'Mail Sent', color: '#3b82f6', icon: <SendIcon />, count: counts.mailSent },
-          { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#dc2626', icon: <AssignmentIcon />, count: counts.followUp },
-          { label: 'Integration Pending', color: '#a855f7', icon: <HourglassEmptyIcon />, count: counts.integrationPending },
-          { label: 'Integration Completed', color: '#10b981', icon: <CheckCircleIcon />, count: counts.completed }
+          { label: 'Approval Pending', color: '#f59e0b', icon: <HourglassEmptyIcon /> },
+          { label: 'Docs Pending', color: '#ef4444', icon: <DescriptionIcon /> },
+          { label: 'Pending', color: '#d97706', icon: <HourglassEmptyIcon /> },
+          { label: 'Dotpe Pending', color: '#8b5cf6', icon: <HourglassEmptyIcon /> },
+          { label: 'Mail Sent', color: '#3b82f6', icon: <SendIcon /> },
+          { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#dc2626', icon: <AssignmentIcon /> },
+          { label: 'Integration Pending', color: '#a855f7', icon: <HourglassEmptyIcon /> },
+          { label: 'Integration Completed', color: '#10b981', icon: <CheckCircleIcon /> }
         ].map(s => {
           const isActive = statusFilter === s.label;
           return (
@@ -639,7 +639,7 @@ export default function SwiggyZomatoIntegration() {
 
                   const integStatus = computeIntegrationStatus(store);
 
-                  const replacePlaceholders = (text, storeData) => {
+                  const replacePlaceholders = (text, storeData, bKey = null, isIntegrationPending = false) => {
                     if (!text || !storeData) return text;
                     const completeAddress = [
                       storeData.cafeAddress || storeData.address,
@@ -659,7 +659,32 @@ export default function SwiggyZomatoIntegration() {
 
                       const placeholderMap = {
                       // Basic cafe info
-                      '[Brand Name]': getBrandType(storeData.brand) === 'gotTea' ? 'Got Tea' : 'Blue Tokai Coffee Roasters',
+                      '[Brand Name]': (() => {
+                        if (isIntegrationPending) {
+                          if (bKey === 'zomato_btc' || bKey === 'swiggy_btc') return 'Blue Tokai Coffee Roasters';
+                          if (bKey === 'zomato_sab' || bKey === 'swiggy_sab') return "Suchali's Artisan Bakehouse";
+                          if (bKey === 'zomato_gottea' || bKey === 'swiggy_gottea') return 'Got Tea';
+                        }
+                        return getBrandType(storeData.brand) === 'gotTea' ? 'Got Tea' : 'Blue Tokai Coffee Roasters';
+                      })(),
+                      '[Aggregator Name]': (() => {
+                        if (isIntegrationPending) {
+                          if (bKey?.includes('zomato')) return 'Zomato';
+                          if (bKey?.includes('swiggy')) return 'Swiggy';
+                        }
+                        return '';
+                      })(),
+                      '[RID]': (() => {
+                        if (isIntegrationPending) {
+                          if (bKey === 'zomato_btc') return storeData.blueTokaiZomatoRID || '';
+                          if (bKey === 'swiggy_btc') return storeData.blueTokaiSwiggyRID || '';
+                          if (bKey === 'zomato_sab') return storeData.suchalisZomatoRID || '';
+                          if (bKey === 'swiggy_sab') return storeData.suchalisSwiggyRID || '';
+                          if (bKey === 'zomato_gottea') return storeData.gotTeaZomatoRID || '';
+                          if (bKey === 'swiggy_gottea') return storeData.gotTeaSwiggyRID || '';
+                        }
+                        return '';
+                      })(),
                       '[Cafe Name]': storeData.cafeName || '',
                       '[Display Name]': storeData.cafeName || '',
                       '[Cafe Code]': storeData.cafeCode || '',
@@ -825,32 +850,48 @@ export default function SwiggyZomatoIntegration() {
                       const rawSubject = template.subject || `${subCategoryKey} | New Store Onboarding`;
                       const rawBody = template.body || '';
 
-                      const subject = replacePlaceholders(rawSubject, currentStore);
+                      const subject = replacePlaceholders(rawSubject, currentStore, brandKey, options?.isIntegrationPending);
                       
                       let body = '';
                       if (options?.isFollowUp) {
                         body = `Dear Team,<br/><br/>I hope you are doing well.<br/><br/>This is a gentle follow-up regarding the email shared ${options.daysSinceSent} days ago. We are awaiting your response and would appreciate it if you could provide an update on the current status.<br/><br/>Kindly let us know if any additional information or documents are required from our end to move this forward.<br/><br/>Looking forward to your response.<br/><br/>Thanks & Regards,`;
                       } else {
-                        body = replacePlaceholders(rawBody, currentStore).replace(/\\n/g, '<br/>');
+                        body = replacePlaceholders(rawBody, currentStore, brandKey, options?.isIntegrationPending).replace(/\\n/g, '<br/>');
                         // Enforce single-row styling for the Attribute column (first column) to be sent in the email HTML
                         try {
                           const parser = new DOMParser();
                           const doc = parser.parseFromString(body, 'text/html');
                           const tables = doc.querySelectorAll('table');
                           tables.forEach(table => {
-                            table.style.width = '100%';
                             table.style.tableLayout = 'auto';
+                            if (options?.isIntegrationPending) {
+                              table.style.borderCollapse = 'collapse';
+                              table.style.width = 'auto'; // Let content decide width to avoid wrapping
+                            } else {
+                              table.style.width = '100%';
+                            }
+                            
                             const rows = table.querySelectorAll('tr');
                             rows.forEach(row => {
-                              const firstTh = row.querySelector('th');
-                              if (firstTh) {
-                                firstTh.style.whiteSpace = 'nowrap';
-                                firstTh.style.width = '1%';
-                              }
-                              const firstTd = row.querySelector('td');
-                              if (firstTd) {
-                                firstTd.style.whiteSpace = 'nowrap';
-                                firstTd.style.width = '1%';
+                              if (options?.isIntegrationPending) {
+                                // Add borders and padding for integration pending emails
+                                row.querySelectorAll('th, td').forEach(cell => {
+                                  cell.style.border = '1px solid #475569';
+                                  cell.style.padding = '8px 12px';
+                                  cell.style.whiteSpace = 'nowrap'; // Prevent unnecessary wrapping
+                                });
+                              } else {
+                                // Default styling logic
+                                const firstTh = row.querySelector('th');
+                                if (firstTh) {
+                                  firstTh.style.whiteSpace = 'nowrap';
+                                  firstTh.style.width = '1%';
+                                }
+                                const firstTd = row.querySelector('td');
+                                if (firstTd) {
+                                  firstTd.style.whiteSpace = 'nowrap';
+                                  firstTd.style.width = '1%';
+                                }
                               }
                             });
                           });
