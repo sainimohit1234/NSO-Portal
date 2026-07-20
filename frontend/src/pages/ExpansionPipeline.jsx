@@ -55,7 +55,7 @@ const DebouncedTextField = ({ value, onChange, debounceTime = 400, ...props }) =
 
 export default function ExpansionPipeline() {
   const { user } = useAuth();
-  const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'LEGAL', 'FINANCE'];
+  const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'LEGAL', 'FINANCE', 'MANAGER'];
   const canModify = allowedRoles.includes(user?.role?.toUpperCase());
 
   const getFileType = (url, fileName) => {
@@ -1649,7 +1649,22 @@ export default function ExpansionPipeline() {
           open={!!uploadModalConfig} 
           store={uploadModalConfig.store}
           activeCategory={uploadModalConfig.category}
-          canModify={canModify && !(uploadModalConfig.store.isLocked === true || uploadModalConfig.store.isLocked === 'true' || ['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(uploadModalConfig.store.status))}
+          canModify={(() => {
+            if (!canModify) return false;
+            const status = uploadModalConfig.store.status;
+            const isExplicitlyLocked = uploadModalConfig.store.isLocked === true || uploadModalConfig.store.isLocked === 'true';
+            
+            if (isExplicitlyLocked && user?.role !== 'SUPER_ADMIN') return false;
+            
+            const isApprovedPhase = ['NSO_APPROVED', 'APPROVED', 'READY_TO_GO_LIVE', 'LIVE'].includes(status);
+            
+            if (isApprovedPhase) {
+              if (user?.role === 'SUPER_ADMIN') return true;
+              if (user?.role === 'MANAGER' && status !== 'LIVE' && status !== 'Live') return true;
+              return false;
+            }
+            return true;
+          })()}
           onClose={() => setUploadModalConfig(null)}
           setSnackbar={setSnackbar}
           onSave={(payload) => {
