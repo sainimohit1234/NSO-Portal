@@ -683,7 +683,7 @@ export default function SwiggyZomatoIntegration() {
                           if (bKey === 'zomato_gottea') return storeData.gotTeaZomatoRID || '';
                           if (bKey === 'swiggy_gottea') return storeData.gotTeaSwiggyRID || '';
                         }
-                        return '';
+                        return storeData.blueTokaiSwiggyRID || storeData.swiggyId || '';
                       })(),
                       '[Cafe Name]': storeData.cafeName || '',
                       '[Display Name]': storeData.cafeName || '',
@@ -775,7 +775,6 @@ export default function SwiggyZomatoIntegration() {
                       // Swiggy / Zomato IDs
                       '[Swiggy ID]': storeData.swiggyId || storeData.blueTokaiSwiggyRID || '',
                       '[Zomato ID]': storeData.zomatoId || storeData.blueTokaiZomatoRID || '',
-                      '[RID]': storeData.blueTokaiSwiggyRID || storeData.swiggyId || '',
 
                       // Zone / cluster
                       '[Zone]': storeData.zone || '',
@@ -807,6 +806,14 @@ export default function SwiggyZomatoIntegration() {
                     placeholderMap['[Copy Menu From]'] = copyMenuFromName;
 
                     let result = text;
+                    // If the template was pasted from Excel, placeholders might be broken by internal span tags.
+                    // e.g. [<span>Brand Name</span>]. This breaks the regex.
+                    // We can't trivially remove all spans, but we can clean up zero-width spaces or tags inside brackets if we wanted.
+                    // However, an easier fix is to just strip tags inside brackets if they exist.
+                    result = result.replace(/\[(.*?)\]/g, (match) => {
+                      return '[' + match.slice(1, -1).replace(/<[^>]*>/g, '') + ']';
+                    });
+
                     for (const [token, value] of Object.entries(placeholderMap)) {
                       const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                       result = result.replace(new RegExp(escaped, 'gi'), value);
