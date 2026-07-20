@@ -755,8 +755,34 @@ export default function SwiggyZomatoIntegration() {
                       const rawBody = template.body || '';
 
                       const subject = replacePlaceholders(rawSubject, currentStore);
-                      const body = replacePlaceholders(rawBody, currentStore).replace(/\\n/g, '<br/>');
+                      let body = replacePlaceholders(rawBody, currentStore).replace(/\\n/g, '<br/>');
 
+                      // Enforce single-row styling for the Attribute column (first column) to be sent in the email HTML
+                      try {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(body, 'text/html');
+                        const tables = doc.querySelectorAll('table');
+                        tables.forEach(table => {
+                          table.style.width = '100%';
+                          table.style.tableLayout = 'auto';
+                          const rows = table.querySelectorAll('tr');
+                          rows.forEach(row => {
+                            const firstTh = row.querySelector('th');
+                            if (firstTh) {
+                              firstTh.style.whiteSpace = 'nowrap';
+                              firstTh.style.width = '1%';
+                            }
+                            const firstTd = row.querySelector('td');
+                            if (firstTd) {
+                              firstTd.style.whiteSpace = 'nowrap';
+                              firstTd.style.width = '1%';
+                            }
+                          });
+                        });
+                        body = doc.body.innerHTML;
+                      } catch (e) {
+                        console.error('Error parsing email HTML to inject styles', e);
+                      }
                       const toList = (mapping?.to || []).join(', ');
                       const ccList = (mapping?.cc || []).join(', ');
 
