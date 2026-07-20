@@ -35,6 +35,7 @@ const STATUS_OPTIONS = [
   'On Hold',
   'Compliance Approved',
   'Closed',
+  'Integration Pending',
   'Live',
   'Draft a mail for BTC | Zomato',
   'Draft a mail for BTC | Swiggy',
