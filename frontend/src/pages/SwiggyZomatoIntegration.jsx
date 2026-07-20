@@ -16,6 +16,8 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import EditIcon from '@mui/icons-material/Edit';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { fetchStoresFromFirestore } from '../services/storeService';
@@ -279,8 +281,13 @@ export default function SwiggyZomatoIntegration() {
 
   // Count of stores in each status category (drives the filter chip badges).
   const statusCounts = useMemo(() => {
-    const counts = { 'Approval Pending': 0, 'Docs Pending': 0, 'Pending': 0, 'Mail Sent': 0, 'Needs to Follow-up with Swiggy / Zomato': 0, 'Integration Completed': 0 };
-    stores.forEach(s => { counts[getStatusCategory(s)] = (counts[getStatusCategory(s)] || 0) + 1; });
+    const counts = { 'Approval Pending': 0, 'Docs Pending': 0, 'Pending': 0, 'Dotpe Pending': 0, 'Mail Sent': 0, 'Needs to Follow-up with Swiggy / Zomato': 0, 'Integration Completed': 0 };
+    stores.forEach(s => { 
+      counts[getStatusCategory(s)] = (counts[getStatusCategory(s)] || 0) + 1; 
+      if (s.ristaMailStatus === 'Pending') {
+        counts['Dotpe Pending'] = (counts['Dotpe Pending'] || 0) + 1;
+      }
+    });
     return counts;
   }, [stores]);
 
@@ -292,7 +299,7 @@ export default function SwiggyZomatoIntegration() {
         (s.cafeCode || '').toLowerCase().includes(q) ||
         (s.city || '').toLowerCase().includes(q)
       );
-      const matchesStatus = !statusFilter || getStatusCategory(s) === statusFilter;
+      const matchesStatus = !statusFilter || (statusFilter === 'Dotpe Pending' ? s.ristaMailStatus === 'Pending' : getStatusCategory(s) === statusFilter);
       return matchesSearch && matchesStatus;
     }),
     [stores, searchQuery, statusFilter]
@@ -383,53 +390,126 @@ export default function SwiggyZomatoIntegration() {
         </CardContent>
       </Card>
 
-      {/* Status Filters — click a chip to filter the table by that status */}
-      <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }} alignItems="center">
+      {/* Status Filters — click a tile to filter the table by that status */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: 'repeat(2, minmax(0, 1fr))',
+            sm: 'repeat(4, minmax(0, 1fr))',
+            md: 'repeat(7, minmax(0, 1fr))'
+          },
+          gap: 2,
+          mb: 3.5
+        }}
+      >
         {[
-          { label: 'Approval Pending', color: '#b45309', bg: '#fef3c7' },
-          { label: 'Docs Pending', color: '#b91c1c', bg: '#fee2e2' },
-          { label: 'Pending', color: '#92400e', bg: '#fef3c7' },
-          { label: 'Mail Sent', color: '#1e3a8a', bg: '#dbeafe' },
-          { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#7f1d1d', bg: '#fee2e2' },
-          { label: 'Integration Completed', color: '#14532d', bg: '#dcfce7' },
+          { label: 'Approval Pending', color: '#f59e0b', icon: <HourglassEmptyIcon /> },
+          { label: 'Docs Pending', color: '#ef4444', icon: <DescriptionIcon /> },
+          { label: 'Pending', color: '#f59e0b', icon: <HourglassEmptyIcon /> },
+          { label: 'Dotpe Pending', color: '#8b5cf6', icon: <HourglassEmptyIcon /> },
+          { label: 'Mail Sent', color: '#3b82f6', icon: <SendIcon /> },
+          { label: 'Needs to Follow-up with Swiggy / Zomato', color: '#ef4444', icon: <AssignmentIcon /> },
+          { label: 'Integration Completed', color: '#10b981', icon: <CheckCircleIcon /> }
         ].map(s => {
-          const active = statusFilter === s.label;
+          const isActive = statusFilter === s.label;
           return (
-            <Chip
+            <Card
               key={s.label}
-              label={`${s.label} (${statusCounts[s.label] || 0})`}
-              size="small"
-              clickable
-              onClick={() => setStatusFilter(active ? null : s.label)}
+              onClick={() => setStatusFilter(isActive ? null : s.label)}
               sx={{
-                bgcolor: s.bg,
-                color: s.color,
-                fontWeight: 700,
-                fontSize: '0.72rem',
-                borderRadius: '6px',
-                border: active ? `2px solid ${s.color}` : '2px solid transparent',
-                boxShadow: active ? `0 0 0 3px ${s.bg}` : 'none',
-                opacity: statusFilter && !active ? 0.55 : 1,
-                transition: 'all 0.15s ease',
-                '&:hover': { bgcolor: s.bg, opacity: 1 }
+                bgcolor: 'background.paper',
+                borderRadius: '16px',
+                border: '2px solid',
+                borderColor: isActive ? s.color : 'transparent',
+                boxShadow: isActive 
+                  ? `0 12px 24px ${s.color}1e, inset 0 2px 0 rgba(255,255,255,0.5)`
+                  : '0 4px 12px rgba(0,0,0,0.03)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                position: 'relative',
+                overflow: 'hidden',
+                opacity: statusFilter !== null && !isActive ? 0.65 : 1,
+                transform: isActive ? 'scale(1.02)' : 'none',
+                '&:hover': {
+                  transform: isActive ? 'scale(1.02) translateY(-2px)' : 'translateY(-3px)',
+                  boxShadow: isActive 
+                    ? `0 16px 32px ${s.color}2c`
+                    : '0 12px 24px rgba(15,23,42,0.08)',
+                  opacity: 1,
+                  borderColor: isActive ? s.color : `${s.color}40`
+                },
+                '&::after': isActive ? {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: '-100%',
+                  width: '50%',
+                  height: '100%',
+                  background: 'linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0) 100%)',
+                  transform: 'skewX(-20deg)',
+                  animation: 'shimmerEffect 2.5s infinite',
+                  pointerEvents: 'none',
+                } : {},
+                '@keyframes shimmerEffect': {
+                  '0%': { left: '-100%' },
+                  '100%': { left: '200%' }
+                }
               }}
-            />
+            >
+              {/* Glassmorphic Background Glow */}
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: -24,
+                  right: -24,
+                  width: 90,
+                  height: 90,
+                  borderRadius: '50%',
+                  background: `radial-gradient(circle, ${s.color}18 0%, ${s.color}00 70%)`
+                }}
+              />
+              <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 }, position: 'relative', zIndex: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                  <Box 
+                    sx={{ 
+                      p: 1.2, 
+                      borderRadius: '12px', 
+                      bgcolor: `${s.color}12`,
+                      color: s.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    {s.icon}
+                  </Box>
+                  <Typography variant="h3" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em' }}>
+                    {statusCounts[s.label] || 0}
+                  </Typography>
+                </Box>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', lineHeight: 1.2 }}>
+                  {s.label}
+                </Typography>
+              </CardContent>
+            </Card>
           );
         })}
         {statusFilter && (
-          <Chip
-            label="Clear filter"
-            size="small"
-            variant="outlined"
-            onDelete={() => setStatusFilter(null)}
-            onClick={() => setStatusFilter(null)}
-            sx={{ fontWeight: 700, fontSize: '0.72rem', borderRadius: '6px' }}
-          />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, justifyContent: 'center' }}>
+            <Chip
+              label="Clear filter"
+              variant="outlined"
+              onDelete={() => setStatusFilter(null)}
+              onClick={() => setStatusFilter(null)}
+              sx={{ fontWeight: 700, borderRadius: '8px' }}
+            />
+          </Box>
         )}
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-          · 4-day countdown starts when all required emails are sent
-        </Typography>
-      </Stack>
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block', ml: 1 }}>
+        · 4-day countdown starts when all required emails are sent
+      </Typography>
 
       {/* Main Table */}
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
