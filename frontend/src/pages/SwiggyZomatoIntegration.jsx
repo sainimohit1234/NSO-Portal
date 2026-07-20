@@ -589,12 +589,11 @@ export default function SwiggyZomatoIntegration() {
                     const openingTime = storeData.cafeOpenTiming || storeData.openingTime || storeData.cafeOpeningHr || '';
                     const closingTime = storeData.cafeClosingTime || storeData.actualClosingTime || storeData.closingTime || '';
 
-                    const placeholderMap = {
+                      const placeholderMap = {
                       // Basic cafe info
-                      '[Cafe Name]': storeData.cafeName || '',
+                      '[Brand Name]': getBrandType(storeData.brand) === 'gotTea' ? 'Got Tea' : 'Blue Tokai Coffee Roasters',
                       '[Cafe Name]': storeData.cafeName || '',
                       '[Display Name]': storeData.cafeName || '',
-                      '[Cafe Code]': storeData.cafeCode || '',
                       '[Cafe Code]': storeData.cafeCode || '',
 
                       // Location
