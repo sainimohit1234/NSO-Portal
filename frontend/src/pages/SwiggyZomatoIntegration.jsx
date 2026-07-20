@@ -418,13 +418,16 @@ export default function SwiggyZomatoIntegration() {
               key={s.label}
               onClick={() => setStatusFilter(isActive ? null : s.label)}
               sx={{
-                bgcolor: 'background.paper',
+                background: isActive 
+                  ? `linear-gradient(135deg, ${s.color}, ${s.color}e6)` 
+                  : `linear-gradient(135deg, #ffffff, ${s.color}15)`,
+                color: isActive ? '#ffffff' : 'inherit',
                 borderRadius: '16px',
-                border: '2px solid',
-                borderColor: isActive ? s.color : 'transparent',
+                border: '1px solid',
+                borderColor: isActive ? 'transparent' : `${s.color}30`,
                 boxShadow: isActive 
-                  ? `0 12px 24px ${s.color}1e, inset 0 2px 0 rgba(255,255,255,0.5)`
-                  : '0 4px 12px rgba(0,0,0,0.03)',
+                  ? `0 12px 24px ${s.color}40, inset 0 2px 0 rgba(255,255,255,0.2)`
+                  : '0 4px 12px rgba(0,0,0,0.04)',
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 cursor: 'pointer',
                 position: 'relative',
@@ -434,10 +437,13 @@ export default function SwiggyZomatoIntegration() {
                 '&:hover': {
                   transform: isActive ? 'scale(1.02) translateY(-2px)' : 'translateY(-3px)',
                   boxShadow: isActive 
-                    ? `0 16px 32px ${s.color}2c`
-                    : '0 12px 24px rgba(15,23,42,0.08)',
+                    ? `0 16px 32px ${s.color}50`
+                    : `0 8px 16px ${s.color}20`,
                   opacity: 1,
-                  borderColor: isActive ? s.color : `${s.color}40`
+                  borderColor: isActive ? 'transparent' : `${s.color}50`,
+                  background: isActive 
+                    ? `linear-gradient(135deg, ${s.color}, ${s.color}f2)`
+                    : `linear-gradient(135deg, #ffffff, ${s.color}25)`,
                 },
                 '&::after': isActive ? {
                   content: '""',
@@ -461,12 +467,14 @@ export default function SwiggyZomatoIntegration() {
               <Box
                 sx={{
                   position: 'absolute',
-                  top: -24,
-                  right: -24,
-                  width: 90,
-                  height: 90,
+                  top: -30,
+                  right: -30,
+                  width: 100,
+                  height: 100,
                   borderRadius: '50%',
-                  background: `radial-gradient(circle, ${s.color}18 0%, ${s.color}00 70%)`
+                  background: isActive 
+                    ? `radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%)`
+                    : `radial-gradient(circle, ${s.color}20 0%, ${s.color}00 70%)`
                 }}
               />
               <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 }, position: 'relative', zIndex: 1 }}>
@@ -475,37 +483,27 @@ export default function SwiggyZomatoIntegration() {
                     sx={{ 
                       p: 1.2, 
                       borderRadius: '12px', 
-                      bgcolor: `${s.color}12`,
-                      color: s.color,
+                      bgcolor: isActive ? 'rgba(255, 255, 255, 0.2)' : `${s.color}12`,
+                      color: isActive ? '#ffffff' : s.color,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center'
+                      justifyContent: 'center',
+                      boxShadow: isActive ? 'inset 0 1px 0 rgba(255,255,255,0.3)' : 'none'
                     }}
                   >
                     {s.icon}
                   </Box>
-                  <Typography variant="h3" sx={{ fontWeight: 800, color: 'text.primary', letterSpacing: '-0.02em' }}>
+                  <Typography variant="h3" sx={{ fontWeight: 800, color: isActive ? '#ffffff' : 'text.primary', letterSpacing: '-0.02em' }}>
                     {statusCounts[s.label] || 0}
                   </Typography>
                 </Box>
-                <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary', lineHeight: 1.2 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: isActive ? 'rgba(255, 255, 255, 0.9)' : 'text.secondary', lineHeight: 1.2 }}>
                   {s.label}
                 </Typography>
               </CardContent>
             </Card>
           );
         })}
-        {statusFilter && (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, justifyContent: 'center' }}>
-            <Chip
-              label="Clear filter"
-              variant="outlined"
-              onDelete={() => setStatusFilter(null)}
-              onClick={() => setStatusFilter(null)}
-              sx={{ fontWeight: 700, borderRadius: '8px' }}
-            />
-          </Box>
-        )}
       </Box>
       <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block', ml: 1 }}>
         · 4-day countdown starts when all required emails are sent
