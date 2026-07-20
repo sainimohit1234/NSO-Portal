@@ -677,12 +677,12 @@ export default function SwiggyZomatoIntegration() {
                       })(),
                       '[RID]': (() => {
                         if (isIntegrationPending) {
-                          if (bKey === 'zomato_btc') return storeData.blueTokaiZomatoRID || '';
-                          if (bKey === 'swiggy_btc') return storeData.blueTokaiSwiggyRID || '';
-                          if (bKey === 'zomato_sab') return storeData.suchalisZomatoRID || '';
-                          if (bKey === 'swiggy_sab') return storeData.suchalisSwiggyRID || '';
-                          if (bKey === 'zomato_gottea') return storeData.gotTeaZomatoRID || '';
-                          if (bKey === 'swiggy_gottea') return storeData.gotTeaSwiggyRID || '';
+                          if (bKey === 'zomato_btc') return 'Blue Tokai Zomato RID';
+                          if (bKey === 'swiggy_btc') return 'Blue Tokai Swiggy RID';
+                          if (bKey === 'zomato_sab') return "Suchali's Zomato RID";
+                          if (bKey === 'swiggy_sab') return "Suchali's Swiggy RID";
+                          if (bKey === 'zomato_gottea') return 'Got Tea Zomato RID';
+                          if (bKey === 'swiggy_gottea') return 'Got Tea Swiggy RID';
                         }
                         return storeData.blueTokaiSwiggyRID || storeData.swiggyId || '';
                       })(),
