@@ -789,7 +789,11 @@ export default function AggregatorMail() {
                             <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
                               Mail Body
                             </Typography>
-                            <Box sx={{ width: '100%', overflowX: 'auto', p: 1, border: '1px dashed #e2e8f0', borderRadius: '8px', bgcolor: '#f8fafc', flexGrow: 1, minHeight: '300px' }}>
+                            <Box sx={{ 
+                              width: '100%', overflowX: 'auto', p: 1, border: '1px dashed #e2e8f0', borderRadius: '8px', 
+                              bgcolor: '#f8fafc', flexGrow: 1, minHeight: '300px',
+                              '& table': { borderCollapse: 'collapse', width: '100%', my: 1.5, '& th, & td': { border: '1px solid #94a3b8', p: 1, color: '#334155' } }
+                            }}>
                               <div 
                                 contentEditable
                                 suppressContentEditableWarning
@@ -810,7 +814,10 @@ export default function AggregatorMail() {
                                 Email Template Preview (Live Render)
                               </Typography>
                             </Box>
-                            <Box sx={{ p: 3 }}>
+                            <Box sx={{ 
+                              p: 3,
+                              '& table': { borderCollapse: 'collapse', width: '100%', my: 1.5, '& th, & td': { border: '1px solid #94a3b8', p: 1, color: '#334155' } }
+                            }}>
                               <div 
                                 dangerouslySetInnerHTML={{ __html: templateBody || '' }} 
                                 style={{
