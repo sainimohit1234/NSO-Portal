@@ -284,8 +284,8 @@ export default function Stores() {
 
   return (
     <Box sx={{ py: 1 }}>
-      <Card sx={{ mb: 3, overflow: 'hidden', bgcolor: '#0f2942' }}>
-        <CardContent sx={{ p: { xs: 2, md: 2.5 }, position: 'relative' }}>
+      <Card sx={{ mb: 2, overflow: 'hidden', bgcolor: '#0f2942' }}>
+        <CardContent sx={{ p: '14px 20px !important', position: 'relative' }}>
           <Box
             sx={{
               position: 'absolute',
@@ -297,13 +297,13 @@ export default function Stores() {
               background: 'radial-gradient(circle, rgba(111,205,220,0.15) 0%, rgba(111,205,220,0) 70%)'
             }}
           />
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, position: 'relative' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, position: 'relative' }}>
             <Box sx={{ maxWidth: 760 }}>
-              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase' }}>
+              <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: '0.16em', fontWeight: 800, fontSize: '0.65rem', textTransform: 'uppercase' }}>
                 STORE DIRECTORY
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
-                <Typography variant="h4" sx={{ fontWeight: 800, color: '#ffffff', fontSize: { xs: '1.55rem', md: '1.95rem', lg: '2.15rem' } }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+                <Typography variant="h4" sx={{ fontWeight: 800, color: '#ffffff', fontSize: { xs: '1.4rem', md: '1.75rem', lg: '1.9rem' } }}>
                   All Stores
                 </Typography>
                 <Chip 
@@ -316,7 +316,7 @@ export default function Stores() {
                 Manage, search, and view all registered cafes and kitchen locations.
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1.5, mt: -1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1, mt: -0.5 }}>
               <Button
                 variant="contained"
                 onClick={() => setIsJourneyModalOpen(true)}
@@ -353,7 +353,7 @@ export default function Stores() {
       </Card>
 
       {/* Status Tiles */}
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, mb: 2 }}>
         <Box sx={{ flexGrow: 1, overflowX: 'auto', pb: 0.5, '&::-webkit-scrollbar': { height: 6 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(0,0,0,0.1)', borderRadius: 3 } }}>
           <Box sx={{ display: 'flex', gap: 1.5, minWidth: 'max-content' }}>
             {[
