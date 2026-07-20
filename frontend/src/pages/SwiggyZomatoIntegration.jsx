@@ -721,7 +721,8 @@ export default function SwiggyZomatoIntegration() {
                     return result.replace(/<br\s*[\/]?>/gi, '\n');
                   };
 
-                  const handleOpenDraftDialog = async (currentStore, brandKey, { isResend = false } = {}) => {
+                  const handleOpenDraftDialog = async (currentStore, brandKey, options = {}) => {
+                    const { isResend = false } = options;
                     const fssaiDoc = Array.isArray(currentStore.documents)
                       ? [...currentStore.documents]
                           .filter(d => d.type === 'FSSAI License' && d.url)
