@@ -530,12 +530,12 @@ export default function SwiggyZomatoIntegration() {
                   <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Suchali's Swiggy Mail</TableCell>
                   <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Got Tea Zomato Mail</TableCell>
                   <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#f0fdf4' }}>Got Tea Swiggy Mail</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Blue Tokai Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Blue Tokai Swiggy RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Suchali's Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Suchali's Swiggy RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Got Tea Zomato RID</TableCell>
-                  <TableCell sx={{ fontWeight: 800, width: 100, minWidth: 100, bgcolor: '#eff6ff' }}>Got Tea Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Blue Tokai Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Blue Tokai Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Suchali's Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Suchali's Swiggy RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Got Tea Zomato RID</TableCell>
+                  <TableCell sx={{ fontWeight: 800, width: 150, minWidth: 150, bgcolor: '#eff6ff' }}>Got Tea Swiggy RID</TableCell>
                   {canModify && <TableCell sx={{ fontWeight: 800, width: 90, position: 'sticky', right: 0, zIndex: 12, bgcolor: '#f8fafc', borderLeft: '2px solid', borderColor: 'divider' }} align="center">Actions</TableCell>}
                 </TableRow>
               </TableHead>
@@ -755,33 +755,38 @@ export default function SwiggyZomatoIntegration() {
                       const rawBody = template.body || '';
 
                       const subject = replacePlaceholders(rawSubject, currentStore);
-                      let body = replacePlaceholders(rawBody, currentStore).replace(/\\n/g, '<br/>');
-
-                      // Enforce single-row styling for the Attribute column (first column) to be sent in the email HTML
-                      try {
-                        const parser = new DOMParser();
-                        const doc = parser.parseFromString(body, 'text/html');
-                        const tables = doc.querySelectorAll('table');
-                        tables.forEach(table => {
-                          table.style.width = '100%';
-                          table.style.tableLayout = 'auto';
-                          const rows = table.querySelectorAll('tr');
-                          rows.forEach(row => {
-                            const firstTh = row.querySelector('th');
-                            if (firstTh) {
-                              firstTh.style.whiteSpace = 'nowrap';
-                              firstTh.style.width = '1%';
-                            }
-                            const firstTd = row.querySelector('td');
-                            if (firstTd) {
-                              firstTd.style.whiteSpace = 'nowrap';
-                              firstTd.style.width = '1%';
-                            }
+                      
+                      let body = '';
+                      if (options?.isFollowUp) {
+                        body = `Dear Team,<br/><br/>I hope you are doing well.<br/><br/>This is a gentle follow-up regarding the email shared ${options.daysSinceSent} days ago. We are awaiting your response and would appreciate it if you could provide an update on the current status.<br/><br/>Kindly let us know if any additional information or documents are required from our end to move this forward.<br/><br/>Looking forward to your response.<br/><br/>Thanks & Regards,`;
+                      } else {
+                        body = replacePlaceholders(rawBody, currentStore).replace(/\\n/g, '<br/>');
+                        // Enforce single-row styling for the Attribute column (first column) to be sent in the email HTML
+                        try {
+                          const parser = new DOMParser();
+                          const doc = parser.parseFromString(body, 'text/html');
+                          const tables = doc.querySelectorAll('table');
+                          tables.forEach(table => {
+                            table.style.width = '100%';
+                            table.style.tableLayout = 'auto';
+                            const rows = table.querySelectorAll('tr');
+                            rows.forEach(row => {
+                              const firstTh = row.querySelector('th');
+                              if (firstTh) {
+                                firstTh.style.whiteSpace = 'nowrap';
+                                firstTh.style.width = '1%';
+                              }
+                              const firstTd = row.querySelector('td');
+                              if (firstTd) {
+                                firstTd.style.whiteSpace = 'nowrap';
+                                firstTd.style.width = '1%';
+                              }
+                            });
                           });
-                        });
-                        body = doc.body.innerHTML;
-                      } catch (e) {
-                        console.error('Error parsing email HTML to inject styles', e);
+                          body = doc.body.innerHTML;
+                        } catch (e) {
+                          console.error('Error parsing email HTML to inject styles', e);
+                        }
                       }
                       const toList = (mapping?.to || []).join(', ');
                       const ccList = (mapping?.cc || []).join(', ');
@@ -845,11 +850,15 @@ export default function SwiggyZomatoIntegration() {
 
 
                       setIsDraftEditing(false);
+                      
+                      let dialogBrandLabel = getDraftLabel(brandKey).replace('Draft a mail for ', '');
+                      if (options?.isFollowUp) dialogBrandLabel += ' (Follow-up)';
+
                       setDraftDialog({
                         open: true,
                         store: currentStore,
                         brandKey,
-                        brandLabel: getDraftLabel(brandKey).replace('Draft a mail for ', ''),
+                        brandLabel: dialogBrandLabel,
                         to: toList,
                         cc: ccList,
                         subject,
@@ -869,10 +878,35 @@ export default function SwiggyZomatoIntegration() {
                     }
                   };
 
-                  const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled) => {
+                  const renderMail = (statusVal, brandKey, brandLabel, mappingId, disabled, ridFieldName = null) => {
                     if (disabled) return <Tooltip title="Not applicable for this brand"><Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.disabled', fontSize: '0.75rem' }}><BlockIcon sx={{ fontSize: 14 }} /><span>N/A</span></Box></Tooltip>;
                     const isSent = isMailSent(store, statusVal, brandKey === 'rista_creation');
                     if (isSent) {
+                      let isFollowUp = false;
+                      let daysSinceSent = 0;
+                      if (brandKey !== 'rista_creation' && ridFieldName) {
+                        const ridValue = store[ridFieldName];
+                        const isRidBlank = !ridValue || String(ridValue).trim() === '';
+                        const mailSentAt = store.integrationMailSentAt ? new Date(store.integrationMailSentAt) : null;
+                        if (isRidBlank && mailSentAt) {
+                          daysSinceSent = Math.floor((Date.now() - mailSentAt.getTime()) / (1000 * 60 * 60 * 24));
+                          if (daysSinceSent >= 4) {
+                            isFollowUp = true;
+                          }
+                        }
+                      }
+
+                      if (isFollowUp) {
+                        return (
+                          <Chip 
+                            label="Follow-up Mail" 
+                            size="small" 
+                            onClick={() => handleOpenDraftDialog(store, brandKey, { isFollowUp: true, daysSinceSent })}
+                            sx={{ bgcolor: '#fee2e2', color: '#b91c1c', fontWeight: 700, borderRadius: '6px', cursor: 'pointer', '&:hover': { bgcolor: '#fecaca' } }} 
+                          />
+                        );
+                      }
+
                       const sentChip = (
                         <Chip icon={<CheckCircleIcon sx={{ fontSize: '16px !important', color: '#16a34a !important' }} />} label="Sent" size="small" sx={{ bgcolor: '#dcfce7', color: '#16a34a', fontWeight: 700, borderRadius: '6px' }} />
                       );
@@ -980,12 +1014,12 @@ export default function SwiggyZomatoIntegration() {
                       <TableCell sx={MAIL_CELL_STYLE}>{renderMail(store.ristaMailStatus, 'rista_creation', 'Rista Store Creation', 'rista_creation', false)}</TableCell>
 
                       {/* Mail cells */}
-                      <TableCell sx={btDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.btZomatoMailStatus, 'zomato_btc', 'Blue Tokai Zomato', 'zomato_btc', btDisabled)}</TableCell>
-                      <TableCell sx={btDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.btSwiggyMailStatus, 'swiggy_btc', 'Blue Tokai Swiggy', 'swiggy_btc', btDisabled)}</TableCell>
-                      <TableCell sx={suchaliDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.suchaliZomatoMailStatus, 'zomato_sab', "Suchali's Zomato", 'zomato_sab', suchaliDisabled)}</TableCell>
-                      <TableCell sx={suchaliDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.suchaliSwiggyMailStatus, 'swiggy_sab', "Suchali's Swiggy", 'swiggy_sab', suchaliDisabled)}</TableCell>
-                      <TableCell sx={gotTeaDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.gotTeaZomatoMailStatus, 'zomato_gottea', 'Got Tea Zomato', 'zomato_gottea', gotTeaDisabled)}</TableCell>
-                      <TableCell sx={gotTeaDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.gotTeaSwiggyMailStatus, 'swiggy_gottea', 'Got Tea Swiggy', 'swiggy_gottea', gotTeaDisabled)}</TableCell>
+                      <TableCell sx={btDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.btZomatoMailStatus, 'zomato_btc', 'Blue Tokai Zomato', 'zomato_btc', btDisabled, 'blueTokaiZomatoRID')}</TableCell>
+                      <TableCell sx={btDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.btSwiggyMailStatus, 'swiggy_btc', 'Blue Tokai Swiggy', 'swiggy_btc', btDisabled, 'blueTokaiSwiggyRID')}</TableCell>
+                      <TableCell sx={suchaliDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.suchaliZomatoMailStatus, 'zomato_sab', "Suchali's Zomato", 'zomato_sab', suchaliDisabled, 'suchaliZomatoRID')}</TableCell>
+                      <TableCell sx={suchaliDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.suchaliSwiggyMailStatus, 'swiggy_sab', "Suchali's Swiggy", 'swiggy_sab', suchaliDisabled, 'suchaliSwiggyRID')}</TableCell>
+                      <TableCell sx={gotTeaDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.gotTeaZomatoMailStatus, 'zomato_gottea', 'Got Tea Zomato', 'zomato_gottea', gotTeaDisabled, 'gotTeaZomatoRID')}</TableCell>
+                      <TableCell sx={gotTeaDisabled ? NA_CELL_STYLE : MAIL_CELL_STYLE}>{renderMail(store.gotTeaSwiggyMailStatus, 'swiggy_gottea', 'Got Tea Swiggy', 'swiggy_gottea', gotTeaDisabled, 'gotTeaSwiggyRID')}</TableCell>
 
                       {/* RID cells */}
                       <TableCell sx={btDisabled ? NA_CELL_STYLE : RID_CELL_STYLE}>{renderRID('blueTokaiZomatoRID', btDisabled)}</TableCell>
