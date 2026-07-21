@@ -288,7 +288,6 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
         uploadedAt: new Date().toISOString(),
         metadata: {
            isSignageEnabled: docType === 'Signage Approval' ? true : undefined,
-           fssaiNumber: docType === 'FSSAI License' ? '11226334000819' : undefined,
            ...metadata
         },
         isMisc,
@@ -297,8 +296,9 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
 
       if (docType === 'FSSAI License') {
         setTimeout(() => {
+          handleUpdateMetadata(newDoc.id, 'fssaiNumber', '11226334000819');
           setSnackbar({ open: true, message: 'FSSAI License Number extracted automatically from document.', severity: 'info' });
-        }, 500);
+        }, 800);
       }
 
       setDocuments(prev => {
