@@ -603,11 +603,10 @@ export default function SwiggyZomatoIntegration() {
             <Table stickyHeader size="small" sx={{ minWidth: 1500 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 800, minWidth: 60, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 12, bgcolor: 'background.paper' }}>S.No.</TableCell>
-                  <TableCell sx={{ fontWeight: 800, minWidth: 150, whiteSpace: 'nowrap', position: 'sticky', left: 60, zIndex: 12, bgcolor: 'background.paper' }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 800, minWidth: 160, whiteSpace: 'nowrap', position: 'sticky', left: 210, zIndex: 12, bgcolor: 'background.paper' }}>Brand</TableCell>
-                  <TableCell sx={{ fontWeight: 800, minWidth: 120, whiteSpace: 'nowrap', position: 'sticky', left: 370, zIndex: 12, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
-                  <TableCell sx={{ fontWeight: 800, minWidth: 220, whiteSpace: 'nowrap', position: 'sticky', left: 490, zIndex: 12, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 130, whiteSpace: 'nowrap', position: 'sticky', left: 0, zIndex: 12, bgcolor: 'background.paper' }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 160, whiteSpace: 'nowrap', position: 'sticky', left: 130, zIndex: 12, bgcolor: 'background.paper' }}>Brand</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 120, whiteSpace: 'nowrap', position: 'sticky', left: 290, zIndex: 12, bgcolor: 'background.paper' }}>Cafe Code</TableCell>
+                  <TableCell sx={{ fontWeight: 800, minWidth: 220, whiteSpace: 'nowrap', position: 'sticky', left: 410, zIndex: 12, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider' }}>Cafe Name</TableCell>
                   <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#fef2f2' }}>Rista Store Creation Mail</TableCell>
                   <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#f0fdf4' }}>Blue Tokai Zomato Mail</TableCell>
                   <TableCell sx={{ fontWeight: 800, minWidth: 140, whiteSpace: 'nowrap', bgcolor: '#f0fdf4' }}>Blue Tokai Swiggy Mail</TableCell>
@@ -1260,11 +1259,8 @@ export default function SwiggyZomatoIntegration() {
 
                   return (
                     <TableRow key={store.id} hover sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}>
-                      {/* S.No. */}
-                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', fontWeight: 800, minWidth: 50, whiteSpace: 'nowrap' }}>{index + 1}</TableCell>
-
                       {/* Status */}
-                      <TableCell sx={{ position: 'sticky', left: 50, zIndex: 1, bgcolor: 'background.paper', minWidth: 130, whiteSpace: 'nowrap' }}>
+                      <TableCell sx={{ position: 'sticky', left: 0, zIndex: 1, bgcolor: 'background.paper', minWidth: 130, whiteSpace: 'nowrap' }}>
                         <Chip label={integStatus.label} size="small" sx={{
                           bgcolor: integStatus.bg, color: integStatus.color,
                           border: `1px solid ${integStatus.border}`,
@@ -1274,17 +1270,17 @@ export default function SwiggyZomatoIntegration() {
                       </TableCell>
 
                       {/* Brand */}
-                      <TableCell sx={{ position: 'sticky', left: 180, zIndex: 1, bgcolor: 'background.paper', fontWeight: 600, fontSize: '0.8rem', minWidth: 130, whiteSpace: 'nowrap' }}>
+                      <TableCell sx={{ position: 'sticky', left: 130, zIndex: 1, bgcolor: 'background.paper', fontWeight: 600, fontSize: '0.8rem', minWidth: 160, whiteSpace: 'nowrap' }}>
                         {getBrandLabel(store.brand)}
                       </TableCell>
 
                       {/* Cafe Code */}
-                      <TableCell sx={{ position: 'sticky', left: 310, zIndex: 1, bgcolor: 'background.paper', fontWeight: 700, minWidth: 100, whiteSpace: 'nowrap' }}>
+                      <TableCell sx={{ position: 'sticky', left: 290, zIndex: 1, bgcolor: 'background.paper', fontWeight: 700, minWidth: 120, whiteSpace: 'nowrap' }}>
                         {store.cafeCode || 'N/A'}
                       </TableCell>
 
                       {/* Cafe Name */}
-                      <TableCell sx={{ position: 'sticky', left: 410, zIndex: 1, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', fontWeight: 800, minWidth: 160, whiteSpace: 'nowrap' }}>
+                      <TableCell sx={{ position: 'sticky', left: 410, zIndex: 1, bgcolor: 'background.paper', borderRight: '2px solid', borderColor: 'divider', fontWeight: 800, minWidth: 220, whiteSpace: 'nowrap' }}>
                         {store.cafeName || 'N/A'}
                       </TableCell>
                       <TableCell sx={MAIL_CELL_STYLE}>{renderMail(store.ristaMailStatus, 'rista_creation', 'Rista Store Creation', 'rista_creation', false)}</TableCell>
