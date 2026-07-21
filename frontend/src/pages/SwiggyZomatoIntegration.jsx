@@ -423,7 +423,7 @@ export default function SwiggyZomatoIntegration() {
                 Manage onboarding triggers, platforms communications, and restaurant ID records for Approved cafes.
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1.5 }}>
               <Button
                 variant="contained"
                 disabled={loading}
@@ -447,6 +447,31 @@ export default function SwiggyZomatoIntegration() {
               >
                 {loading ? 'Refreshing…' : 'Refresh Data'}
               </Button>
+              <TextField 
+                size="small"
+                placeholder="Search stores by name, code, or city..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ 
+                  width: { xs: '100%', md: 300 },
+                  bgcolor: 'rgba(255, 255, 255, 0.95)',
+                  borderRadius: '8px',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px',
+                    '& fieldset': { borderColor: 'transparent' },
+                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&.Mui-focused fieldset': { borderColor: '#6fccdc' },
+                  },
+                  '& input': {
+                    fontSize: '0.85rem'
+                  }
+                }}
+                slotProps={{ 
+                  input: { 
+                    startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary', fontSize: 18 }} /></InputAdornment>
+                  } 
+                }} 
+              />
             </Box>
           </Box>
         </CardContent>
@@ -455,14 +480,7 @@ export default function SwiggyZomatoIntegration() {
       {/* Slim progress bar during any load/refresh, even when rows are already shown */}
       {loading && <LinearProgress sx={{ mb: 2, borderRadius: 999, height: 4 }} />}
 
-      {/* Search */}
-      <Card sx={{ borderRadius: '12px', mb: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
-        <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-          <TextField fullWidth placeholder="Search stores by name, code, or city..." value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'text.secondary' }} /></InputAdornment>, style: { borderRadius: '8px' } } }} />
-        </CardContent>
-      </Card>
+      {/* Search has been moved to the header */}
 
       {/* Status Filters — click a tile to filter the table by that status */}
       <Box
@@ -576,9 +594,7 @@ export default function SwiggyZomatoIntegration() {
           );
         })}
       </Box>
-      <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block', ml: 1 }}>
-        · 4-day countdown starts when all required emails are sent
-      </Typography>
+      {/* Removed 4-day countdown text */}
 
       {/* Main Table */}
       <Card sx={{ bgcolor: 'background.paper', borderRadius: '16px', border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
@@ -677,12 +693,12 @@ export default function SwiggyZomatoIntegration() {
                       })(),
                       '[RID]': (() => {
                         if (isIntegrationPending) {
-                          if (bKey === 'zomato_btc') return 'Blue Tokai Zomato RID';
-                          if (bKey === 'swiggy_btc') return 'Blue Tokai Swiggy RID';
-                          if (bKey === 'zomato_sab') return "Suchali's Zomato RID";
-                          if (bKey === 'swiggy_sab') return "Suchali's Swiggy RID";
-                          if (bKey === 'zomato_gottea') return 'Got Tea Zomato RID';
-                          if (bKey === 'swiggy_gottea') return 'Got Tea Swiggy RID';
+                          if (bKey === 'zomato_btc') return storeData.blueTokaiZomatoRID || '';
+                          if (bKey === 'swiggy_btc') return storeData.blueTokaiSwiggyRID || '';
+                          if (bKey === 'zomato_sab') return storeData.suchaliZomatoRID || '';
+                          if (bKey === 'swiggy_sab') return storeData.suchaliSwiggyRID || '';
+                          if (bKey === 'zomato_gottea') return storeData.gotTeaZomatoRID || '';
+                          if (bKey === 'swiggy_gottea') return storeData.gotTeaSwiggyRID || '';
                         }
                         return storeData.blueTokaiSwiggyRID || storeData.swiggyId || '';
                       })(),
