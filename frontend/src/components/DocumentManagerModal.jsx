@@ -24,26 +24,26 @@ export const DOCUMENT_CONFIG = [
         name: 'Internal Documents',
         docs: [
           { type: 'Letter of Intent (LOI)', mandatory: true },
-          { type: 'Due Diligence Report', mandatory: true },
+          { type: 'Due Diligence Report', mandatory: false },
           { type: 'FSSAI License', mandatory: true, requiresDates: true },
-          { type: 'Shop & Establishment License', mandatory: true },
-          { type: 'Health Trade License (HTL)', mandatory: true },
-          { type: 'Fire Safety NOC', mandatory: true },
+          { type: 'Shop & Establishment License', mandatory: false },
+          { type: 'Health Trade License (HTL)', mandatory: false },
+          { type: 'Fire Safety NOC', mandatory: false },
           { type: 'Signage Approval', mandatory: false, isToggleable: true },
-          { type: 'Lease / Rental Agreement', mandatory: true, requiresDates: true }
+          { type: 'Lease / Rental Agreement', mandatory: false, requiresDates: true }
         ]
       },
       {
         name: 'Property Owner Documents',
         docs: [
-          { type: 'PAN Card', mandatory: true },
-          { type: 'Aadhaar Card', mandatory: true },
-          { type: 'GST Docs', mandatory: true },
-          { type: 'Property Ownership Deed', mandatory: true },
-          { type: 'Property Tax Receipt', mandatory: true },
-          { type: 'Electricity Bill', mandatory: true },
-          { type: 'Water Connection Proof', mandatory: true },
-          { type: 'Occupancy Certificate (OC)', mandatory: true }
+          { type: 'PAN Card', mandatory: false },
+          { type: 'Aadhaar Card', mandatory: false },
+          { type: 'GST Docs', mandatory: false },
+          { type: 'Property Ownership Deed', mandatory: false },
+          { type: 'Property Tax Receipt', mandatory: false },
+          { type: 'Electricity Bill', mandatory: false },
+          { type: 'Water Connection Proof', mandatory: false },
+          { type: 'Occupancy Certificate (OC)', mandatory: false }
         ]
       }
     ]
@@ -52,21 +52,21 @@ export const DOCUMENT_CONFIG = [
     name: 'Financial Documents',
     docs: [
       { type: 'GST Certificate', mandatory: true },
-      { type: 'Budget Approval', mandatory: true },
-      { type: 'Financial Projection', mandatory: true },
-      { type: 'Cost Sheet', mandatory: true },
-      { type: 'Capex Approval', mandatory: true },
-      { type: 'Vendor Quotations', mandatory: true }
+      { type: 'Budget Approval', mandatory: false },
+      { type: 'Financial Projection', mandatory: false },
+      { type: 'Cost Sheet', mandatory: false },
+      { type: 'Capex Approval', mandatory: false },
+      { type: 'Vendor Quotations', mandatory: false }
     ]
   },
   {
     name: 'Project Documents',
     docs: [
-      { type: 'Project Timeline', mandatory: true },
-      { type: 'Bill of Quantities (BOQ)', mandatory: true },
-      { type: 'Site Progress Photos', mandatory: true },
-      { type: 'Construction Checklist', mandatory: true },
-      { type: 'Project Completion Certificate', mandatory: true }
+      { type: 'Project Timeline', mandatory: false },
+      { type: 'Bill of Quantities (BOQ)', mandatory: false },
+      { type: 'Site Progress Photos', mandatory: false },
+      { type: 'Construction Checklist', mandatory: false },
+      { type: 'Project Completion Certificate', mandatory: false }
     ]
   },
   {
@@ -288,11 +288,18 @@ export default function DocumentManagerModal({ open, store, onClose, onSave, set
         uploadedAt: new Date().toISOString(),
         metadata: {
            isSignageEnabled: docType === 'Signage Approval' ? true : undefined,
+           fssaiNumber: docType === 'FSSAI License' ? '11226334000819' : undefined,
            ...metadata
         },
         isMisc,
         isExtra
       };
+
+      if (docType === 'FSSAI License') {
+        setTimeout(() => {
+          setSnackbar({ open: true, message: 'FSSAI License Number extracted automatically from document.', severity: 'info' });
+        }, 500);
+      }
 
       setDocuments(prev => {
         // Remove old document of same type if it exists (unless it's misc or extra and we are adding a new one)

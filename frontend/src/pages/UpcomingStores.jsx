@@ -15,6 +15,7 @@ import PendingActionsIcon from '@mui/icons-material/PendingActions';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import SendIcon from '@mui/icons-material/Send';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import { useNavigate } from 'react-router-dom';
 import axios from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -251,6 +252,8 @@ export default function UpcomingStores() {
     if (selectedStatusFilter) {
       if (selectedStatusFilter === 'APPROVED') {
         result = result.filter(s => s.status === 'APPROVED' || s.status === 'NSO_APPROVED');
+      } else if (selectedStatusFilter === 'PRICING_MODULE_BLANK') {
+        result = result.filter(s => !s.pricingVersion || (typeof s.pricingVersion === 'string' && s.pricingVersion.trim() === ''));
       } else {
         result = result.filter(s => s.status === selectedStatusFilter);
       }
@@ -322,6 +325,7 @@ export default function UpcomingStores() {
   const pendingApprovalCount = stores.filter(s => s.status === 'PENDING_APPROVAL' || s.status === 'Approval Pending' || s.status === 'Pending Approval' || s.status === 'Sent to NSO Team for Approval').length;
   const onHoldCount = stores.filter(s => s.status === 'ON_HOLD' || s.status === 'On Hold').length;
   const approvedCount = stores.filter(s => s.status === 'APPROVED' || s.status === 'NSO_APPROVED').length;
+  const pricingModuleBlankCount = stores.filter(s => !s.pricingVersion || (typeof s.pricingVersion === 'string' && s.pricingVersion.trim() === '')).length;
 
   const handleTileClick = (status) => {
     setSelectedStatusFilter(status);
@@ -396,7 +400,7 @@ export default function UpcomingStores() {
       </Card>
 
       {/* Status Summary Tiles */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' }, gap: 2.25, mb: 3.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)', lg: 'repeat(7, 1fr)' }, gap: 2.25, mb: 3.5 }}>
         {[
           {
             key: 'pipeline',
@@ -445,6 +449,14 @@ export default function UpcomingStores() {
             filterValue: 'APPROVED',
             icon: <CheckCircleIcon />,
             color: '#0284c7'
+          },
+          {
+            key: 'pricingModuleBlank',
+            label: 'Pricing Module',
+            count: pricingModuleBlankCount,
+            filterValue: 'PRICING_MODULE_BLANK',
+            icon: <LocalOfferIcon />,
+            color: '#d946ef'
           }
         ].map((tile) => {
           const isActive = selectedStatusFilter === tile.filterValue;
